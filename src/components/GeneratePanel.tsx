@@ -100,24 +100,25 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
   return (
     <div className="flex flex-col h-full">
       {/* === GALLERY (top) === */}
-      {(creatives && creatives.length > 0 || generating) && (
-        <div className="border-b">
-          <div className="flex items-center justify-between px-3 py-1.5">
-            <h3 className="text-[10px] font-semibold uppercase text-muted-foreground">Resultados</h3>
-            <div className="flex items-center gap-1.5">
-              <Minimize2 className="h-3 w-3 text-muted-foreground" />
-              <Slider
-                value={[thumbSize]}
-                onValueChange={([v]) => setThumbSize(v)}
-                min={48}
-                max={160}
-                step={8}
-                className="w-16"
-              />
-              <Maximize2 className="h-3 w-3 text-muted-foreground" />
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        {(creatives && creatives.length > 0 || generating) && (
+          <div>
+            <div className="flex items-center justify-between px-3 py-1.5">
+              <h3 className="text-[10px] font-semibold uppercase text-muted-foreground">Resultados</h3>
+              <div className="flex items-center gap-1.5">
+                <Minimize2 className="h-3 w-3 text-muted-foreground" />
+                <Slider
+                  value={[thumbSize]}
+                  onValueChange={([v]) => setThumbSize(v)}
+                  min={48}
+                  max={160}
+                  step={8}
+                  className="w-16"
+                />
+                <Maximize2 className="h-3 w-3 text-muted-foreground" />
+              </div>
             </div>
-          </div>
-          <div className="flex flex-wrap gap-2 px-3 pb-2 overflow-y-auto max-h-[40vh]">
+            <div className="flex flex-wrap gap-2 px-3 pb-2">
             {generating && (
               <div
                 className="generating-pulse rounded-md bg-secondary flex-shrink-0 flex items-center justify-center border"
@@ -150,9 +151,10 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
                 </div>
               </div>
             ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* === IMAGE MODAL === */}
       <Dialog open={!!modalImage} onOpenChange={() => setModalImage(null)}>
@@ -164,7 +166,7 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
                 alt={modalImage.prompt}
                 className="max-h-[80vh] max-w-[70vw] object-contain rounded-md"
               />
-              <div className="flex flex-col gap-2 min-w-[120px] pt-2">
+              <div className="flex flex-col gap-2 min-w-[120px] pt-8">
                 <Button size="sm" variant="outline" onClick={() => handleDownload(modalImage.url, `creative-${modalImage.id}.png`)}>
                   <Download className="h-3.5 w-3.5 mr-1" /> Download
                 </Button>
@@ -178,11 +180,8 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
         </DialogContent>
       </Dialog>
 
-      {/* === SPACER === */}
-      <div className="flex-1" />
-
       {/* === PROMPT + OPTIONS (bottom) === */}
-      <div className="px-3 pb-3 pt-2 space-y-2 border-t">
+      <div className="px-3 pb-3 pt-2 space-y-2">
         <div className="flex gap-2 items-start">
           {selectedSwipe && (
             <div className="w-12 h-12 rounded-md overflow-hidden border bg-secondary flex-shrink-0">
