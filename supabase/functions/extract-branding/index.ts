@@ -12,11 +12,29 @@ serve(async (req) => {
   }
 
   try {
-    const { url } = await req.json();
-    if (!url) throw new Error("URL é obrigatória");
+    const { url, image } = await req.json();
+    if (!url && !image) throw new Error("URL ou screenshot é obrigatório");
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+
+    const userContent: any[] = [];
+
+    if (image) {
+      userContent.push({
+        type: "image_url",
+        image_url: { url: image.startsWith("data:") ? image : `data:image/png;base64,${image}` },
+      });
+      userContent.push({
+        type: "text",
+        text: "Analyze this screenshot and extract the branding: primary color, secondary color, background color, auxiliary colors (hex codes), and typography/font families.",
+      });
+    } else {
+      userContent.push({
+        type: "text",
+        text: `Analyze the branding of this website: ${url}\n\nExtract the primary color, secondary color, background color, auxiliary colors (as hex codes), and typography/font families used.`,
+      });
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -29,11 +47,11 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a brand identity analyst. Given a website URL, analyze the website and extract its branding elements. Return structured data using the provided tool.`,
+            content: `You are a brand identity analyst. Analyze websites or screenshots and extract branding elements. Return structured data using the provided tool. Always return hex color codes starting with #.`,
           },
           {
             role: "user",
-            content: `Analyze the branding of this website: ${url}\n\nExtract the primary colors (as hex codes), typography/font families used, and a brief description of the visual style.`,
+            content: userContent,
           },
         ],
         tools: [
@@ -41,25 +59,33 @@ serve(async (req) => {
             type: "function",
             function: {
               name: "extract_branding",
-              description: "Extract branding elements from a website",
+              description: "Extract categorized branding elements",
               parameters: {
                 type: "object",
                 properties: {
-                  colors: {
+                  primary_color: {
+                    type: "string",
+                    description: "Primary brand color as hex (e.g. #FF5500)",
+                  },
+                  secondary_color: {
+                    type: "string",
+                    description: "Secondary brand color as hex",
+                  },
+                  background_color: {
+                    type: "string",
+                    description: "Main background color as hex",
+                  },
+                  aux_colors: {
                     type: "array",
                     items: { type: "string" },
-                    description: "Brand colors as hex codes (e.g. #FF5500). Include primary, secondary, accent colors. Max 6.",
+                    description: "Other auxiliary/accent colors as hex codes. Max 5.",
                   },
                   typography: {
                     type: "string",
                     description: "Main font families used (e.g. 'Inter, Montserrat')",
                   },
-                  style_description: {
-                    type: "string",
-                    description: "Brief description of the visual style (e.g. 'Modern minimalist with bold accents')",
-                  },
                 },
-                required: ["colors", "typography", "style_description"],
+                required: ["primary_color", "secondary_color", "background_color", "aux_colors", "typography"],
                 additionalProperties: false,
               },
             },
@@ -82,7 +108,7 @@ serve(async (req) => {
       }
       const errText = await response.text();
       console.error("AI gateway error:", response.status, errText);
-      throw new Error("Erro ao analisar site");
+      throw new Error("Erro ao analisar");
     }
 
     const data = await response.json();
