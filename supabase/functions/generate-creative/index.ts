@@ -31,6 +31,56 @@ function detectPhotoMode(prompt: string): "replace" | "swap" {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Helper: pre-analyze logo content (texts, structure) via vision AI */
+/* ------------------------------------------------------------------ */
+async function analyzeLogoContent(logoUrl: string, apiKey: string): Promise<string | null> {
+  try {
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `Analyze this logo image in detail. Return a structured description with:
+1. ALL text found in the logo — list each text exactly as written, and its position (top, center, bottom, left, right).
+2. Visual structure — describe the layout (e.g. "icon in center, text above, tagline below").
+3. Approximate proportions — how much vertical space each part occupies (e.g. "top text: ~15%, icon: ~55%, bottom text: ~30%").
+
+Be precise and exhaustive. Every single character of text must be listed. Answer in Portuguese.`,
+              },
+              {
+                type: "image_url",
+                image_url: { url: logoUrl },
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      console.error("Logo analysis failed:", res.status);
+      return null;
+    }
+
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || null;
+  } catch (e) {
+    console.error("Logo analysis error:", e);
+    return null;
+  }
+}
+
+
+/* ------------------------------------------------------------------ */
 /*  Helper: build the structured instruction block for user content   */
 /* ------------------------------------------------------------------ */
 interface BrandKitInput {
@@ -50,6 +100,7 @@ function buildInstructionBlock(
   hasLogo: boolean,
   hasPersonPhoto: boolean,
   photoMode: "replace" | "swap",
+  logoAnalysis: string | null = null,
 ): string {
   const sections: string[] = [];
 
@@ -174,6 +225,15 @@ Uma imagem de LOGO será fornecida separadamente. Regras OBRIGATÓRIAS:
 - Se o logo precisa de contraste para ser legível, use um container discreto com opacidade sutil, nunca maior que o necessário.
 - NÃO adicione fundos coloridos grandes ou chamativas atrás do logo.
 
+${logoAnalysis ? `📝 CONTEÚDO DO LOGO DETECTADO POR ANÁLISE PRÉVIA:
+${logoAnalysis}
+
+- Cada texto listado acima DEVE aparecer LEGÍVEL e COMPLETO no logo final.
+- Se o logo tem texto no TOPO, a parte SUPERIOR do logo NÃO pode ser cortada.
+- Se o logo tem texto na BASE, a parte INFERIOR do logo NÃO pode ser cortada.
+- Use esta descrição para garantir que NENHUMA parte do logo seja omitida ou cortada.
+- O logo reproduzido deve conter EXATAMENTE os mesmos textos detectados.` : ""}
+
 ⚠️ COEXISTÊNCIA: Se uma foto de pessoa TAMBÉM foi fornecida, AMBOS devem aparecer na imagem final. O logo NÃO substitui a pessoa. A pessoa NÃO substitui o logo. São assets independentes.`);
   }
 
@@ -263,6 +323,14 @@ serve(async (req) => {
     const hasPersonPhoto = !!(brandKit?.personPhotoUrl);
     const photoMode = detectPhotoMode(prompt);
 
+    // Pre-analyze logo content if logo is provided
+    let logoAnalysis: string | null = null;
+    if (hasLogo) {
+      console.log("Analyzing logo content...");
+      logoAnalysis = await analyzeLogoContent(brandKit.logoUrl, LOVABLE_API_KEY);
+      console.log("Logo analysis result:", logoAnalysis ? "success" : "failed");
+    }
+
     // Build the structured instruction block
     const instructionBlock = buildInstructionBlock(
       prompt,
@@ -271,6 +339,7 @@ serve(async (req) => {
       hasLogo,
       hasPersonPhoto,
       photoMode,
+      logoAnalysis,
     );
 
     // System prompt — concise role definition, detailed rules go in instruction block
@@ -307,8 +376,11 @@ CRITICAL RULES:
 
     // 3. Logo (if enabled)
     if (hasLogo) {
+      const logoLabel = logoAnalysis
+        ? `📎 LOGO DA MARCA (asset obrigatório — contém os seguintes textos detectados: ${logoAnalysis.substring(0, 200)}... — incluir 100% COMPLETO sem cortes, sem alterar cores internas, sem redesenhar):`
+        : "📎 LOGO DA MARCA (asset obrigatório — incluir COMPLETO sem cortes, sem alterar cores internas, sem redesenhar):";
       userContent.push(
-        { type: "text", text: "📎 LOGO DA MARCA (asset obrigatório — incluir COMPLETO sem cortes, sem alterar cores internas, sem redesenhar):" },
+        { type: "text", text: logoLabel },
         { type: "image_url", image_url: { url: brandKit.logoUrl } },
       );
     }
