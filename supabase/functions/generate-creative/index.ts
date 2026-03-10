@@ -7,6 +7,222 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+/* ------------------------------------------------------------------ */
+/*  Helper: detect if user wants full photo replacement vs face swap  */
+/* ------------------------------------------------------------------ */
+const PHOTO_REPLACE_KEYWORDS = [
+  "substituir a foto",
+  "trocar a fotografia",
+  "usar exatamente esta foto",
+  "usar a foto original",
+  "colocar esta foto",
+  "usar esta imagem",
+  "substituir a imagem",
+  "trocar a imagem da pessoa",
+  "colocar a foto",
+];
+
+function detectPhotoMode(prompt: string): "replace" | "swap" {
+  const lower = prompt.toLowerCase();
+  for (const kw of PHOTO_REPLACE_KEYWORDS) {
+    if (lower.includes(kw)) return "replace";
+  }
+  return "swap";
+}
+
+/* ------------------------------------------------------------------ */
+/*  Helper: build the structured instruction block for user content   */
+/* ------------------------------------------------------------------ */
+interface BrandKitInput {
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+  backgroundColor?: string | null;
+  auxColors?: string[] | null;
+  typography?: string | null;
+  logoUrl?: string | null;
+  personPhotoUrl?: string | null;
+}
+
+function buildInstructionBlock(
+  userPrompt: string,
+  format: string,
+  brandKit: BrandKitInput | null,
+  hasLogo: boolean,
+  hasPersonPhoto: boolean,
+  photoMode: "replace" | "swap",
+): string {
+  const sections: string[] = [];
+
+  /* --- 1. OBJETIVO PRINCIPAL --- */
+  sections.push(`═══ SEÇÃO 1: OBJETIVO PRINCIPAL ═══
+Formato de saída: ${format} (aspect ratio).
+Instrução do usuário:
+"${userPrompt}"
+
+IMPORTANTE: Tudo que o usuário escreveu acima é uma ORDEM OBRIGATÓRIA. Cada palavra, cada pedido, cada detalhe DEVE ser executado na imagem final. Não ignore nenhuma parte desta instrução.`);
+
+  /* --- 2. TEXTO OBRIGATÓRIO --- */
+  sections.push(`═══ SEÇÃO 2: REGRAS DE TEXTO ═══
+- Se o usuário especificou qualquer texto (headline, CTA, subtítulo, copy, frase), esse texto DEVE aparecer EXATAMENTE como escrito na imagem final.
+- Se o usuário pediu para "trocar", "substituir", "alterar" ou "mudar" qualquer texto da referência, o texto original DEVE ser completamente removido e substituído pelo novo texto solicitado.
+- NUNCA invente, modifique ou parafraseie textos que o usuário especificou. Use as palavras EXATAS fornecidas.
+- Se o usuário pediu para "manter a estrutura visual" ou "manter o layout", mantenha o posicionamento dos elementos mas aplique os textos e cores solicitados.
+- Textos da imagem de referência que NÃO foram mencionados pelo usuário podem ser mantidos, mas devem seguir as regras de cor e tipografia do Brand Kit.`);
+
+  /* --- 3. CORES E TIPOGRAFIA --- */
+  if (brandKit) {
+    const colorRules: string[] = [];
+    colorRules.push(`═══ SEÇÃO 3: MAPA OBRIGATÓRIO DE CORES E TIPOGRAFIA ═══`);
+    colorRules.push(`ATENÇÃO: As regras abaixo são OBRIGATÓRIAS independentemente de o logo ou a foto de pessoa estarem ativados. O Brand Kit de cores e tipografia SEMPRE se aplica.`);
+
+    if (brandKit.backgroundColor) {
+      colorRules.push(`
+🎨 FUNDO DA IMAGEM:
+   Cor exata: ${brandKit.backgroundColor}
+   - O fundo DEVE ser esta cor sólida.
+   - PROIBIDO adicionar gradientes, texturas, padrões, linhas ou formas decorativas ao fundo que não existam na referência original.
+   - Se a referência tem um fundo com foto/imagem, mantenha a foto mas ajuste áreas sólidas para esta cor.`);
+    }
+
+    if (brandKit.primaryColor) {
+      colorRules.push(`
+🎨 COR PRIMÁRIA: ${brandKit.primaryColor}
+   USAR OBRIGATORIAMENTE em:
+   ✓ Headlines / títulos principais
+   ✓ Fundo de botões e CTAs
+   ✓ Elementos de destaque principais
+   ✓ Ícones principais
+   ✓ Bordas ou contornos de destaque`);
+    }
+
+    if (brandKit.secondaryColor) {
+      colorRules.push(`
+🎨 COR SECUNDÁRIA: ${brandKit.secondaryColor}
+   USAR OBRIGATORIAMENTE em:
+   ✓ Subtítulos e textos de apoio
+   ✓ Texto dentro de botões/CTAs (quando o fundo do botão for a cor primária)
+   ✓ Elementos secundários e complementares
+   ✓ Badges, etiquetas, tags
+   ✓ Textos descritivos`);
+    }
+
+    if (brandKit.auxColors?.length) {
+      colorRules.push(`
+🎨 CORES AUXILIARES: ${brandKit.auxColors.join(", ")}
+   USAR APENAS em:
+   ✓ Pequenos detalhes decorativos
+   ✓ Separadores ou linhas finas
+   ✓ Ícones menores
+   ✓ Acentos visuais sutis`);
+    }
+
+    if (brandKit.primaryColor || brandKit.secondaryColor) {
+      colorRules.push(`
+🎨 REGRA ESPECÍFICA PARA BOTÕES E CTAs:
+   - Fundo do botão: cor primária ${brandKit.primaryColor ? `(${brandKit.primaryColor})` : ""}
+   - Texto do botão: cor secundária ${brandKit.secondaryColor ? `(${brandKit.secondaryColor})` : ""} OU branco — usar o que tiver MELHOR contraste legível
+   - NUNCA deixe botões com cores genéricas, cinza, ou fora do brand kit`);
+    }
+
+    if (brandKit.typography) {
+      colorRules.push(`
+🔤 TIPOGRAFIA OBRIGATÓRIA: "${brandKit.typography}"
+   - TODOS os textos da imagem DEVEM usar esta fonte ou o equivalente visual mais próximo.
+   - NÃO substitua por Arial, Helvetica, sans-serif genérico ou qualquer outra fonte.
+   - Mantenha o estilo (bold, regular, italic) conforme a hierarquia do texto.`);
+    }
+
+    colorRules.push(`
+⛔ PROIBIÇÃO ABSOLUTA DE CORES:
+   - NENHUM elemento visual (texto, fundo, botão, CTA, ícone, borda, sombra, forma) pode usar uma cor que NÃO esteja listada acima.
+   - Se precisar de uma cor não listada para contraste ou legibilidade, use BRANCO (#FFFFFF) ou PRETO (#000000) como último recurso.
+   - Esta regra se aplica SEMPRE, mesmo quando o logo ou a foto de pessoa NÃO estiverem ativados.`);
+
+    sections.push(colorRules.join("\n"));
+  }
+
+  /* --- 4. REGRAS DE LOGO --- */
+  if (hasLogo) {
+    sections.push(`═══ SEÇÃO 4: REGRAS DO LOGO ═══
+Uma imagem de LOGO será fornecida separadamente. Regras OBRIGATÓRIAS:
+✓ INCLUA o logo COMPLETO na imagem final — NENHUMA parte pode ser cortada
+✓ Mantenha as PROPORÇÕES ORIGINAIS exatas — não distorça, não redimensione de forma desproporcional
+✓ Posicione o logo de forma 100% VISÍVEL — nenhum elemento pode sobrepor ou ocultar qualquer parte
+✓ COPIE o logo EXATAMENTE como aparece — mesma forma, mesmas cores internas, mesmas proporções
+✓ NÃO redesenhe, NÃO recrie, NÃO simplifique, NÃO altere as cores internas do logo
+✓ O logo é um ASSET SEPARADO da foto da pessoa — incluir o logo NÃO significa excluir a pessoa (e vice-versa)
+
+⚠️ COEXISTÊNCIA: Se uma foto de pessoa TAMBÉM foi fornecida, AMBOS devem aparecer na imagem final. O logo NÃO substitui a pessoa. A pessoa NÃO substitui o logo. São assets independentes.`);
+  }
+
+  /* --- 5. REGRAS DE PESSOA --- */
+  if (hasPersonPhoto) {
+    if (photoMode === "replace") {
+      sections.push(`═══ SEÇÃO 5: REGRAS DE PESSOA (MODO: SUBSTITUIÇÃO DE FOTO) ═══
+Uma foto de PESSOA será fornecida separadamente. O usuário quer SUBSTITUIR a fotografia/imagem existente por esta pessoa.
+✓ Use esta pessoa como o sujeito principal da área onde havia uma pessoa na referência
+✓ A pessoa final DEVE ser visualmente IDÊNTICA à foto fornecida — mesmo rosto, mesmos traços, mesmo tom de pele, mesmo cabelo
+✓ Adapte a pose e enquadramento para se encaixar naturalmente no layout da referência
+✓ NÃO gere um rosto inventado ou diferente do fornecido
+✓ Se NÃO houver pessoa na referência, posicione esta pessoa de forma harmônica no criativo
+
+⚠️ COEXISTÊNCIA: Se um LOGO também foi fornecido, AMBOS devem aparecer. A pessoa NÃO substitui o logo.`);
+    } else {
+      sections.push(`═══ SEÇÃO 5: REGRAS DE PESSOA (MODO: FACE SWAP) ═══
+Uma foto de PESSOA será fornecida separadamente. Regras OBRIGATÓRIAS:
+✓ SUBSTITUA a pessoa que aparece na imagem de referência por esta pessoa
+✓ MANTENHA a MESMA pose, enquadramento, roupas, cenário e contexto da referência original
+✓ Apenas TROQUE o rosto e as características físicas (tom de pele, cabelo, traços faciais) pela pessoa da foto fornecida
+✓ A pessoa no criativo final DEVE ser visualmente IDÊNTICA à foto fornecida — mesmo rosto, mesmos traços
+✓ NÃO gere um rosto inventado ou diferente
+✓ NÃO altere a pose, roupa ou cenário da referência
+✓ Se NÃO houver uma pessoa na referência original, posicione a pessoa fornecida de forma natural e harmônica
+
+⚠️ COEXISTÊNCIA: Se um LOGO também foi fornecido, AMBOS devem aparecer. A pessoa NÃO substitui o logo. O logo NÃO substitui a pessoa.`);
+    }
+  }
+
+  /* --- 6. CHECKLIST FINAL --- */
+  const checklistItems: string[] = [];
+  checklistItems.push("□ O formato de saída está correto (aspect ratio)?");
+  checklistItems.push("□ TODOS os textos solicitados pelo usuário aparecem EXATAMENTE como escritos?");
+  checklistItems.push("□ Textos que o usuário pediu para remover/substituir foram de fato removidos/substituídos?");
+  
+  if (brandKit) {
+    if (brandKit.backgroundColor) checklistItems.push(`□ O fundo usa a cor ${brandKit.backgroundColor}?`);
+    if (brandKit.primaryColor) checklistItems.push(`□ Headlines e botões usam a cor primária ${brandKit.primaryColor}?`);
+    if (brandKit.secondaryColor) checklistItems.push(`□ Subtítulos e textos de botão usam a cor secundária ${brandKit.secondaryColor}?`);
+    if (brandKit.typography) checklistItems.push(`□ Todos os textos usam a fonte "${brandKit.typography}"?`);
+    checklistItems.push("□ NENHUM elemento usa cor fora do brand kit?");
+  }
+  
+  if (hasLogo) {
+    checklistItems.push("□ O logo está COMPLETO, sem cortes, com proporções originais?");
+    checklistItems.push("□ As cores internas do logo estão inalteradas?");
+  }
+  
+  if (hasPersonPhoto) {
+    checklistItems.push("□ A pessoa na imagem é visualmente idêntica à foto fornecida?");
+    checklistItems.push("□ O rosto NÃO foi inventado ou alterado?");
+  }
+  
+  if (hasLogo && hasPersonPhoto) {
+    checklistItems.push("□ AMBOS o logo E a pessoa aparecem na imagem final simultaneamente?");
+  }
+
+  sections.push(`═══ SEÇÃO FINAL: CHECKLIST DE FIDELIDADE ═══
+Antes de finalizar a imagem, verifique CADA item abaixo. Se qualquer item falhar, REFAÇA a imagem:
+
+${checklistItems.join("\n")}
+
+Se TODOS os itens estiverem verificados, a imagem está pronta.`);
+
+  return sections.join("\n\n");
+}
+
+/* ------------------------------------------------------------------ */
+/*  Main handler                                                       */
+/* ------------------------------------------------------------------ */
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -18,79 +234,77 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    // Build strict brand rules with element-specific color assignments
-    let brandRules = "";
-    if (brandKit) {
-      const rules: string[] = [];
-      rules.push("\n\n=== REGRAS ABSOLUTAS DO BRAND KIT — CADA ELEMENTO TEM UMA COR ESPECÍFICA ===");
-      rules.push("Você DEVE aplicar as cores listadas abaixo a CADA tipo de elemento. Nenhum elemento visual pode usar uma cor que não esteja nesta lista.");
-      
-      if (brandKit.backgroundColor) {
-        rules.push(`\nREGRA 1 — COR DE FUNDO: O fundo da imagem DEVE ser a cor sólida ${brandKit.backgroundColor}. PROIBIDO adicionar linhas, gradientes, texturas, padrões, formas decorativas ou qualquer elemento visual ao fundo que não exista na referência original. O fundo deve ser LIMPO e na cor exata especificada.`);
-      }
-      if (brandKit.primaryColor) {
-        rules.push(`\nREGRA 2 — COR PRIMÁRIA (${brandKit.primaryColor}): Aplique esta cor OBRIGATORIAMENTE em:\n  - Headlines / títulos principais\n  - Fundo de botões e CTAs\n  - Elementos de destaque e ícones principais\n  - Bordas ou contornos de destaque`);
-      }
-      if (brandKit.secondaryColor) {
-        rules.push(`\nREGRA 3 — COR SECUNDÁRIA (${brandKit.secondaryColor}): Aplique esta cor OBRIGATORIAMENTE em:\n  - Subtítulos e textos de apoio\n  - Textos dentro de botões/CTAs (se o fundo do botão for a cor primária)\n  - Elementos secundários e detalhes complementares\n  - Badges ou etiquetas`);
-      }
-      if (brandKit.auxColors?.length) {
-        rules.push(`\nREGRA 4 — CORES AUXILIARES (${brandKit.auxColors.join(", ")}): Use APENAS para:\n  - Pequenos detalhes decorativos\n  - Separadores ou linhas finas\n  - Ícones menores ou acentos visuais`);
-      }
-      if (brandKit.typography) {
-        rules.push(`\nREGRA 5 — TIPOGRAFIA: Use EXATAMENTE a fonte "${brandKit.typography}" para TODOS os textos sem exceção. NÃO substitua por outra fonte.`);
-      }
-      
-      rules.push(`\nREGRA 6 — BOTÕES E CTAs: Todo botão ou CTA no criativo DEVE usar:\n  - Fundo: cor primária${brandKit.primaryColor ? ` (${brandKit.primaryColor})` : ""}\n  - Texto do botão: cor secundária${brandKit.secondaryColor ? ` (${brandKit.secondaryColor})` : ""} ou branco, o que tiver melhor contraste\n  - NUNCA deixe botões com cores genéricas ou fora do brand kit.`);
-      
-      rules.push("\nPROIBIÇÃO TOTAL: NUNCA use uma cor que não esteja listada acima para QUALQUER elemento visual — textos, fundos, botões, CTAs, ícones, bordas, sombras. TUDO deve vir exclusivamente das cores do brand kit.");
-      
-      brandRules = rules.join("\n");
-    }
+    const hasLogo = !!(brandKit?.logoUrl);
+    const hasPersonPhoto = !!(brandKit?.personPhotoUrl);
+    const photoMode = detectPhotoMode(prompt);
 
-    const systemPrompt = `You are an expert advertising creative designer. You will receive a reference creative image and must generate a new creative based on it, following the user's instructions. The output format should be ${format} (aspect ratio). Maintain the visual structure and layout style of the reference but apply the requested modifications.${brandRules}
+    // Build the structured instruction block
+    const instructionBlock = buildInstructionBlock(
+      prompt,
+      format,
+      brandKit,
+      hasLogo,
+      hasPersonPhoto,
+      photoMode,
+    );
 
-REGRAS DE FIDELIDADE PARA ASSETS VISUAIS:
+    // System prompt — concise role definition, detailed rules go in instruction block
+    const systemPrompt = `You are an expert advertising creative designer specializing in pixel-perfect brand compliance. You receive a REFERENCE creative image and a structured instruction block. Your job is to generate a new creative that:
 
-LOGO:
-- Se uma imagem de LOGO for fornecida: INCLUA O LOGO COMPLETO na imagem final. NÃO corte nenhuma parte do logo.
-- Mantenha as proporções originais do logo — não distorça, não redimensione de forma desproporcional.
-- Posicione o logo de forma totalmente visível, sem que nenhuma borda ou elemento sobreponha ou corte qualquer parte dele.
-- NÃO redesenhe, NÃO recrie, NÃO altere o logo de forma alguma. Copie-o EXATAMENTE como aparece na imagem fornecida — mesma forma, mesmas cores internas, mesmas proporções.
-- NUNCA gere um logo diferente do fornecido.
+1. FOLLOWS the visual structure and layout of the reference image
+2. EXECUTES every instruction in the instruction block as MANDATORY rules
+3. APPLIES all brand kit rules (colors, typography, logo, person) with ZERO deviation
+4. NEVER ignores any part of the user's request
 
-PESSOA / FACE SWAP:
-- Se uma foto de PESSOA for fornecida: você deve SUBSTITUIR a pessoa que aparece na imagem de REFERÊNCIA pela pessoa da foto fornecida.
-- MANTENHA a MESMA pose, enquadramento, roupas, cenário e contexto da referência original. Apenas TROQUE o rosto e as características físicas (tom de pele, cabelo, traços faciais) pela pessoa da foto fornecida.
-- A pessoa no criativo final DEVE ser visualmente idêntica à foto fornecida — mesmo rosto, mesmos traços.
-- NÃO gere um rosto inventado. NÃO altere características faciais. NÃO mude a aparência da pessoa fornecida.
-- Se NÃO houver uma pessoa na referência original, posicione a pessoa fornecida de forma natural e harmônica no criativo.
+You process MULTIPLE assets simultaneously. When both a logo AND a person photo are provided, BOTH must appear in the final image. One does NOT replace the other.
 
-PROIBIÇÕES GERAIS:
-- PROIBIDO alterar cores internas do logo
-- PROIBIDO gerar rostos diferentes dos fornecidos
-- PROIBIDO adicionar texturas, gradientes ou padrões ao fundo que não existam na referência
-- PROIBIDO usar cores que não estejam no brand kit para qualquer elemento visual
-- PROIBIDO cortar qualquer parte do logo`;
+CRITICAL RULES:
+- Every text the user specifies is MANDATORY — reproduce it EXACTLY
+- Brand kit colors are MANDATORY for every visual element — no exceptions
+- Brand kit typography is MANDATORY for every text element — no exceptions
+- Logo integrity is ABSOLUTE — never crop, redraw, or recolor
+- Person photo fidelity is ABSOLUTE — the face must match exactly
+- When multiple assets are provided, ALL must be present in the final image`;
 
-    // Build dynamic content array
-    const userContent: any[] = [
-      { type: "text", text: prompt },
+    // Build dynamic content array with structured order
+    const userContent: any[] = [];
+
+    // 1. Reference image FIRST
+    userContent.push(
+      { type: "text", text: "📎 IMAGEM DE REFERÊNCIA (use como base de layout e estrutura visual):" },
       { type: "image_url", image_url: { url: swipeFileUrl } },
-    ];
+    );
 
-    if (brandKit?.logoUrl) {
+    // 2. Structured instruction block
+    userContent.push(
+      { type: "text", text: instructionBlock },
+    );
+
+    // 3. Logo (if enabled)
+    if (hasLogo) {
       userContent.push(
-        { type: "text", text: "⚠️ OBRIGATÓRIO — LOGO DA MARCA: A imagem a seguir é o logo oficial da marca. Você DEVE incluí-lo COMPLETO no criativo, sem cortar NENHUMA parte. Mantenha proporções originais. NÃO redesenhe, NÃO recrie, NÃO gere um logo diferente. Copie-o EXATAMENTE como está — mesma forma, mesmas cores, mesmas proporções. Posicione-o de forma 100% visível:" },
+        { type: "text", text: "📎 LOGO DA MARCA (asset obrigatório — incluir COMPLETO sem cortes, sem alterar cores internas, sem redesenhar):" },
         { type: "image_url", image_url: { url: brandKit.logoUrl } },
       );
     }
 
-    if (brandKit?.personPhotoUrl) {
+    // 4. Person photo (if enabled)
+    if (hasPersonPhoto) {
+      const personLabel = photoMode === "replace"
+        ? "📎 FOTO DA PESSOA (asset obrigatório — esta pessoa DEVE aparecer no criativo, substituindo a pessoa da referência. Use o rosto e aparência EXATOS desta foto):"
+        : "📎 FOTO DA PESSOA (asset obrigatório — TROQUE o rosto da pessoa na referência pelo rosto desta pessoa. Mantenha pose, roupa e cenário da referência. O rosto final DEVE ser idêntico a esta foto):";
       userContent.push(
-        { type: "text", text: "⚠️ OBRIGATÓRIO — SUBSTITUIÇÃO DE PESSOA: A imagem a seguir é a pessoa que DEVE aparecer no criativo. Se há uma pessoa na imagem de referência, SUBSTITUA-A por esta pessoa mantendo a mesma pose, roupas, enquadramento e cenário. Apenas troque o rosto e características físicas. A pessoa final DEVE ser visualmente idêntica a esta foto — mesmo rosto, mesmos traços. NÃO gere um rosto diferente:" },
+        { type: "text", text: personLabel },
         { type: "image_url", image_url: { url: brandKit.personPhotoUrl } },
       );
+    }
+
+    // 5. Final coexistence reminder if both assets present
+    if (hasLogo && hasPersonPhoto) {
+      userContent.push({
+        type: "text",
+        text: "⚠️ LEMBRETE FINAL: Tanto o LOGO quanto a PESSOA foram fornecidos. AMBOS DEVEM aparecer na imagem final. Um NÃO substitui o outro. Verifique o checklist de fidelidade antes de finalizar.",
+      });
     }
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
