@@ -225,6 +225,15 @@ Uma imagem de LOGO será fornecida separadamente. Regras OBRIGATÓRIAS:
 - Se o logo precisa de contraste para ser legível, use um container discreto com opacidade sutil, nunca maior que o necessário.
 - NÃO adicione fundos coloridos grandes ou chamativas atrás do logo.
 
+${logoAnalysis ? `📝 CONTEÚDO DO LOGO DETECTADO POR ANÁLISE PRÉVIA:
+${logoAnalysis}
+
+- Cada texto listado acima DEVE aparecer LEGÍVEL e COMPLETO no logo final.
+- Se o logo tem texto no TOPO, a parte SUPERIOR do logo NÃO pode ser cortada.
+- Se o logo tem texto na BASE, a parte INFERIOR do logo NÃO pode ser cortada.
+- Use esta descrição para garantir que NENHUMA parte do logo seja omitida ou cortada.
+- O logo reproduzido deve conter EXATAMENTE os mesmos textos detectados.` : ""}
+
 ⚠️ COEXISTÊNCIA: Se uma foto de pessoa TAMBÉM foi fornecida, AMBOS devem aparecer na imagem final. O logo NÃO substitui a pessoa. A pessoa NÃO substitui o logo. São assets independentes.`);
   }
 
