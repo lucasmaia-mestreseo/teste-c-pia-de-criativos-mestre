@@ -156,18 +156,22 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
 
       {/* === IMAGE MODAL === */}
       <Dialog open={!!modalImage} onOpenChange={() => setModalImage(null)}>
-        <DialogContent className="max-w-3xl p-2">
+        <DialogContent className="max-w-[90vw] w-auto p-3">
           {modalImage && (
-            <div className="space-y-2">
-              <img src={modalImage.url} alt={modalImage.prompt} className="w-full rounded-md" />
-              <p className="text-xs text-muted-foreground px-1">{modalImage.prompt}</p>
-              <div className="flex gap-2 px-1 pb-1">
+            <div className="flex gap-4 items-start">
+              <img
+                src={modalImage.url}
+                alt={modalImage.prompt}
+                className="max-h-[80vh] max-w-[70vw] object-contain rounded-md"
+              />
+              <div className="flex flex-col gap-2 min-w-[120px] pt-2">
                 <Button size="sm" variant="outline" onClick={() => handleDownload(modalImage.url, `creative-${modalImage.id}.png`)}>
                   <Download className="h-3.5 w-3.5 mr-1" /> Download
                 </Button>
                 <Button size="sm" variant="destructive" onClick={() => { deleteCreative.mutate({ id: modalImage.id, projectId: modalImage.projectId }); setModalImage(null); }}>
                   <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir
                 </Button>
+                <p className="text-[10px] text-muted-foreground mt-2 leading-tight">{modalImage.prompt}</p>
               </div>
             </div>
           )}
