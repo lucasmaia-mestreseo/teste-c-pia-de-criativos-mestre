@@ -117,7 +117,7 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
               <Maximize2 className="h-3 w-3 text-muted-foreground" />
             </div>
           </div>
-          <div className="flex gap-2 px-3 pb-2 overflow-x-auto">
+          <div className="flex flex-wrap gap-2 px-3 pb-2 overflow-y-auto max-h-[40vh]">
             {generating && (
               <div
                 className="generating-pulse rounded-md bg-secondary flex-shrink-0 flex items-center justify-center border"
