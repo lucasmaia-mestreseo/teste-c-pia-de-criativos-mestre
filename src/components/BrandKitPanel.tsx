@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Plus, X, Upload, Save, Loader2 } from 'lucide-react';
+import { Plus, X, Upload, Save, Loader2, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface BrandKitPanelProps {
@@ -19,6 +19,8 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
   const [logoUrl, setLogoUrl] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [siteUrl, setSiteUrl] = useState('');
+  const [extracting, setExtracting] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
@@ -69,6 +71,26 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
     finally { setUploading(false); }
   };
 
+  const handleExtractFromUrl = async () => {
+    if (!siteUrl.trim()) return;
+    setExtracting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('extract-branding', {
+        body: { url: siteUrl.trim() },
+      });
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      if (data.colors?.length) setColors(prev => [...prev, ...data.colors]);
+      if (data.typography) setTypography(data.typography);
+      toast.success('Branding extraído com sucesso!');
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao extrair branding');
+    } finally {
+      setExtracting(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!projectId) return;
     try {
@@ -102,6 +124,30 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
         <Button onClick={handleSave} disabled={upsert.isPending} size="sm">
           <Save className="h-4 w-4 mr-1" /> Salvar
         </Button>
+      </div>
+
+      {/* Extract from URL */}
+      <div className="space-y-2">
+        <Label className="text-xs uppercase text-muted-foreground">Extrair de um site</Label>
+        <div className="flex gap-2">
+          <Input
+            value={siteUrl}
+            onChange={(e) => setSiteUrl(e.target.value)}
+            placeholder="https://exemplo.com.br"
+            className="bg-secondary flex-1"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExtractFromUrl}
+            disabled={extracting || !siteUrl.trim()}
+            className="shrink-0"
+          >
+            {extracting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
+            <span className="ml-1">{extracting ? 'Extraindo...' : 'Extrair'}</span>
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">A IA vai analisar o site e preencher cores e tipografia automaticamente</p>
       </div>
 
       {/* Colors */}
