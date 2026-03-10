@@ -180,11 +180,8 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
         </DialogContent>
       </Dialog>
 
-      {/* === SPACER === */}
-      <div className="flex-1" />
-
       {/* === PROMPT + OPTIONS (bottom) === */}
-      <div className="px-3 pb-3 pt-2 space-y-2 border-t">
+      <div className="px-3 pb-3 pt-2 space-y-2">
         <div className="flex gap-2 items-start">
           {selectedSwipe && (
             <div className="w-12 h-12 rounded-md overflow-hidden border bg-secondary flex-shrink-0">
