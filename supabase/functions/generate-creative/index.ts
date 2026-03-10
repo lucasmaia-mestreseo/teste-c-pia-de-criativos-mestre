@@ -357,7 +357,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, format, swipeFileId, swipeFileUrl, projectId, brandKit } = await req.json();
+    const { prompt, format, swipeFileId, swipeFileUrl, projectId, brandKit, elementOverrides } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
@@ -383,6 +383,7 @@ serve(async (req) => {
       hasPersonPhoto,
       photoMode,
       logoAnalysis,
+      elementOverrides || null,
     );
 
     // System prompt — concise role definition, detailed rules go in instruction block
