@@ -323,6 +323,14 @@ serve(async (req) => {
     const hasPersonPhoto = !!(brandKit?.personPhotoUrl);
     const photoMode = detectPhotoMode(prompt);
 
+    // Pre-analyze logo content if logo is provided
+    let logoAnalysis: string | null = null;
+    if (hasLogo) {
+      console.log("Analyzing logo content...");
+      logoAnalysis = await analyzeLogoContent(brandKit.logoUrl, LOVABLE_API_KEY);
+      console.log("Logo analysis result:", logoAnalysis ? "success" : "failed");
+    }
+
     // Build the structured instruction block
     const instructionBlock = buildInstructionBlock(
       prompt,
@@ -331,6 +339,7 @@ serve(async (req) => {
       hasLogo,
       hasPersonPhoto,
       photoMode,
+      logoAnalysis,
     );
 
     // System prompt — concise role definition, detailed rules go in instruction block
