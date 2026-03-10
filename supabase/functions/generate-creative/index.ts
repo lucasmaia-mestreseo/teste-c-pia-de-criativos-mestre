@@ -93,6 +93,12 @@ interface BrandKitInput {
   personPhotoUrl?: string | null;
 }
 
+interface ElementOverride {
+  texts: Record<string, { original: string; value: string; action: 'keep' | 'replace' | 'remove' }>;
+  logos: Record<string, { action: 'keep' | 'replace' }>;
+  photos: Record<string, { action: 'keep' | 'replace' }>;
+}
+
 function buildInstructionBlock(
   userPrompt: string,
   format: string,
@@ -101,6 +107,7 @@ function buildInstructionBlock(
   hasPersonPhoto: boolean,
   photoMode: "replace" | "swap",
   logoAnalysis: string | null = null,
+  elementOverrides: ElementOverride | null = null,
 ): string {
   const sections: string[] = [];
 
