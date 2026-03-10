@@ -156,48 +156,49 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
 
       {/* === IMAGE MODAL === */}
       <Dialog open={!!modalImage} onOpenChange={() => setModalImage(null)}>
-        <DialogContent className="max-w-3xl p-2">
+        <DialogContent className="max-w-[90vw] w-auto p-3">
           {modalImage && (
-            <div className="space-y-2">
-              <img src={modalImage.url} alt={modalImage.prompt} className="w-full rounded-md" />
-              <p className="text-xs text-muted-foreground px-1">{modalImage.prompt}</p>
-              <div className="flex gap-2 px-1 pb-1">
+            <div className="flex gap-4 items-start">
+              <img
+                src={modalImage.url}
+                alt={modalImage.prompt}
+                className="max-h-[80vh] max-w-[70vw] object-contain rounded-md"
+              />
+              <div className="flex flex-col gap-2 min-w-[120px] pt-2">
                 <Button size="sm" variant="outline" onClick={() => handleDownload(modalImage.url, `creative-${modalImage.id}.png`)}>
                   <Download className="h-3.5 w-3.5 mr-1" /> Download
                 </Button>
                 <Button size="sm" variant="destructive" onClick={() => { deleteCreative.mutate({ id: modalImage.id, projectId: modalImage.projectId }); setModalImage(null); }}>
                   <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir
                 </Button>
+                <p className="text-[10px] text-muted-foreground mt-2 leading-tight">{modalImage.prompt}</p>
               </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* === REFERENCE IMAGE (middle) === */}
-      {selectedSwipe && (
-        <div className="px-3 pt-3">
-          <div className="rounded-md overflow-hidden border bg-secondary max-h-28 flex items-center justify-center">
-            <img src={selectedSwipe.image_url} alt={selectedSwipe.name} className="max-h-28 object-contain" />
-          </div>
-          <p className="text-[10px] text-muted-foreground mt-1">Base: {selectedSwipe.name}</p>
-        </div>
-      )}
-
       {/* === SPACER === */}
       <div className="flex-1" />
 
       {/* === PROMPT + OPTIONS (bottom) === */}
       <div className="px-3 pb-3 pt-2 space-y-2 border-t">
-        <Textarea
-          placeholder="Descreva as modificações que deseja no criativo..."
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          className="bg-secondary resize-none min-h-[60px] text-sm"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(); }
-          }}
-        />
+        <div className="flex gap-2 items-start">
+          {selectedSwipe && (
+            <div className="w-12 h-12 rounded-md overflow-hidden border bg-secondary flex-shrink-0">
+              <img src={selectedSwipe.image_url} alt="" className="w-full h-full object-cover" />
+            </div>
+          )}
+          <Textarea
+            placeholder="Descreva as modificações que deseja no criativo..."
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            className="bg-secondary resize-none min-h-[60px] text-sm flex-1"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(); }
+            }}
+          />
+        </div>
 
         {/* Brand Kit options — inline */}
         {brandKit && (hasLogo || hasPersonPhotos) && (
