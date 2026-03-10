@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Plus, X, Upload, Save, Loader2 } from 'lucide-react';
+import { Plus, X, Upload, Save, Loader2, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface BrandKitPanelProps {
