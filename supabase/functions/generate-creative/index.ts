@@ -18,19 +18,26 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    // Build rich brand context
-    let brandContext = "";
+    // Build strict brand rules
+    let brandRules = "";
     if (brandKit) {
-      const parts: string[] = [];
-      if (brandKit.primaryColor) parts.push(`Cor primária da marca: ${brandKit.primaryColor}`);
-      if (brandKit.secondaryColor) parts.push(`Cor secundária da marca: ${brandKit.secondaryColor}`);
-      if (brandKit.backgroundColor) parts.push(`Cor de fundo da marca: ${brandKit.backgroundColor}`);
-      if (brandKit.auxColors?.length) parts.push(`Cores auxiliares: ${brandKit.auxColors.join(", ")}`);
-      if (brandKit.typography) parts.push(`Tipografia/fonte: ${brandKit.typography}`);
-      if (parts.length) brandContext = `\n\nDiretrizes de marca a seguir rigorosamente:\n${parts.join("\n")}`;
+      const rules: string[] = [];
+      rules.push("=== REGRAS ABSOLUTAS DO BRAND KIT (VIOLAÇÃO PROIBIDA) ===");
+      if (brandKit.backgroundColor) rules.push(`REGRA 1 — COR DE FUNDO: O fundo DEVE ser EXATAMENTE ${brandKit.backgroundColor}. NÃO adicione linhas, gradientes, texturas, padrões ou qualquer elemento visual ao fundo que não esteja na referência original.`);
+      if (brandKit.primaryColor) rules.push(`REGRA 2 — COR PRIMÁRIA: ${brandKit.primaryColor}. Use esta cor para textos de headline e elementos de destaque.`);
+      if (brandKit.secondaryColor) rules.push(`REGRA 3 — COR SECUNDÁRIA: ${brandKit.secondaryColor}. Use para textos secundários e elementos de apoio.`);
+      if (brandKit.auxColors?.length) rules.push(`REGRA 4 — CORES AUXILIARES: ${brandKit.auxColors.join(", ")}. Use apenas quando necessário para detalhes menores.`);
+      if (brandKit.typography) rules.push(`REGRA 5 — TIPOGRAFIA: Use EXATAMENTE a fonte "${brandKit.typography}" para TODOS os textos. Não substitua por outra fonte.`);
+      rules.push("PROIBIDO: usar cores que não estejam listadas acima para qualquer elemento de texto ou fundo. Qualquer cor no criativo final DEVE vir exclusivamente deste brand kit.");
+      brandRules = "\n\n" + rules.join("\n");
     }
 
-    const systemPrompt = `You are an expert advertising creative designer. You will receive a reference creative image and must generate a new creative based on it, following the user's instructions. The output format should be ${format} (aspect ratio). Maintain the visual structure and layout style of the reference but apply the requested modifications.${brandContext}`;
+    const systemPrompt = `You are an expert advertising creative designer. You will receive a reference creative image and must generate a new creative based on it, following the user's instructions. The output format should be ${format} (aspect ratio). Maintain the visual structure and layout style of the reference but apply the requested modifications.${brandRules}
+
+REGRAS DE FIDELIDADE PARA ASSETS VISUAIS:
+- Se uma imagem de LOGO for fornecida: NÃO redesenhe, NÃO recrie, NÃO altere o logo de forma alguma. Copie-o EXATAMENTE como aparece na imagem fornecida — mesma forma, mesmas cores, mesmas proporções. NUNCA gere um logo diferente.
+- Se uma foto de PESSOA for fornecida: NÃO gere um rosto novo. Use EXATAMENTE o rosto e aparência da foto fornecida, sem nenhuma alteração facial. A pessoa no criativo final DEVE ser visualmente idêntica à foto de referência.
+- PROIBIDO: alterar cores do logo, gerar rostos diferentes dos fornecidos, adicionar texturas/gradientes ao fundo que não existam na referência, usar cores fora do brand kit.`;
 
     // Build dynamic content array
     const userContent: any[] = [
