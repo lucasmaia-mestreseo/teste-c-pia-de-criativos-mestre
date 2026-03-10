@@ -47,14 +47,14 @@ REGRAS DE FIDELIDADE PARA ASSETS VISUAIS:
 
     if (brandKit?.logoUrl) {
       userContent.push(
-        { type: "text", text: "A imagem a seguir é o logo oficial da marca. Incorpore-o no criativo de forma visível e harmoniosa:" },
+        { type: "text", text: "⚠️ OBRIGATÓRIO — LOGO DA MARCA: A imagem a seguir é o logo oficial. Use-o EXATAMENTE como está, sem NENHUMA modificação de forma, cor, proporção ou estilo. NÃO redesenhe, NÃO recrie, NÃO gere um logo diferente. Copie pixel a pixel:" },
         { type: "image_url", image_url: { url: brandKit.logoUrl } },
       );
     }
 
     if (brandKit?.personPhotoUrl) {
       userContent.push(
-        { type: "text", text: "A imagem a seguir é uma foto de pessoa da marca. Inclua esta pessoa no criativo, mantendo fidelidade ao rosto e aparência:" },
+        { type: "text", text: "⚠️ OBRIGATÓRIO — FOTO DE PESSOA: A imagem a seguir é a pessoa que DEVE aparecer no criativo. Use EXATAMENTE este rosto e esta aparência. NÃO gere um rosto diferente. NÃO altere características faciais. A pessoa final DEVE ser visualmente idêntica a esta foto:" },
         { type: "image_url", image_url: { url: brandKit.personPhotoUrl } },
       );
     }
