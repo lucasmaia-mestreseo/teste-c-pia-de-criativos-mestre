@@ -100,24 +100,25 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
   return (
     <div className="flex flex-col h-full">
       {/* === GALLERY (top) === */}
-      {(creatives && creatives.length > 0 || generating) && (
-        <div className="border-b">
-          <div className="flex items-center justify-between px-3 py-1.5">
-            <h3 className="text-[10px] font-semibold uppercase text-muted-foreground">Resultados</h3>
-            <div className="flex items-center gap-1.5">
-              <Minimize2 className="h-3 w-3 text-muted-foreground" />
-              <Slider
-                value={[thumbSize]}
-                onValueChange={([v]) => setThumbSize(v)}
-                min={48}
-                max={160}
-                step={8}
-                className="w-16"
-              />
-              <Maximize2 className="h-3 w-3 text-muted-foreground" />
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        {(creatives && creatives.length > 0 || generating) && (
+          <div>
+            <div className="flex items-center justify-between px-3 py-1.5">
+              <h3 className="text-[10px] font-semibold uppercase text-muted-foreground">Resultados</h3>
+              <div className="flex items-center gap-1.5">
+                <Minimize2 className="h-3 w-3 text-muted-foreground" />
+                <Slider
+                  value={[thumbSize]}
+                  onValueChange={([v]) => setThumbSize(v)}
+                  min={48}
+                  max={160}
+                  step={8}
+                  className="w-16"
+                />
+                <Maximize2 className="h-3 w-3 text-muted-foreground" />
+              </div>
             </div>
-          </div>
-          <div className="flex flex-wrap gap-2 px-3 pb-2 overflow-y-auto max-h-[40vh]">
+            <div className="flex flex-wrap gap-2 px-3 pb-2">
             {generating && (
               <div
                 className="generating-pulse rounded-md bg-secondary flex-shrink-0 flex items-center justify-center border"
