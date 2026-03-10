@@ -145,12 +145,34 @@ IMPORTANTE: Tudo que o usuário escreveu acima é uma ORDEM OBRIGATÓRIA. Cada p
   if (hasLogo) {
     sections.push(`═══ SEÇÃO 4: REGRAS DO LOGO ═══
 Uma imagem de LOGO será fornecida separadamente. Regras OBRIGATÓRIAS:
-✓ INCLUA o logo COMPLETO na imagem final — NENHUMA parte pode ser cortada
-✓ Mantenha as PROPORÇÕES ORIGINAIS exatas — não distorça, não redimensione de forma desproporcional
-✓ Posicione o logo de forma 100% VISÍVEL — nenhum elemento pode sobrepor ou ocultar qualquer parte
-✓ COPIE o logo EXATAMENTE como aparece — mesma forma, mesmas cores internas, mesmas proporções
-✓ NÃO redesenhe, NÃO recrie, NÃO simplifique, NÃO altere as cores internas do logo
-✓ O logo é um ASSET SEPARADO da foto da pessoa — incluir o logo NÃO significa excluir a pessoa (e vice-versa)
+
+📐 REGRA DE POSIÇÃO (CRÍTICA):
+- Analise a imagem de REFERÊNCIA e identifique onde está posicionado o logo original (canto, margem, distância das bordas).
+- O novo logo DEVE ser posicionado EXATAMENTE no mesmo local: mesmo canto, mesma margem, mesma distância relativa das bordas da imagem.
+- Se o logo da referência está no canto inferior direito com ~3% de margem, o novo logo DEVE estar no canto inferior direito com ~3% de margem.
+- Se NÃO houver logo na referência, posicione no canto inferior direito com margem de segurança de ~3-5% das bordas.
+
+📏 REGRA DE ESCALA (CRÍTICA):
+- O novo logo DEVE ter o MESMO tamanho relativo que o logo da referência em relação à área total da imagem.
+- Se o logo da referência ocupa aproximadamente 5% da área da imagem, o novo logo DEVE ocupar aproximadamente 5%.
+- NUNCA ampliar o logo para um tamanho maior que o da referência.
+- NUNCA tornar o logo o elemento visual dominante — ele é um elemento de assinatura, discreto e proporcional.
+- Se NÃO houver logo na referência, use um tamanho que ocupe no máximo 5-8% da área total da imagem.
+
+🛡️ REGRA DE INTEGRIDADE (CRÍTICA):
+- O logo DEVE aparecer 100% COMPLETO — PROIBIDO cortar, recortar ou ocultar qualquer pixel do logo.
+- Mantenha uma MARGEM DE SEGURANÇA ao redor do logo para garantir que nenhuma borda seja cortada.
+- COPIE o logo EXATAMENTE como fornecido — mesma forma, mesmas cores internas, mesmas proporções.
+- NÃO redesenhe, NÃO recrie, NÃO simplifique, NÃO altere as cores internas do logo.
+- Mantenha as PROPORÇÕES ORIGINAIS exatas — não distorça horizontalmente ou verticalmente.
+
+🚫 REGRA DE SOBREPOSIÇÃO:
+- NENHUM outro elemento (texto, pessoa, forma, decoração) pode sobrepor ou ocultar qualquer parte do logo.
+- Se necessário, ajuste outros elementos para evitar sobreposição com o logo.
+
+🎨 REGRA DE FUNDO DO LOGO:
+- Se o logo precisa de contraste para ser legível, use um container discreto com opacidade sutil, nunca maior que o necessário.
+- NÃO adicione fundos coloridos grandes ou chamativas atrás do logo.
 
 ⚠️ COEXISTÊNCIA: Se uma foto de pessoa TAMBÉM foi fornecida, AMBOS devem aparecer na imagem final. O logo NÃO substitui a pessoa. A pessoa NÃO substitui o logo. São assets independentes.`);
   }
@@ -197,8 +219,11 @@ Uma foto de PESSOA será fornecida separadamente. Regras OBRIGATÓRIAS:
   }
   
   if (hasLogo) {
-    checklistItems.push("□ O logo está COMPLETO, sem cortes, com proporções originais?");
+    checklistItems.push("□ O logo tem o MESMO tamanho relativo que o logo na referência (não está ampliado)?");
+    checklistItems.push("□ O logo está no MESMO local/canto que o logo na referência?");
+    checklistItems.push("□ O logo está 100% visível com margem de segurança, sem NENHUM pixel cortado?");
     checklistItems.push("□ As cores internas do logo estão inalteradas?");
+    checklistItems.push("□ Nenhum elemento sobrepõe qualquer parte do logo?");
   }
   
   if (hasPersonPhoto) {
