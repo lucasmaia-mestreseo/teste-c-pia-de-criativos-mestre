@@ -166,7 +166,7 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
                 alt={modalImage.prompt}
                 className="max-h-[80vh] max-w-[70vw] object-contain rounded-md"
               />
-              <div className="flex flex-col gap-2 min-w-[120px] pt-2">
+              <div className="flex flex-col gap-2 min-w-[120px] pt-8">
                 <Button size="sm" variant="outline" onClick={() => handleDownload(modalImage.url, `creative-${modalImage.id}.png`)}>
                   <Download className="h-3.5 w-3.5 mr-1" /> Download
                 </Button>
