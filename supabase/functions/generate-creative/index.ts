@@ -219,8 +219,11 @@ Uma foto de PESSOA será fornecida separadamente. Regras OBRIGATÓRIAS:
   }
   
   if (hasLogo) {
-    checklistItems.push("□ O logo está COMPLETO, sem cortes, com proporções originais?");
+    checklistItems.push("□ O logo tem o MESMO tamanho relativo que o logo na referência (não está ampliado)?");
+    checklistItems.push("□ O logo está no MESMO local/canto que o logo na referência?");
+    checklistItems.push("□ O logo está 100% visível com margem de segurança, sem NENHUM pixel cortado?");
     checklistItems.push("□ As cores internas do logo estão inalteradas?");
+    checklistItems.push("□ Nenhum elemento sobrepõe qualquer parte do logo?");
   }
   
   if (hasPersonPhoto) {
