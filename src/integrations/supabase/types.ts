@@ -16,32 +16,47 @@ export type Database = {
     Tables: {
       brand_kits: {
         Row: {
+          aux_colors: string[] | null
+          background_color: string | null
           colors: string[] | null
           created_at: string
           id: string
           logo_url: string | null
+          people_photos: string[] | null
           photos: string[] | null
+          primary_color: string | null
           project_id: string
+          secondary_color: string | null
           typography: string | null
           updated_at: string
         }
         Insert: {
+          aux_colors?: string[] | null
+          background_color?: string | null
           colors?: string[] | null
           created_at?: string
           id?: string
           logo_url?: string | null
+          people_photos?: string[] | null
           photos?: string[] | null
+          primary_color?: string | null
           project_id: string
+          secondary_color?: string | null
           typography?: string | null
           updated_at?: string
         }
         Update: {
+          aux_colors?: string[] | null
+          background_color?: string | null
           colors?: string[] | null
           created_at?: string
           id?: string
           logo_url?: string | null
+          people_photos?: string[] | null
           photos?: string[] | null
+          primary_color?: string | null
           project_id?: string
+          secondary_color?: string | null
           typography?: string | null
           updated_at?: string
         }
