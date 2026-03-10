@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.extract-branding]
 verify_jwt = false
+
+[functions.analyze-swipe]
+verify_jwt = false
