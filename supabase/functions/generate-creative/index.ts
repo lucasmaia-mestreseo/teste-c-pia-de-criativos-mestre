@@ -18,19 +18,40 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    // Build brand context for the prompt
+    // Build rich brand context
     let brandContext = "";
     if (brandKit) {
       const parts: string[] = [];
-      if (brandKit.colors?.length) parts.push(`Brand colors: ${brandKit.colors.join(", ")}`);
-      if (brandKit.typography) parts.push(`Typography/font: ${brandKit.typography}`);
-      if (brandKit.logoUrl) parts.push(`The brand has a logo that should be respected.`);
-      if (parts.length) brandContext = `\n\nBrand guidelines to follow:\n${parts.join("\n")}`;
+      if (brandKit.primaryColor) parts.push(`Cor primária da marca: ${brandKit.primaryColor}`);
+      if (brandKit.secondaryColor) parts.push(`Cor secundária da marca: ${brandKit.secondaryColor}`);
+      if (brandKit.backgroundColor) parts.push(`Cor de fundo da marca: ${brandKit.backgroundColor}`);
+      if (brandKit.auxColors?.length) parts.push(`Cores auxiliares: ${brandKit.auxColors.join(", ")}`);
+      if (brandKit.typography) parts.push(`Tipografia/fonte: ${brandKit.typography}`);
+      if (parts.length) brandContext = `\n\nDiretrizes de marca a seguir rigorosamente:\n${parts.join("\n")}`;
     }
 
     const systemPrompt = `You are an expert advertising creative designer. You will receive a reference creative image and must generate a new creative based on it, following the user's instructions. The output format should be ${format} (aspect ratio). Maintain the visual structure and layout style of the reference but apply the requested modifications.${brandContext}`;
 
-    // Call Nano Banana 2 for image generation
+    // Build dynamic content array
+    const userContent: any[] = [
+      { type: "text", text: prompt },
+      { type: "image_url", image_url: { url: swipeFileUrl } },
+    ];
+
+    if (brandKit?.logoUrl) {
+      userContent.push(
+        { type: "text", text: "A imagem a seguir é o logo oficial da marca. Incorpore-o no criativo de forma visível e harmoniosa:" },
+        { type: "image_url", image_url: { url: brandKit.logoUrl } },
+      );
+    }
+
+    if (brandKit?.personPhotoUrl) {
+      userContent.push(
+        { type: "text", text: "A imagem a seguir é uma foto de pessoa da marca. Inclua esta pessoa no criativo, mantendo fidelidade ao rosto e aparência:" },
+        { type: "image_url", image_url: { url: brandKit.personPhotoUrl } },
+      );
+    }
+
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -41,13 +62,7 @@ serve(async (req) => {
         model: "google/gemini-3.1-flash-image-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: prompt },
-              { type: "image_url", image_url: { url: swipeFileUrl } },
-            ],
-          },
+          { role: "user", content: userContent },
         ],
         modalities: ["image", "text"],
       }),
