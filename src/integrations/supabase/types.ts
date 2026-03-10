@@ -14,7 +14,154 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      brand_kits: {
+        Row: {
+          colors: string[] | null
+          created_at: string
+          id: string
+          logo_url: string | null
+          photos: string[] | null
+          project_id: string
+          typography: string | null
+          updated_at: string
+        }
+        Insert: {
+          colors?: string[] | null
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          photos?: string[] | null
+          project_id: string
+          typography?: string | null
+          updated_at?: string
+        }
+        Update: {
+          colors?: string[] | null
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          photos?: string[] | null
+          project_id?: string
+          typography?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_kits_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      generated_creatives: {
+        Row: {
+          created_at: string
+          format: string
+          id: string
+          image_url: string
+          project_id: string
+          prompt: string
+          swipe_file_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          format: string
+          id?: string
+          image_url: string
+          project_id: string
+          prompt: string
+          swipe_file_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          format?: string
+          id?: string
+          image_url?: string
+          project_id?: string
+          prompt?: string
+          swipe_file_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_creatives_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_creatives_swipe_file_id_fkey"
+            columns: ["swipe_file_id"]
+            isOneToOne: false
+            referencedRelation: "swipe_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      swipe_files: {
+        Row: {
+          created_at: string
+          height: number | null
+          id: string
+          image_url: string
+          name: string
+          project_id: string
+          width: number | null
+        }
+        Insert: {
+          created_at?: string
+          height?: number | null
+          id?: string
+          image_url: string
+          name: string
+          project_id: string
+          width?: number | null
+        }
+        Update: {
+          created_at?: string
+          height?: number | null
+          id?: string
+          image_url?: string
+          name?: string
+          project_id?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swipe_files_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
