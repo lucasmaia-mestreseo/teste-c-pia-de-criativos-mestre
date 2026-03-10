@@ -100,6 +100,7 @@ function buildInstructionBlock(
   hasLogo: boolean,
   hasPersonPhoto: boolean,
   photoMode: "replace" | "swap",
+  logoAnalysis: string | null = null,
 ): string {
   const sections: string[] = [];
 
