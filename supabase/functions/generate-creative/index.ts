@@ -376,8 +376,11 @@ CRITICAL RULES:
 
     // 3. Logo (if enabled)
     if (hasLogo) {
+      const logoLabel = logoAnalysis
+        ? `📎 LOGO DA MARCA (asset obrigatório — contém os seguintes textos detectados: ${logoAnalysis.substring(0, 200)}... — incluir 100% COMPLETO sem cortes, sem alterar cores internas, sem redesenhar):`
+        : "📎 LOGO DA MARCA (asset obrigatório — incluir COMPLETO sem cortes, sem alterar cores internas, sem redesenhar):";
       userContent.push(
-        { type: "text", text: "📎 LOGO DA MARCA (asset obrigatório — incluir COMPLETO sem cortes, sem alterar cores internas, sem redesenhar):" },
+        { type: "text", text: logoLabel },
         { type: "image_url", image_url: { url: brandKit.logoUrl } },
       );
     }
