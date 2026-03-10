@@ -19,6 +19,8 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
   const [logoUrl, setLogoUrl] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [siteUrl, setSiteUrl] = useState('');
+  const [extracting, setExtracting] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
