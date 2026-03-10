@@ -31,6 +31,56 @@ function detectPhotoMode(prompt: string): "replace" | "swap" {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Helper: pre-analyze logo content (texts, structure) via vision AI */
+/* ------------------------------------------------------------------ */
+async function analyzeLogoContent(logoUrl: string, apiKey: string): Promise<string | null> {
+  try {
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `Analyze this logo image in detail. Return a structured description with:
+1. ALL text found in the logo — list each text exactly as written, and its position (top, center, bottom, left, right).
+2. Visual structure — describe the layout (e.g. "icon in center, text above, tagline below").
+3. Approximate proportions — how much vertical space each part occupies (e.g. "top text: ~15%, icon: ~55%, bottom text: ~30%").
+
+Be precise and exhaustive. Every single character of text must be listed. Answer in Portuguese.`,
+              },
+              {
+                type: "image_url",
+                image_url: { url: logoUrl },
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      console.error("Logo analysis failed:", res.status);
+      return null;
+    }
+
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || null;
+  } catch (e) {
+    console.error("Logo analysis error:", e);
+    return null;
+  }
+}
+
+
+/* ------------------------------------------------------------------ */
 /*  Helper: build the structured instruction block for user content   */
 /* ------------------------------------------------------------------ */
 interface BrandKitInput {
