@@ -271,7 +271,43 @@ Uma foto de PESSOA será fornecida separadamente. Regras OBRIGATÓRIAS:
     }
   }
 
-  /* --- 6. CHECKLIST FINAL --- */
+  /* --- 6. MAPA DE ELEMENTOS DETECTADOS --- */
+  if (elementOverrides) {
+    const mapLines: string[] = [];
+    mapLines.push(`═══ SEÇÃO 6: MAPA DE ELEMENTOS DETECTADOS ═══`);
+    mapLines.push(`A imagem de referência foi pré-analisada. O usuário editou os elementos abaixo. Siga CADA instrução:`);
+    mapLines.push('');
+
+    for (const [id, ov] of Object.entries(elementOverrides.texts)) {
+      if (ov.action === 'remove') {
+        mapLines.push(`🔤 ${id}: REMOVER — o texto "${ov.original}" deve ser COMPLETAMENTE REMOVIDO da imagem. Não deixe vestígios.`);
+      } else if (ov.action === 'replace') {
+        mapLines.push(`🔤 ${id}: SUBSTITUIR — trocar "${ov.original}" → "${ov.value}" (manter mesma posição e estilo).`);
+      } else {
+        mapLines.push(`🔤 ${id}: MANTER — texto "${ov.original}" deve permanecer como está.`);
+      }
+    }
+
+    for (const [id, ov] of Object.entries(elementOverrides.logos)) {
+      if (ov.action === 'replace') {
+        mapLines.push(`🏷️ ${id}: SUBSTITUIR pelo logo do Brand Kit fornecido.`);
+      } else {
+        mapLines.push(`🏷️ ${id}: MANTER o logo original da referência.`);
+      }
+    }
+
+    for (const [id, ov] of Object.entries(elementOverrides.photos)) {
+      if (ov.action === 'replace') {
+        mapLines.push(`📸 ${id}: SUBSTITUIR pela foto de pessoa do Brand Kit fornecida.`);
+      } else {
+        mapLines.push(`📸 ${id}: MANTER a foto/pessoa original da referência.`);
+      }
+    }
+
+    sections.push(mapLines.join('\n'));
+  }
+
+  /* --- 7. CHECKLIST FINAL --- */
   const checklistItems: string[] = [];
   checklistItems.push("□ O formato de saída está correto (aspect ratio)?");
   checklistItems.push("□ TODOS os textos solicitados pelo usuário aparecem EXATAMENTE como escritos?");
