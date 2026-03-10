@@ -71,6 +71,26 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
     finally { setUploading(false); }
   };
 
+  const handleExtractFromUrl = async () => {
+    if (!siteUrl.trim()) return;
+    setExtracting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('extract-branding', {
+        body: { url: siteUrl.trim() },
+      });
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      if (data.colors?.length) setColors(prev => [...prev, ...data.colors]);
+      if (data.typography) setTypography(data.typography);
+      toast.success('Branding extraído com sucesso!');
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao extrair branding');
+    } finally {
+      setExtracting(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!projectId) return;
     try {
