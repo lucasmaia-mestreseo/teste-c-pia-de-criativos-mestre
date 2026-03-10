@@ -126,6 +126,30 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
         </Button>
       </div>
 
+      {/* Extract from URL */}
+      <div className="space-y-2">
+        <Label className="text-xs uppercase text-muted-foreground">Extrair de um site</Label>
+        <div className="flex gap-2">
+          <Input
+            value={siteUrl}
+            onChange={(e) => setSiteUrl(e.target.value)}
+            placeholder="https://exemplo.com.br"
+            className="bg-secondary flex-1"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExtractFromUrl}
+            disabled={extracting || !siteUrl.trim()}
+            className="shrink-0"
+          >
+            {extracting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
+            <span className="ml-1">{extracting ? 'Extraindo...' : 'Extrair'}</span>
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">A IA vai analisar o site e preencher cores e tipografia automaticamente</p>
+      </div>
+
       {/* Colors */}
       <div className="space-y-2">
         <Label className="text-xs uppercase text-muted-foreground">Cores da Marca</Label>
