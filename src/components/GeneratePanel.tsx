@@ -151,9 +151,10 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
                 </div>
               </div>
             ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* === IMAGE MODAL === */}
       <Dialog open={!!modalImage} onOpenChange={() => setModalImage(null)}>
