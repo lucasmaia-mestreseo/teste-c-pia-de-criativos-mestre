@@ -338,6 +338,12 @@ Uma foto de PESSOA será fornecida separadamente. Regras OBRIGATÓRIAS:
     checklistItems.push("□ AMBOS o logo E a pessoa aparecem na imagem final simultaneamente?");
   }
 
+  if (elementOverrides) {
+    checklistItems.push("□ Cada elemento do MAPA DE ELEMENTOS foi tratado conforme a ação especificada (manter/substituir/remover)?");
+    checklistItems.push("□ Textos marcados para REMOVER foram completamente apagados?");
+    checklistItems.push("□ Textos marcados para SUBSTITUIR aparecem com o novo conteúdo EXATO?");
+  }
+
   sections.push(`═══ SEÇÃO FINAL: CHECKLIST DE FIDELIDADE ═══
 Antes de finalizar a imagem, verifique CADA item abaixo. Se qualquer item falhar, REFAÇA a imagem:
 
