@@ -213,7 +213,24 @@ export default function TemplatesPanel({ projectId, data, onChange }: TemplatesP
           <ChevronLeft className="h-4 w-4" />
         </button>
         <div className="p-1.5 rounded-md bg-primary/10 text-primary">{selectedTemplate.icon}</div>
-        <h2 className="text-sm font-semibold">{selectedTemplate.name}</h2>
+        <h2 className="text-sm font-semibold flex-1">{selectedTemplate.name}</h2>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 text-xs"
+                onClick={handleAiFill}
+                disabled={filling}
+              >
+                {filling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                IA
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Preencher campos com IA usando o contexto do projeto</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       <ScrollArea className="flex-1">
