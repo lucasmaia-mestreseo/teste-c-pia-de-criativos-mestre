@@ -371,6 +371,7 @@ serve(async (req) => {
 
     const hasLogo = !!(brandKit?.logoUrl);
     const hasPersonPhoto = !!(brandKit?.personPhotoUrl);
+    const hasPersonGrid = !!(brandKit?.personGridUrl);
     const photoMode = detectPhotoMode(prompt);
 
     // Pre-analyze logo content if logo is provided
