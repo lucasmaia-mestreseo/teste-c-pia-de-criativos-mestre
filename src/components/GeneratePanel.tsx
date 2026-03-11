@@ -33,6 +33,7 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
   const [includeLogo, setIncludeLogo] = useState(false);
   const [includePersonPhoto, setIncludePersonPhoto] = useState(false);
   const [selectedPersonPhoto, setSelectedPersonPhoto] = useState<string>('');
+  const [personMode, setPersonMode] = useState<'photo' | 'grid'>('photo');
   const [thumbSize, setThumbSize] = useState(80);
   const [modalImage, setModalImage] = useState<{ url: string; prompt: string; id: string; projectId: string } | null>(null);
   const [elementOverrides, setElementOverrides] = useState<ElementOverrides>(EMPTY_OVERRIDES);
