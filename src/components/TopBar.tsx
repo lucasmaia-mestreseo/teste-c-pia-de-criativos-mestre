@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useProjects, useCreateProject } from '@/hooks/useProjects';
-import { Palette, Clock, Plus, Zap } from 'lucide-react';
+import { Palette, Clock, Plus, Zap, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
 type RightPanel = 'generate' | 'brandkit' | 'history';
