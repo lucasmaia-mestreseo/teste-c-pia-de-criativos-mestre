@@ -41,6 +41,11 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
 
   const { analysis, isPending } = useSwipeAnalysis(selectedSwipe as any);
 
+  // Reset overrides when switching swipe files
+  useEffect(() => {
+    setElementOverrides(EMPTY_OVERRIDES);
+  }, [selectedSwipe?.id]);
+
   const hasLogo = !!brandKit?.logo_url;
   const personPhotos = brandKit?.people_photos?.filter(Boolean) ?? [];
   const hasPersonPhotos = personPhotos.length > 0;
