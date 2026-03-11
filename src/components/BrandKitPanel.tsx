@@ -176,6 +176,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
         logo_url: logoUrl || undefined,
         photos,
         people_photos: peoplePhotos,
+        person_grid_url: personGridUrl || undefined,
       });
       toast.success('Brand Kit salvo!');
     } catch { toast.error('Erro ao salvar'); }
