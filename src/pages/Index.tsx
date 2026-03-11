@@ -3,6 +3,7 @@ import TopBar from '@/components/TopBar';
 import SwipeFilePanel from '@/components/SwipeFilePanel';
 import GeneratePanel from '@/components/GeneratePanel';
 import BrandKitPanel from '@/components/BrandKitPanel';
+import ContextPanel from '@/components/ContextPanel';
 import HistoryPanel from '@/components/HistoryPanel';
 import type { Tables } from '@/integrations/supabase/types';
 
