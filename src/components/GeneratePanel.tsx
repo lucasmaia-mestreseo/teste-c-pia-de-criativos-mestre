@@ -39,7 +39,7 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
   const deleteCreative = useDeleteCreative();
   const qc = useQueryClient();
 
-  const { analysis, analyzing, analyze } = useSwipeAnalysis(selectedSwipe as any);
+  const { analysis, isPending } = useSwipeAnalysis(selectedSwipe as any);
 
   const hasLogo = !!brandKit?.logo_url;
   const personPhotos = brandKit?.people_photos?.filter(Boolean) ?? [];
