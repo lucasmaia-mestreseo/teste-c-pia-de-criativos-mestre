@@ -16,6 +16,9 @@ import { Zap, Download, Trash2, Loader2, Maximize2, Minimize2 } from 'lucide-rea
 import { toast } from 'sonner';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import type { Tables } from '@/integrations/supabase/types';
+import type { CreationMode } from '@/components/CreationModeSelector';
+import type { FreePromptData } from '@/components/FreePromptPanel';
+import type { TemplateData } from '@/components/TemplatesPanel';
 
 const FORMATS = ['9:16', '4:5', '1:1', '16:9'] as const;
 
@@ -24,9 +27,12 @@ const EMPTY_OVERRIDES: ElementOverrides = { texts: {}, logos: {}, photos: {} };
 interface GeneratePanelProps {
   projectId: string | null;
   selectedSwipe: Tables<'swipe_files'> | null;
+  creationMode: CreationMode;
+  freePromptData: FreePromptData;
+  templateData: TemplateData;
 }
 
-export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePanelProps) {
+export default function GeneratePanel({ projectId, selectedSwipe, creationMode, freePromptData, templateData }: GeneratePanelProps) {
   const [prompt, setPrompt] = useState('');
   const [format, setFormat] = useState<string>('1:1');
   const [generating, setGenerating] = useState(false);
@@ -59,7 +65,6 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
   });
   const projectContext = projectData?.context ?? '';
 
-  // Reset overrides when switching swipe files
   useEffect(() => {
     setElementOverrides(EMPTY_OVERRIDES);
   }, [selectedSwipe?.id]);
@@ -69,20 +74,31 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
   const hasPersonPhotos = personPhotos.length > 0;
   const hasGrid = !!(brandKit as any)?.person_grid_url;
 
+  const getEffectivePrompt = (): string => {
+    if (creationMode === 'free') return freePromptData.prompt;
+    if (creationMode === 'templates') return templateData.prompt || '';
+    return prompt;
+  };
+
+  const canGenerate = (): boolean => {
+    if (!projectId) return false;
+    if (creationMode === 'free') return freePromptData.prompt.trim().length > 0;
+    if (creationMode === 'templates') return !!templateData.templateId;
+    return !!selectedSwipe && prompt.trim().length > 0;
+  };
+
   const handleGenerate = async () => {
-    if (!projectId || !selectedSwipe || !prompt.trim()) {
-      toast.error('Selecione um criativo base e escreva um prompt');
+    if (!projectId || !canGenerate()) {
+      toast.error('Preencha os campos necessários para gerar');
       return;
     }
     setGenerating(true);
     try {
-      // Auto-include assets when element overrides request replacement
       const anyLogoReplace = Object.values(elementOverrides.logos).some(l => l.action === 'replace');
       const anyPhotoReplace = Object.values(elementOverrides.photos).some(p => p.action === 'replace');
 
       const logoUrl = (includeLogo || anyLogoReplace) && hasLogo ? brandKit?.logo_url : null;
 
-      // Determine person asset: grid or photo
       const useGrid = personMode === 'grid' && hasGrid;
       const personPhotoUrl = useGrid
         ? null
@@ -93,26 +109,38 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
         ? (brandKit as any).person_grid_url
         : null;
 
-      const { data, error } = await supabase.functions.invoke('generate-creative', {
-        body: {
-          prompt: prompt.trim(),
-          format,
-          swipeFileId: selectedSwipe.id,
-          swipeFileUrl: selectedSwipe.image_url,
-          projectId,
-          brandKit: brandKit ? {
-            primaryColor: brandKit.primary_color,
-            secondaryColor: brandKit.secondary_color,
-            backgroundColor: brandKit.background_color,
-            auxColors: brandKit.aux_colors,
-            typography: brandKit.typography,
-            logoUrl,
-            personPhotoUrl,
-            personGridUrl,
-          } : null,
-          elementOverrides: analysis ? elementOverrides : null,
-        },
-      });
+      const body: Record<string, any> = {
+        format,
+        projectId,
+        mode: creationMode,
+        brandKit: brandKit ? {
+          primaryColor: brandKit.primary_color,
+          secondaryColor: brandKit.secondary_color,
+          backgroundColor: brandKit.background_color,
+          auxColors: brandKit.aux_colors,
+          typography: brandKit.typography,
+          logoUrl,
+          personPhotoUrl,
+          personGridUrl,
+        } : null,
+      };
+
+      if (creationMode === 'swipe') {
+        body.prompt = prompt.trim();
+        body.swipeFileId = selectedSwipe!.id;
+        body.swipeFileUrl = selectedSwipe!.image_url;
+        body.elementOverrides = analysis ? elementOverrides : null;
+      } else if (creationMode === 'free') {
+        body.prompt = freePromptData.prompt.trim();
+        body.attachedImages = freePromptData.attachedImages;
+      } else if (creationMode === 'templates') {
+        body.prompt = templateData.prompt?.trim() || '';
+        body.templateId = templateData.templateId;
+        body.templateFields = templateData.fields;
+        body.attachedImages = templateData.attachedImages;
+      }
+
+      const { data, error } = await supabase.functions.invoke('generate-creative', { body });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       toast.success('Criativo gerado com sucesso!');
@@ -232,8 +260,8 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
 
       {/* === PROMPT + OPTIONS (bottom) === */}
       <div className="px-3 pb-3 pt-2 space-y-2">
-        {/* Swipe Elements Editor */}
-        {selectedSwipe && (
+        {/* Swipe Elements Editor — only in swipe mode */}
+        {creationMode === 'swipe' && selectedSwipe && (
           <SwipeElementsEditor
             analysis={analysis}
             isPending={isPending}
@@ -245,22 +273,25 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
           />
         )}
 
-        <div className="flex gap-2 items-start">
-          {selectedSwipe && (
-            <div className="w-12 h-12 rounded-md overflow-hidden border bg-secondary flex-shrink-0">
-              <img src={selectedSwipe.image_url} alt="" className="w-full h-full object-cover" />
-            </div>
-          )}
-          <Textarea
-            placeholder="Descreva as modificações que deseja no criativo..."
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            className="bg-secondary resize-none min-h-[60px] text-sm flex-1"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(); }
-            }}
-          />
-        </div>
+        {/* Prompt area — only in swipe mode (free/templates have their own) */}
+        {creationMode === 'swipe' && (
+          <div className="flex gap-2 items-start">
+            {selectedSwipe && (
+              <div className="w-12 h-12 rounded-md overflow-hidden border bg-secondary flex-shrink-0">
+                <img src={selectedSwipe.image_url} alt="" className="w-full h-full object-cover" />
+              </div>
+            )}
+            <Textarea
+              placeholder="Descreva as modificações que deseja no criativo..."
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              className="bg-secondary resize-none min-h-[60px] text-sm flex-1"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(); }
+              }}
+            />
+          </div>
+        )}
 
         {/* Brand Kit options — inline */}
         {brandKit && (hasLogo || hasPersonPhotos) && (
@@ -313,7 +344,7 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
               {FORMATS.map((f) => (<SelectItem key={f} value={f}>{f}</SelectItem>))}
             </SelectContent>
           </Select>
-          <Button onClick={handleGenerate} disabled={generating || !selectedSwipe || !prompt.trim()} className="flex-1 h-8 text-xs">
+          <Button onClick={handleGenerate} disabled={generating || !canGenerate()} className="flex-1 h-8 text-xs">
             {generating ? (<><Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> Gerando...</>) : (<><Zap className="h-3.5 w-3.5 mr-1 fill-primary-foreground" /> Gerar Criativo</>)}
           </Button>
         </div>
