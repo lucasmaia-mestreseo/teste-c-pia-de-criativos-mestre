@@ -3,9 +3,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import ImageAttachments from './ImageAttachments';
-import { Monitor, ArrowRightLeft, Star, List, UserCheck, Play, Tag, ChevronLeft } from 'lucide-react';
+import { Monitor, ArrowRightLeft, Star, List, UserCheck, Play, Tag, ChevronLeft, Sparkles, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 export interface TemplateField {
   key: string;
