@@ -1,9 +1,20 @@
 import { useCallback, useRef, useState } from 'react';
 import { useSwipeFiles, useUploadSwipeFile, useDeleteSwipeFile } from '@/hooks/useSwipeFiles';
-import { Upload, Trash2, ImageIcon } from 'lucide-react';
+import { Upload, Trash2, ImageIcon, Maximize2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { Tables } from '@/integrations/supabase/types';
+import SwipePreviewModal from './SwipePreviewModal';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface SwipeFilePanelProps {
   projectId: string | null;
@@ -17,6 +28,8 @@ export default function SwipeFilePanel({ projectId, selectedSwipe, onSelectSwipe
   const deleteFile = useDeleteSwipeFile();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [previewFile, setPreviewFile] = useState<Tables<'swipe_files'> | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Tables<'swipe_files'> | null>(null);
 
   const handleFiles = useCallback(async (fileList: FileList) => {
     if (!projectId) return;
@@ -36,6 +49,12 @@ export default function SwipeFilePanel({ projectId, selectedSwipe, onSelectSwipe
     setDragging(false);
     handleFiles(e.dataTransfer.files);
   }, [handleFiles]);
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    deleteFile.mutate({ id: deleteTarget.id, projectId: deleteTarget.project_id });
+    setDeleteTarget(null);
+  };
 
   if (!projectId) {
     return (
@@ -100,15 +119,29 @@ export default function SwipeFilePanel({ projectId, selectedSwipe, onSelectSwipe
                 onClick={() => onSelectSwipe(f)}
               >
                 <img src={f.image_url} alt={f.name} className="w-full h-full object-cover" />
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteFile.mutate({ id: f.id, projectId: f.project_id });
-                  }}
-                  className="absolute top-1 right-1 p-1 rounded bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive hover:text-destructive-foreground"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
+
+                {/* Action buttons */}
+                <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPreviewFile(f);
+                    }}
+                    className="p-1 rounded bg-background/80 hover:bg-accent hover:text-accent-foreground transition-colors"
+                  >
+                    <Maximize2 className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteTarget(f);
+                    }}
+                    className="p-1 rounded bg-background/80 hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+
                 <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-background/80 to-transparent p-1.5">
                   <p className="text-[10px] truncate text-foreground/80">{f.name}</p>
                 </div>
@@ -117,6 +150,29 @@ export default function SwipeFilePanel({ projectId, selectedSwipe, onSelectSwipe
           </div>
         )}
       </div>
+
+      {/* Preview modal */}
+      <SwipePreviewModal
+        file={previewFile}
+        open={!!previewFile}
+        onOpenChange={(open) => !open && setPreviewFile(null)}
+      />
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir imagem</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir "{deleteTarget?.name}"? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
