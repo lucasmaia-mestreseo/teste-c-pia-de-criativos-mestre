@@ -364,17 +364,17 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, format, swipeFileId, swipeFileUrl, projectId, brandKit, elementOverrides } = await req.json();
+    const { prompt, format, swipeFileId, swipeFileUrl, projectId, brandKit, elementOverrides, mode, templateId, templateFields, attachedImages } = await req.json();
 
+    const creationMode = mode || 'swipe';
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     const hasLogo = !!(brandKit?.logoUrl);
     const hasPersonPhoto = !!(brandKit?.personPhotoUrl);
     const hasPersonGrid = !!(brandKit?.personGridUrl);
-    const photoMode = detectPhotoMode(prompt);
+    const photoMode = detectPhotoMode(prompt || '');
 
-    // Pre-analyze logo content if logo is provided
     let logoAnalysis: string | null = null;
     if (hasLogo) {
       console.log("Analyzing logo content...");
@@ -382,20 +382,50 @@ serve(async (req) => {
       console.log("Logo analysis result:", logoAnalysis ? "success" : "failed");
     }
 
-    // Build the structured instruction block
-    const instructionBlock = buildInstructionBlock(
-      prompt,
-      format,
-      brandKit,
-      hasLogo,
-      hasPersonPhoto || hasPersonGrid,
-      photoMode,
-      logoAnalysis,
-      elementOverrides || null,
-    );
+    /* ---- Build prompt & content based on creation mode ---- */
+    let effectivePrompt = prompt || '';
+    let systemPrompt = '';
+    const userContent: any[] = [];
 
-    // System prompt — concise role definition, detailed rules go in instruction block
-    const systemPrompt = `You are an expert advertising creative designer specializing in pixel-perfect brand compliance. You receive a REFERENCE creative image and a structured instruction block. Your job is to generate a new creative that:
+    if (creationMode === 'templates' && templateId && templateFields) {
+      const TEMPLATE_PROMPTS: Record<string, string> = {
+        'hero': 'Crie um anúncio com estrutura HERO: produto/elemento centralizado como protagonista, fundo limpo com glow/iluminação dramática, alto contraste.',
+        'problem-solution': 'Crie um anúncio com estrutura PROBLEMA → SOLUÇÃO: imagem dividida visualmente em duas partes com forte contraste. Lado esquerdo representa a dor, lado direito mostra a solução.',
+        'main-benefit': 'Crie um anúncio com estrutura BENEFÍCIO PRINCIPAL: headline dominante e grande, design minimalista, alto contraste, mensagem direta.',
+        'list-ad': 'Crie um anúncio com estrutura LISTA (List Ad): headline no topo, benefícios organizados em bullet points com checkmarks/ícones, estrutura escaneável.',
+        'authority': 'Crie um anúncio com estrutura AUTORIDADE: foto do especialista/criador em destaque, headline de autoridade, prova social com números/credenciais.',
+        'demonstration': 'Crie um anúncio com estrutura DEMONSTRAÇÃO: produto/interface em uso visível, setas ou callouts apontando funcionalidades, headline explicativa.',
+        'direct-offer': 'Crie um anúncio com estrutura OFERTA DIRETA: oferta/desconto destacado com grande visibilidade, elementos de urgência, forte contraste visual.',
+      };
+
+      const templateBase = TEMPLATE_PROMPTS[templateId] || '';
+      const fieldLines = Object.entries(templateFields)
+        .filter(([_, v]) => v && (v as string).trim())
+        .map(([k, v]) => `- ${k}: ${v}`)
+        .join('\n');
+
+      effectivePrompt = `${templateBase}\n\nElementos do anúncio:\n${fieldLines}${prompt ? `\n\nInstruções adicionais: ${prompt}` : ''}`;
+
+      systemPrompt = `You are an expert advertising creative designer. You create high-converting ad creatives based on proven ad structures/templates. Generate a professional ad image following the template structure described. Apply all brand kit rules with ZERO deviation.
+
+CRITICAL RULES:
+- Every text specified is MANDATORY — reproduce it EXACTLY
+- Brand kit colors are MANDATORY for every visual element
+- Brand kit typography is MANDATORY for every text element
+- Follow the template structure precisely`;
+
+    } else if (creationMode === 'free') {
+      systemPrompt = `You are an expert advertising creative designer. You create professional ad creatives from scratch based on the user's description. Apply all brand kit rules with ZERO deviation.
+
+CRITICAL RULES:
+- Every text the user specifies is MANDATORY — reproduce it EXACTLY
+- Brand kit colors are MANDATORY for every visual element
+- Brand kit typography is MANDATORY for every text element
+- Logo integrity is ABSOLUTE — never crop, redraw, or recolor
+- Person photo fidelity is ABSOLUTE — the face must match exactly`;
+
+    } else {
+      systemPrompt = `You are an expert advertising creative designer specializing in pixel-perfect brand compliance. You receive a REFERENCE creative image and a structured instruction block. Your job is to generate a new creative that:
 
 1. FOLLOWS the visual structure and layout of the reference image
 2. EXECUTES every instruction in the instruction block as MANDATORY rules
@@ -411,25 +441,39 @@ CRITICAL RULES:
 - Logo integrity is ABSOLUTE — never crop, redraw, or recolor
 - Person photo fidelity is ABSOLUTE — the face must match exactly
 - When multiple assets are provided, ALL must be present in the final image`;
+    }
 
-    // Build dynamic content array with structured order
-    const userContent: any[] = [];
+    // Build user content based on mode
+    if (creationMode === 'swipe') {
+      const instructionBlock = buildInstructionBlock(
+        effectivePrompt, format, brandKit, hasLogo,
+        hasPersonPhoto || hasPersonGrid, photoMode, logoAnalysis,
+        elementOverrides || null,
+      );
+      userContent.push(
+        { type: "text", text: "📎 IMAGEM DE REFERÊNCIA (use como base de layout e estrutura visual):" },
+        { type: "image_url", image_url: { url: swipeFileUrl } },
+        { type: "text", text: instructionBlock },
+      );
+    } else {
+      const instructionBlock = buildInstructionBlock(
+        effectivePrompt, format, brandKit, hasLogo,
+        hasPersonPhoto || hasPersonGrid, photoMode, logoAnalysis, null,
+      );
+      userContent.push({ type: "text", text: instructionBlock });
 
-    // 1. Reference image FIRST
-    userContent.push(
-      { type: "text", text: "📎 IMAGEM DE REFERÊNCIA (use como base de layout e estrutura visual):" },
-      { type: "image_url", image_url: { url: swipeFileUrl } },
-    );
+      if (attachedImages?.length > 0) {
+        userContent.push({ type: "text", text: "📎 IMAGENS DE REFERÊNCIA ANEXADAS PELO USUÁRIO:" });
+        for (const imgUrl of attachedImages) {
+          userContent.push({ type: "image_url", image_url: { url: imgUrl } });
+        }
+      }
+    }
 
-    // 2. Structured instruction block
-    userContent.push(
-      { type: "text", text: instructionBlock },
-    );
-
-    // 3. Logo (if enabled)
+    // Logo asset
     if (hasLogo) {
       const logoLabel = logoAnalysis
-        ? `📎 LOGO DA MARCA (asset obrigatório — contém os seguintes textos detectados: ${logoAnalysis.substring(0, 200)}... — incluir 100% COMPLETO sem cortes, sem alterar cores internas, sem redesenhar):`
+        ? `📎 LOGO DA MARCA (asset obrigatório — contém: ${logoAnalysis.substring(0, 200)}... — incluir 100% COMPLETO sem cortes):`
         : "📎 LOGO DA MARCA (asset obrigatório — incluir COMPLETO sem cortes, sem alterar cores internas, sem redesenhar):";
       userContent.push(
         { type: "text", text: logoLabel },
@@ -437,27 +481,27 @@ CRITICAL RULES:
       );
     }
 
-    // 4. Person photo or grid (if enabled)
+    // Person photo or grid
     if (hasPersonGrid) {
       userContent.push(
-        { type: "text", text: "📎 GRID MULTI-ÂNGULO DA PESSOA (asset obrigatório — este grid mostra a MESMA pessoa em 9 ângulos cinematográficos diferentes: MCU, MS, OS, WS, HA, LA, P, 3/4, B. Use este grid como referência ABSOLUTA para manter consistência facial e corporal da pessoa. A pessoa no criativo final DEVE ser IDÊNTICA a esta pessoa em todos os traços, tom de pele, cabelo e proporções):" },
+        { type: "text", text: "📎 GRID MULTI-ÂNGULO DA PESSOA (asset obrigatório):" },
         { type: "image_url", image_url: { url: brandKit.personGridUrl } },
       );
     } else if (hasPersonPhoto) {
       const personLabel = photoMode === "replace"
-        ? "📎 FOTO DA PESSOA (asset obrigatório — esta pessoa DEVE aparecer no criativo, substituindo a pessoa da referência. Use o rosto e aparência EXATOS desta foto):"
-        : "📎 FOTO DA PESSOA (asset obrigatório — TROQUE o rosto da pessoa na referência pelo rosto desta pessoa. Mantenha pose, roupa e cenário da referência. O rosto final DEVE ser idêntico a esta foto):";
+        ? "📎 FOTO DA PESSOA (asset obrigatório — substituir pessoa existente):"
+        : "📎 FOTO DA PESSOA (asset obrigatório — face swap):";
       userContent.push(
         { type: "text", text: personLabel },
         { type: "image_url", image_url: { url: brandKit.personPhotoUrl } },
       );
     }
 
-    // 5. Final coexistence reminder if both assets present
+    // Final coexistence reminder
     if (hasLogo && (hasPersonPhoto || hasPersonGrid)) {
       userContent.push({
         type: "text",
-        text: "⚠️ LEMBRETE FINAL: Tanto o LOGO quanto a PESSOA foram fornecidos. AMBOS DEVEM aparecer na imagem final. Um NÃO substitui o outro. Verifique o checklist de fidelidade antes de finalizar.",
+        text: "⚠️ LEMBRETE FINAL: Tanto o LOGO quanto a PESSOA foram fornecidos. AMBOS DEVEM aparecer na imagem final.",
       });
     }
 
@@ -523,9 +567,9 @@ CRITICAL RULES:
     // Save to database
     const { error: dbError } = await supabase.from("generated_creatives").insert({
       project_id: projectId,
-      swipe_file_id: swipeFileId,
+      swipe_file_id: swipeFileId || null,
       image_url: publicUrl,
-      prompt,
+      prompt: effectivePrompt,
       format,
     });
     if (dbError) throw dbError;
