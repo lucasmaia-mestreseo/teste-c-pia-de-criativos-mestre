@@ -437,8 +437,13 @@ CRITICAL RULES:
       );
     }
 
-    // 4. Person photo (if enabled)
-    if (hasPersonPhoto) {
+    // 4. Person photo or grid (if enabled)
+    if (hasPersonGrid) {
+      userContent.push(
+        { type: "text", text: "📎 GRID MULTI-ÂNGULO DA PESSOA (asset obrigatório — este grid mostra a MESMA pessoa em 9 ângulos cinematográficos diferentes: MCU, MS, OS, WS, HA, LA, P, 3/4, B. Use este grid como referência ABSOLUTA para manter consistência facial e corporal da pessoa. A pessoa no criativo final DEVE ser IDÊNTICA a esta pessoa em todos os traços, tom de pele, cabelo e proporções):" },
+        { type: "image_url", image_url: { url: brandKit.personGridUrl } },
+      );
+    } else if (hasPersonPhoto) {
       const personLabel = photoMode === "replace"
         ? "📎 FOTO DA PESSOA (asset obrigatório — esta pessoa DEVE aparecer no criativo, substituindo a pessoa da referência. Use o rosto e aparência EXATOS desta foto):"
         : "📎 FOTO DA PESSOA (asset obrigatório — TROQUE o rosto da pessoa na referência pelo rosto desta pessoa. Mantenha pose, roupa e cenário da referência. O rosto final DEVE ser idêntico a esta foto):";
