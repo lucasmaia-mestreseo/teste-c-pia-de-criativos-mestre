@@ -81,9 +81,17 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
       const anyPhotoReplace = Object.values(elementOverrides.photos).some(p => p.action === 'replace');
 
       const logoUrl = (includeLogo || anyLogoReplace) && hasLogo ? brandKit?.logo_url : null;
-      const personPhotoUrl = (includePersonPhoto && selectedPersonPhoto)
-        ? selectedPersonPhoto
-        : (anyPhotoReplace && personPhotos.length > 0 ? (selectedPersonPhoto || personPhotos[0]) : null);
+
+      // Determine person asset: grid or photo
+      const useGrid = personMode === 'grid' && hasGrid;
+      const personPhotoUrl = useGrid
+        ? null
+        : ((includePersonPhoto && selectedPersonPhoto)
+          ? selectedPersonPhoto
+          : (anyPhotoReplace && personPhotos.length > 0 ? (selectedPersonPhoto || personPhotos[0]) : null));
+      const personGridUrl = useGrid && (includePersonPhoto || anyPhotoReplace)
+        ? (brandKit as any).person_grid_url
+        : null;
 
       const { data, error } = await supabase.functions.invoke('generate-creative', {
         body: {
@@ -100,6 +108,7 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
             typography: brandKit.typography,
             logoUrl,
             personPhotoUrl,
+            personGridUrl,
           } : null,
           elementOverrides: analysis ? elementOverrides : null,
         },
