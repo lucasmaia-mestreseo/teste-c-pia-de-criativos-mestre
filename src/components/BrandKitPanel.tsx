@@ -68,6 +68,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
       setLogoUrl('');
       setPhotos([]);
       setPeoplePhotos([]);
+      setPersonGridUrl('');
     }
   }, [kit]);
 
