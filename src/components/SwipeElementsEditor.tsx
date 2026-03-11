@@ -32,7 +32,8 @@ const ROLE_LABELS: Record<string, string> = {
   other: 'Texto',
 };
 
-export default function SwipeElementsEditor({ analysis, isPending, overrides, onChange, hasLogo, hasPersonPhotos }: Props) {
+export default function SwipeElementsEditor({ analysis, isPending, overrides, onChange, hasLogo, hasPersonPhotos, projectContext }: Props) {
+  const [suggesting, setSuggesting] = useState(false);
   // Initialize overrides when analysis arrives
   useEffect(() => {
     if (!analysis) return;
