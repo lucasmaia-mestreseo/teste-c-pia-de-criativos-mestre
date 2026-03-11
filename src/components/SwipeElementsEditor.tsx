@@ -1,8 +1,10 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, Type, Image, Stamp, Loader2, X } from 'lucide-react';
+import { ChevronDown, Type, Image, Stamp, Loader2, X, Sparkles } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import type { SwipeAnalysis } from '@/hooks/useSwipeAnalysis';
 
 export interface ElementOverrides {
@@ -18,6 +20,7 @@ interface Props {
   onChange: (overrides: ElementOverrides) => void;
   hasLogo: boolean;
   hasPersonPhotos: boolean;
+  projectContext?: string;
 }
 
 const ROLE_LABELS: Record<string, string> = {
