@@ -1,8 +1,10 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, Type, Image, Stamp, Loader2, X } from 'lucide-react';
+import { ChevronDown, Type, Image, Stamp, Loader2, X, Sparkles } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import type { SwipeAnalysis } from '@/hooks/useSwipeAnalysis';
 
 export interface ElementOverrides {
@@ -18,6 +20,7 @@ interface Props {
   onChange: (overrides: ElementOverrides) => void;
   hasLogo: boolean;
   hasPersonPhotos: boolean;
+  projectContext?: string;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -29,7 +32,8 @@ const ROLE_LABELS: Record<string, string> = {
   other: 'Texto',
 };
 
-export default function SwipeElementsEditor({ analysis, isPending, overrides, onChange, hasLogo, hasPersonPhotos }: Props) {
+export default function SwipeElementsEditor({ analysis, isPending, overrides, onChange, hasLogo, hasPersonPhotos, projectContext }: Props) {
+  const [suggesting, setSuggesting] = useState(false);
   // Initialize overrides when analysis arrives
   useEffect(() => {
     if (!analysis) return;
@@ -102,12 +106,50 @@ export default function SwipeElementsEditor({ analysis, isPending, overrides, on
     });
   };
 
+  const handleSuggest = async () => {
+    if (!projectContext?.trim() || !analysis) return;
+    setSuggesting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('suggest-texts', {
+        body: { context: projectContext, texts: analysis.texts },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const suggestions: { id: string; text: string }[] = data.suggestions ?? [];
+      const newTexts = { ...overrides.texts };
+      suggestions.forEach((s) => {
+        if (newTexts[s.id]) {
+          newTexts[s.id] = { original: newTexts[s.id].original, value: s.text, action: 'replace' };
+        }
+      });
+      onChange({ ...overrides, texts: newTexts });
+      toast.success('Textos sugeridos pela IA!');
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao sugerir textos');
+    } finally {
+      setSuggesting(false);
+    }
+  };
+
   return (
     <Collapsible defaultOpen>
-      <CollapsibleTrigger className="flex items-center gap-1 text-[10px] font-semibold uppercase text-muted-foreground hover:text-foreground transition-colors w-full">
-        <ChevronDown className="h-3 w-3" />
-        Elementos detectados ({analysis.texts.length + analysis.logos.length + analysis.photos.length})
-      </CollapsibleTrigger>
+      <div className="flex items-center gap-1">
+        <CollapsibleTrigger className="flex items-center gap-1 text-[10px] font-semibold uppercase text-muted-foreground hover:text-foreground transition-colors flex-1">
+          <ChevronDown className="h-3 w-3" />
+          Elementos detectados ({analysis.texts.length + analysis.logos.length + analysis.photos.length})
+        </CollapsibleTrigger>
+        {hasTexts && (
+          <button
+            onClick={handleSuggest}
+            disabled={suggesting || !projectContext?.trim()}
+            className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            title={!projectContext?.trim() ? 'Preencha o Contexto do projeto primeiro' : 'Sugerir textos com IA'}
+          >
+            {suggesting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+            IA
+          </button>
+        )}
+      </div>
       <CollapsibleContent className="space-y-1.5 pt-1.5">
         {hasTexts && analysis.texts.map((t) => {
           const ov = overrides.texts[t.id];

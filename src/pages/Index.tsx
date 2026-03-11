@@ -3,10 +3,11 @@ import TopBar from '@/components/TopBar';
 import SwipeFilePanel from '@/components/SwipeFilePanel';
 import GeneratePanel from '@/components/GeneratePanel';
 import BrandKitPanel from '@/components/BrandKitPanel';
+import ContextPanel from '@/components/ContextPanel';
 import HistoryPanel from '@/components/HistoryPanel';
 import type { Tables } from '@/integrations/supabase/types';
 
-type RightPanel = 'generate' | 'brandkit' | 'history';
+type RightPanel = 'generate' | 'brandkit' | 'context' | 'history';
 
 const Index = () => {
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -43,6 +44,9 @@ const Index = () => {
           )}
           {activePanel === 'brandkit' && (
             <BrandKitPanel projectId={projectId} />
+          )}
+          {activePanel === 'context' && (
+            <ContextPanel projectId={projectId} />
           )}
           {activePanel === 'history' && (
             <HistoryPanel projectId={projectId} />

@@ -12,7 +12,7 @@ import SwipeElementsEditor, { type ElementOverrides } from '@/components/SwipeEl
 import { supabase } from '@/integrations/supabase/client';
 import { Zap, Download, Trash2, Loader2, Maximize2, Minimize2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import type { Tables } from '@/integrations/supabase/types';
 
 const FORMATS = ['9:16', '4:5', '1:1', '16:9'] as const;
@@ -40,6 +40,21 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
   const qc = useQueryClient();
 
   const { analysis, isPending } = useSwipeAnalysis(selectedSwipe as any);
+
+  const { data: projectData } = useQuery({
+    queryKey: ['project-context', projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('context')
+        .eq('id', projectId!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!projectId,
+  });
+  const projectContext = projectData?.context ?? '';
 
   // Reset overrides when switching swipe files
   useEffect(() => {
@@ -204,6 +219,7 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
             onChange={setElementOverrides}
             hasLogo={hasLogo}
             hasPersonPhotos={hasPersonPhotos}
+            projectContext={projectContext}
           />
         )}
 

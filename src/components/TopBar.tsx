@@ -4,10 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useProjects, useCreateProject } from '@/hooks/useProjects';
-import { Palette, Clock, Plus, Zap } from 'lucide-react';
+import { Palette, Clock, Plus, Zap, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
-type RightPanel = 'generate' | 'brandkit' | 'history';
+type RightPanel = 'generate' | 'brandkit' | 'context' | 'history';
 
 interface TopBarProps {
   selectedProjectId: string | null;
@@ -88,6 +88,13 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
           onClick={() => onPanelChange('brandkit')}
         >
           <Palette className="h-4 w-4 mr-1" /> Brand Kit
+        </Button>
+        <Button
+          variant={activePanel === 'context' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => onPanelChange('context')}
+        >
+          <FileText className="h-4 w-4 mr-1" /> Contexto
         </Button>
         <Button
           variant={activePanel === 'history' ? 'default' : 'ghost'}
