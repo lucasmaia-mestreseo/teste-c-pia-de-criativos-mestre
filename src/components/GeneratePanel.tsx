@@ -72,6 +72,15 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
     }
     setGenerating(true);
     try {
+      // Auto-include assets when element overrides request replacement
+      const anyLogoReplace = Object.values(elementOverrides.logos).some(l => l.action === 'replace');
+      const anyPhotoReplace = Object.values(elementOverrides.photos).some(p => p.action === 'replace');
+
+      const logoUrl = (includeLogo || anyLogoReplace) && hasLogo ? brandKit?.logo_url : null;
+      const personPhotoUrl = (includePersonPhoto && selectedPersonPhoto)
+        ? selectedPersonPhoto
+        : (anyPhotoReplace && personPhotos.length > 0 ? (selectedPersonPhoto || personPhotos[0]) : null);
+
       const { data, error } = await supabase.functions.invoke('generate-creative', {
         body: {
           prompt: prompt.trim(),
@@ -85,8 +94,8 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
             backgroundColor: brandKit.background_color,
             auxColors: brandKit.aux_colors,
             typography: brandKit.typography,
-            logoUrl: includeLogo && hasLogo ? brandKit.logo_url : null,
-            personPhotoUrl: includePersonPhoto && selectedPersonPhoto ? selectedPersonPhoto : null,
+            logoUrl,
+            personPhotoUrl,
           } : null,
           elementOverrides: analysis ? elementOverrides : null,
         },
