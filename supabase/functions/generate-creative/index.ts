@@ -388,7 +388,7 @@ serve(async (req) => {
       format,
       brandKit,
       hasLogo,
-      hasPersonPhoto,
+      hasPersonPhoto || hasPersonGrid,
       photoMode,
       logoAnalysis,
       elementOverrides || null,
