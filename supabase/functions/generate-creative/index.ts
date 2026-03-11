@@ -454,7 +454,7 @@ CRITICAL RULES:
     }
 
     // 5. Final coexistence reminder if both assets present
-    if (hasLogo && hasPersonPhoto) {
+    if (hasLogo && (hasPersonPhoto || hasPersonGrid)) {
       userContent.push({
         type: "text",
         text: "⚠️ LEMBRETE FINAL: Tanto o LOGO quanto a PESSOA foram fornecidos. AMBOS DEVEM aparecer na imagem final. Um NÃO substitui o outro. Verifique o checklist de fidelidade antes de finalizar.",

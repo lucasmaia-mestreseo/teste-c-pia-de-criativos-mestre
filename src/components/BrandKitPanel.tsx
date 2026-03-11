@@ -351,6 +351,51 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
           </button>
         </div>
         <input ref={peoplePhotoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => e.target.files && handlePhotoUpload(e.target.files, 'people')} />
+
+        {/* Generate Grid Button */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              if (peoplePhotos.length === 0) return;
+              setGeneratingGrid(true);
+              try {
+                const { data, error } = await supabase.functions.invoke('generate-person-grid', {
+                  body: { photos: peoplePhotos, projectId },
+                });
+                if (error) throw error;
+                if (data?.error) throw new Error(data.error);
+                setPersonGridUrl(data.gridUrl);
+                toast.success('Grid multi-ângulo gerado!');
+              } catch (e: any) {
+                toast.error(e.message || 'Erro ao gerar grid');
+              } finally {
+                setGeneratingGrid(false);
+              }
+            }}
+            disabled={generatingGrid || peoplePhotos.length === 0}
+          >
+            {generatingGrid ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Grid3x3 className="h-4 w-4 mr-1" />}
+            Gerar Grid Multi-Ângulo
+          </Button>
+        </div>
+
+        {/* Grid Preview */}
+        {personGridUrl && (
+          <div className="space-y-1">
+            <span className="text-xs text-muted-foreground font-medium">Grid Multi-Ângulo</span>
+            <div className="relative inline-block">
+              <img src={personGridUrl} alt="Grid multi-ângulo" className="w-full rounded border border-border bg-secondary" />
+              <button
+                onClick={() => setPersonGridUrl('')}
+                className="absolute -top-1 -right-1 p-0.5 rounded-full bg-destructive text-destructive-foreground"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -285,6 +285,22 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
                     <img src={url} alt={`Pessoa ${i + 1}`} className="w-full h-full object-cover" />
                   </button>
                 ))}
+                {hasGrid && (
+                  <RadioGroup
+                    value={personMode}
+                    onValueChange={(v) => setPersonMode(v as 'photo' | 'grid')}
+                    className="flex items-center gap-2 ml-2"
+                  >
+                    <div className="flex items-center gap-1">
+                      <RadioGroupItem value="photo" id="mode-photo" className="h-3 w-3" />
+                      <Label htmlFor="mode-photo" className="text-[10px] text-muted-foreground cursor-pointer">Foto</Label>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <RadioGroupItem value="grid" id="mode-grid" className="h-3 w-3" />
+                      <Label htmlFor="mode-grid" className="text-[10px] text-muted-foreground cursor-pointer">Grid</Label>
+                    </div>
+                  </RadioGroup>
+                )}
               </div>
             )}
           </div>
