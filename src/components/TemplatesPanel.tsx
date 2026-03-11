@@ -125,6 +125,7 @@ interface TemplatesPanelProps {
 
 export default function TemplatesPanel({ projectId, data, onChange }: TemplatesPanelProps) {
   const selectedTemplate = TEMPLATES.find((t) => t.id === data.templateId);
+  const [filling, setFilling] = useState(false);
 
   const selectTemplate = (id: string) => {
     onChange({ templateId: id, fields: {}, prompt: data.prompt, attachedImages: data.attachedImages });
@@ -132,6 +133,47 @@ export default function TemplatesPanel({ projectId, data, onChange }: TemplatesP
 
   const updateField = (key: string, value: string) => {
     onChange({ ...data, fields: { ...data.fields, [key]: value } });
+  };
+
+  const handleAiFill = async () => {
+    if (!selectedTemplate) return;
+    setFilling(true);
+    try {
+      const { data: project, error: pErr } = await supabase
+        .from('projects')
+        .select('context')
+        .eq('id', projectId)
+        .single();
+      if (pErr || !project?.context) {
+        toast({ title: 'Contexto não encontrado', description: 'Configure o contexto do projeto antes de usar o preenchimento com IA.', variant: 'destructive' });
+        return;
+      }
+
+      const texts = selectedTemplate.fields.map((f) => ({
+        id: f.key,
+        role: f.key,
+        content: data.fields[f.key] || f.placeholder || '',
+        position: f.label,
+      }));
+
+      const { data: result, error } = await supabase.functions.invoke('suggest-texts', {
+        body: { context: project.context, texts },
+      });
+
+      if (error) throw error;
+
+      const newFields = { ...data.fields };
+      (result.suggestions as { id: string; text: string }[]).forEach((s) => {
+        newFields[s.id] = s.text;
+      });
+      onChange({ ...data, fields: newFields });
+      toast({ title: 'Campos preenchidos com IA ✨' });
+    } catch (e: any) {
+      console.error('AI fill error:', e);
+      toast({ title: 'Erro ao preencher', description: e?.message || 'Tente novamente.', variant: 'destructive' });
+    } finally {
+      setFilling(false);
+    }
   };
 
   if (!selectedTemplate) {
