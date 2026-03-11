@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Plus, X, Upload, Save, Loader2, Globe, Image } from 'lucide-react';
+import { Plus, X, Upload, Save, Loader2, Globe, Image, Grid3x3 } from 'lucide-react';
 import { toast } from 'sonner';
 import ColorPickerWithHex from '@/components/ColorPickerWithHex';
 import {
@@ -37,6 +37,8 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
   const [uploading, setUploading] = useState(false);
   const [siteUrl, setSiteUrl] = useState('');
   const [extracting, setExtracting] = useState(false);
+  const [personGridUrl, setPersonGridUrl] = useState('');
+  const [generatingGrid, setGeneratingGrid] = useState(false);
 
   const [pendingExtraction, setPendingExtraction] = useState<any>(null);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -56,6 +58,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
       setLogoUrl(kit.logo_url ?? '');
       setPhotos(kit.photos ?? []);
       setPeoplePhotos(kit.people_photos ?? []);
+      setPersonGridUrl(kit.person_grid_url ?? '');
     } else {
       setPrimaryColor('');
       setSecondaryColor('');
@@ -65,6 +68,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
       setLogoUrl('');
       setPhotos([]);
       setPeoplePhotos([]);
+      setPersonGridUrl('');
     }
   }, [kit]);
 
@@ -172,6 +176,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
         logo_url: logoUrl || undefined,
         photos,
         people_photos: peoplePhotos,
+        person_grid_url: personGridUrl || undefined,
       });
       toast.success('Brand Kit salvo!');
     } catch { toast.error('Erro ao salvar'); }
@@ -346,6 +351,51 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
           </button>
         </div>
         <input ref={peoplePhotoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => e.target.files && handlePhotoUpload(e.target.files, 'people')} />
+
+        {/* Generate Grid Button */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              if (peoplePhotos.length === 0) return;
+              setGeneratingGrid(true);
+              try {
+                const { data, error } = await supabase.functions.invoke('generate-person-grid', {
+                  body: { photos: peoplePhotos, projectId },
+                });
+                if (error) throw error;
+                if (data?.error) throw new Error(data.error);
+                setPersonGridUrl(data.gridUrl);
+                toast.success('Grid multi-ângulo gerado!');
+              } catch (e: any) {
+                toast.error(e.message || 'Erro ao gerar grid');
+              } finally {
+                setGeneratingGrid(false);
+              }
+            }}
+            disabled={generatingGrid || peoplePhotos.length === 0}
+          >
+            {generatingGrid ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Grid3x3 className="h-4 w-4 mr-1" />}
+            Gerar Grid Multi-Ângulo
+          </Button>
+        </div>
+
+        {/* Grid Preview */}
+        {personGridUrl && (
+          <div className="space-y-1">
+            <span className="text-xs text-muted-foreground font-medium">Grid Multi-Ângulo</span>
+            <div className="relative inline-block">
+              <img src={personGridUrl} alt="Grid multi-ângulo" className="w-full rounded border border-border bg-secondary" />
+              <button
+                onClick={() => setPersonGridUrl('')}
+                className="absolute -top-1 -right-1 p-0.5 rounded-full bg-destructive text-destructive-foreground"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

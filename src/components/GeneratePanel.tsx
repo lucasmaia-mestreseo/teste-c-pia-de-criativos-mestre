@@ -10,6 +10,8 @@ import { useBrandKit } from '@/hooks/useBrandKit';
 import { useSwipeAnalysis } from '@/hooks/useSwipeAnalysis';
 import SwipeElementsEditor, { type ElementOverrides } from '@/components/SwipeElementsEditor';
 import { supabase } from '@/integrations/supabase/client';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { Zap, Download, Trash2, Loader2, Maximize2, Minimize2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
@@ -31,6 +33,7 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
   const [includeLogo, setIncludeLogo] = useState(false);
   const [includePersonPhoto, setIncludePersonPhoto] = useState(false);
   const [selectedPersonPhoto, setSelectedPersonPhoto] = useState<string>('');
+  const [personMode, setPersonMode] = useState<'photo' | 'grid'>('photo');
   const [thumbSize, setThumbSize] = useState(80);
   const [modalImage, setModalImage] = useState<{ url: string; prompt: string; id: string; projectId: string } | null>(null);
   const [elementOverrides, setElementOverrides] = useState<ElementOverrides>(EMPTY_OVERRIDES);
@@ -64,6 +67,7 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
   const hasLogo = !!brandKit?.logo_url;
   const personPhotos = brandKit?.people_photos?.filter(Boolean) ?? [];
   const hasPersonPhotos = personPhotos.length > 0;
+  const hasGrid = !!(brandKit as any)?.person_grid_url;
 
   const handleGenerate = async () => {
     if (!projectId || !selectedSwipe || !prompt.trim()) {
@@ -77,9 +81,17 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
       const anyPhotoReplace = Object.values(elementOverrides.photos).some(p => p.action === 'replace');
 
       const logoUrl = (includeLogo || anyLogoReplace) && hasLogo ? brandKit?.logo_url : null;
-      const personPhotoUrl = (includePersonPhoto && selectedPersonPhoto)
-        ? selectedPersonPhoto
-        : (anyPhotoReplace && personPhotos.length > 0 ? (selectedPersonPhoto || personPhotos[0]) : null);
+
+      // Determine person asset: grid or photo
+      const useGrid = personMode === 'grid' && hasGrid;
+      const personPhotoUrl = useGrid
+        ? null
+        : ((includePersonPhoto && selectedPersonPhoto)
+          ? selectedPersonPhoto
+          : (anyPhotoReplace && personPhotos.length > 0 ? (selectedPersonPhoto || personPhotos[0]) : null));
+      const personGridUrl = useGrid && (includePersonPhoto || anyPhotoReplace)
+        ? (brandKit as any).person_grid_url
+        : null;
 
       const { data, error } = await supabase.functions.invoke('generate-creative', {
         body: {
@@ -96,6 +108,7 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
             typography: brandKit.typography,
             logoUrl,
             personPhotoUrl,
+            personGridUrl,
           } : null,
           elementOverrides: analysis ? elementOverrides : null,
         },
@@ -272,6 +285,22 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
                     <img src={url} alt={`Pessoa ${i + 1}`} className="w-full h-full object-cover" />
                   </button>
                 ))}
+                {hasGrid && (
+                  <RadioGroup
+                    value={personMode}
+                    onValueChange={(v) => setPersonMode(v as 'photo' | 'grid')}
+                    className="flex items-center gap-2 ml-2"
+                  >
+                    <div className="flex items-center gap-1">
+                      <RadioGroupItem value="photo" id="mode-photo" className="h-3 w-3" />
+                      <Label htmlFor="mode-photo" className="text-[10px] text-muted-foreground cursor-pointer">Foto</Label>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <RadioGroupItem value="grid" id="mode-grid" className="h-3 w-3" />
+                      <Label htmlFor="mode-grid" className="text-[10px] text-muted-foreground cursor-pointer">Grid</Label>
+                    </div>
+                  </RadioGroup>
+                )}
               </div>
             )}
           </div>

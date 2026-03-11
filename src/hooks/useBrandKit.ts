@@ -31,6 +31,7 @@ export function useUpsertBrandKit() {
       background_color?: string;
       aux_colors?: string[];
       people_photos?: string[];
+      person_grid_url?: string;
     }) => {
       const { data, error } = await supabase
         .from('brand_kits')

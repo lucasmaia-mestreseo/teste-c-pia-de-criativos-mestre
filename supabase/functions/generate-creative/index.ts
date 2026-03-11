@@ -91,6 +91,7 @@ interface BrandKitInput {
   typography?: string | null;
   logoUrl?: string | null;
   personPhotoUrl?: string | null;
+  personGridUrl?: string | null;
 }
 
 interface ElementOverride {
@@ -370,6 +371,7 @@ serve(async (req) => {
 
     const hasLogo = !!(brandKit?.logoUrl);
     const hasPersonPhoto = !!(brandKit?.personPhotoUrl);
+    const hasPersonGrid = !!(brandKit?.personGridUrl);
     const photoMode = detectPhotoMode(prompt);
 
     // Pre-analyze logo content if logo is provided
@@ -386,7 +388,7 @@ serve(async (req) => {
       format,
       brandKit,
       hasLogo,
-      hasPersonPhoto,
+      hasPersonPhoto || hasPersonGrid,
       photoMode,
       logoAnalysis,
       elementOverrides || null,
@@ -435,8 +437,13 @@ CRITICAL RULES:
       );
     }
 
-    // 4. Person photo (if enabled)
-    if (hasPersonPhoto) {
+    // 4. Person photo or grid (if enabled)
+    if (hasPersonGrid) {
+      userContent.push(
+        { type: "text", text: "📎 GRID MULTI-ÂNGULO DA PESSOA (asset obrigatório — este grid mostra a MESMA pessoa em 9 ângulos cinematográficos diferentes: MCU, MS, OS, WS, HA, LA, P, 3/4, B. Use este grid como referência ABSOLUTA para manter consistência facial e corporal da pessoa. A pessoa no criativo final DEVE ser IDÊNTICA a esta pessoa em todos os traços, tom de pele, cabelo e proporções):" },
+        { type: "image_url", image_url: { url: brandKit.personGridUrl } },
+      );
+    } else if (hasPersonPhoto) {
       const personLabel = photoMode === "replace"
         ? "📎 FOTO DA PESSOA (asset obrigatório — esta pessoa DEVE aparecer no criativo, substituindo a pessoa da referência. Use o rosto e aparência EXATOS desta foto):"
         : "📎 FOTO DA PESSOA (asset obrigatório — TROQUE o rosto da pessoa na referência pelo rosto desta pessoa. Mantenha pose, roupa e cenário da referência. O rosto final DEVE ser idêntico a esta foto):";
@@ -447,7 +454,7 @@ CRITICAL RULES:
     }
 
     // 5. Final coexistence reminder if both assets present
-    if (hasLogo && hasPersonPhoto) {
+    if (hasLogo && (hasPersonPhoto || hasPersonGrid)) {
       userContent.push({
         type: "text",
         text: "⚠️ LEMBRETE FINAL: Tanto o LOGO quanto a PESSOA foram fornecidos. AMBOS DEVEM aparecer na imagem final. Um NÃO substitui o outro. Verifique o checklist de fidelidade antes de finalizar.",

@@ -23,6 +23,7 @@ export type Database = {
           id: string
           logo_url: string | null
           people_photos: string[] | null
+          person_grid_url: string | null
           photos: string[] | null
           primary_color: string | null
           project_id: string
@@ -38,6 +39,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           people_photos?: string[] | null
+          person_grid_url?: string | null
           photos?: string[] | null
           primary_color?: string | null
           project_id: string
@@ -53,6 +55,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           people_photos?: string[] | null
+          person_grid_url?: string | null
           photos?: string[] | null
           primary_color?: string | null
           project_id?: string
