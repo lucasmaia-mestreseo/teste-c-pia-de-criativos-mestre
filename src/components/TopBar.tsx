@@ -7,7 +7,7 @@ import { useProjects, useCreateProject } from '@/hooks/useProjects';
 import { Palette, Clock, Plus, Zap, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
-type RightPanel = 'generate' | 'brandkit' | 'history';
+type RightPanel = 'generate' | 'brandkit' | 'context' | 'history';
 
 interface TopBarProps {
   selectedProjectId: string | null;
