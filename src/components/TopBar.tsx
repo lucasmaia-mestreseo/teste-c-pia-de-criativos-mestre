@@ -90,6 +90,13 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
           <Palette className="h-4 w-4 mr-1" /> Brand Kit
         </Button>
         <Button
+          variant={activePanel === 'context' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => onPanelChange('context')}
+        >
+          <FileText className="h-4 w-4 mr-1" /> Contexto
+        </Button>
+        <Button
           variant={activePanel === 'history' ? 'default' : 'ghost'}
           size="sm"
           onClick={() => onPanelChange('history')}

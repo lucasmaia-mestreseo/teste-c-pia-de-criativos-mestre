@@ -45,6 +45,9 @@ const Index = () => {
           {activePanel === 'brandkit' && (
             <BrandKitPanel projectId={projectId} />
           )}
+          {activePanel === 'context' && (
+            <ContextPanel projectId={projectId} />
+          )}
           {activePanel === 'history' && (
             <HistoryPanel projectId={projectId} />
           )}
