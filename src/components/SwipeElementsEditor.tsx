@@ -35,15 +35,15 @@ export default function SwipeElementsEditor({ analysis, isPending, overrides, on
     if (!analysis) return;
     const texts: ElementOverrides['texts'] = {};
     analysis.texts.forEach((t) => {
-      texts[t.id] = overrides.texts[t.id] ?? { original: t.content, value: t.content, action: 'keep' };
+      texts[t.id] = { original: t.content, value: t.content, action: 'keep' };
     });
     const logos: ElementOverrides['logos'] = {};
     analysis.logos.forEach((l) => {
-      logos[l.id] = overrides.logos[l.id] ?? { action: 'keep' };
+      logos[l.id] = { action: 'keep' };
     });
     const photos: ElementOverrides['photos'] = {};
     analysis.photos.forEach((p) => {
-      photos[p.id] = overrides.photos[p.id] ?? { action: 'keep' };
+      photos[p.id] = { action: 'keep' };
     });
     onChange({ texts, logos, photos });
     // eslint-disable-next-line react-hooks/exhaustive-deps

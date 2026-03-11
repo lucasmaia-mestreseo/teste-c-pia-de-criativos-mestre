@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -40,6 +40,11 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
   const qc = useQueryClient();
 
   const { analysis, isPending } = useSwipeAnalysis(selectedSwipe as any);
+
+  // Reset overrides when switching swipe files
+  useEffect(() => {
+    setElementOverrides(EMPTY_OVERRIDES);
+  }, [selectedSwipe?.id]);
 
   const hasLogo = !!brandKit?.logo_url;
   const personPhotos = brandKit?.people_photos?.filter(Boolean) ?? [];
