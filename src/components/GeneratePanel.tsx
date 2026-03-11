@@ -219,6 +219,7 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
             onChange={setElementOverrides}
             hasLogo={hasLogo}
             hasPersonPhotos={hasPersonPhotos}
+            projectContext={projectContext}
           />
         )}
 

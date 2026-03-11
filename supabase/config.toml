@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.analyze-swipe]
 verify_jwt = false
+
+[functions.suggest-texts]
+verify_jwt = false
