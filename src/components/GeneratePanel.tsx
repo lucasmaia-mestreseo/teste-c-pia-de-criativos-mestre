@@ -41,6 +41,21 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
 
   const { analysis, isPending } = useSwipeAnalysis(selectedSwipe as any);
 
+  const { data: projectData } = useQuery({
+    queryKey: ['project-context', projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('context')
+        .eq('id', projectId!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!projectId,
+  });
+  const projectContext = projectData?.context ?? '';
+
   // Reset overrides when switching swipe files
   useEffect(() => {
     setElementOverrides(EMPTY_OVERRIDES);
