@@ -3,9 +3,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import ImageAttachments from './ImageAttachments';
-import { Monitor, ArrowRightLeft, Star, List, UserCheck, Play, Tag, ChevronLeft } from 'lucide-react';
+import { Monitor, ArrowRightLeft, Star, List, UserCheck, Play, Tag, ChevronLeft, Sparkles, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 export interface TemplateField {
   key: string;
@@ -122,6 +125,7 @@ interface TemplatesPanelProps {
 
 export default function TemplatesPanel({ projectId, data, onChange }: TemplatesPanelProps) {
   const selectedTemplate = TEMPLATES.find((t) => t.id === data.templateId);
+  const [filling, setFilling] = useState(false);
 
   const selectTemplate = (id: string) => {
     onChange({ templateId: id, fields: {}, prompt: data.prompt, attachedImages: data.attachedImages });
@@ -129,6 +133,47 @@ export default function TemplatesPanel({ projectId, data, onChange }: TemplatesP
 
   const updateField = (key: string, value: string) => {
     onChange({ ...data, fields: { ...data.fields, [key]: value } });
+  };
+
+  const handleAiFill = async () => {
+    if (!selectedTemplate) return;
+    setFilling(true);
+    try {
+      const { data: project, error: pErr } = await supabase
+        .from('projects')
+        .select('context')
+        .eq('id', projectId)
+        .single();
+      if (pErr || !project?.context) {
+        toast({ title: 'Contexto não encontrado', description: 'Configure o contexto do projeto antes de usar o preenchimento com IA.', variant: 'destructive' });
+        return;
+      }
+
+      const texts = selectedTemplate.fields.map((f) => ({
+        id: f.key,
+        role: f.key,
+        content: data.fields[f.key] || f.placeholder || '',
+        position: f.label,
+      }));
+
+      const { data: result, error } = await supabase.functions.invoke('suggest-texts', {
+        body: { context: project.context, texts },
+      });
+
+      if (error) throw error;
+
+      const newFields = { ...data.fields };
+      (result.suggestions as { id: string; text: string }[]).forEach((s) => {
+        newFields[s.id] = s.text;
+      });
+      onChange({ ...data, fields: newFields });
+      toast({ title: 'Campos preenchidos com IA ✨' });
+    } catch (e: any) {
+      console.error('AI fill error:', e);
+      toast({ title: 'Erro ao preencher', description: e?.message || 'Tente novamente.', variant: 'destructive' });
+    } finally {
+      setFilling(false);
+    }
   };
 
   if (!selectedTemplate) {
@@ -168,7 +213,24 @@ export default function TemplatesPanel({ projectId, data, onChange }: TemplatesP
           <ChevronLeft className="h-4 w-4" />
         </button>
         <div className="p-1.5 rounded-md bg-primary/10 text-primary">{selectedTemplate.icon}</div>
-        <h2 className="text-sm font-semibold">{selectedTemplate.name}</h2>
+        <h2 className="text-sm font-semibold flex-1">{selectedTemplate.name}</h2>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 text-xs"
+                onClick={handleAiFill}
+                disabled={filling}
+              >
+                {filling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                IA
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Preencher campos com IA usando o contexto do projeto</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       <ScrollArea className="flex-1">
