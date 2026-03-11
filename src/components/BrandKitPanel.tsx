@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Plus, X, Upload, Save, Loader2, Globe, Image } from 'lucide-react';
+import { Plus, X, Upload, Save, Loader2, Globe, Image, Grid3x3 } from 'lucide-react';
 import { toast } from 'sonner';
 import ColorPickerWithHex from '@/components/ColorPickerWithHex';
 import {
