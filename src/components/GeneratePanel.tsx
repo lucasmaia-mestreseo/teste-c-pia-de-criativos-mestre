@@ -194,8 +194,7 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
         {selectedSwipe && (
           <SwipeElementsEditor
             analysis={analysis}
-            analyzing={analyzing}
-            onAnalyze={analyze}
+            isPending={isPending}
             overrides={elementOverrides}
             onChange={setElementOverrides}
             hasLogo={hasLogo}

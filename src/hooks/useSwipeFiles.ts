@@ -43,6 +43,18 @@ export function useUploadSwipeFile() {
         .select()
         .single();
       if (error) throw error;
+
+      // Fire-and-forget: trigger analysis in background
+      const swipeFileId = data.id;
+      const swipeFileUrl = data.image_url;
+      supabase.functions.invoke('analyze-swipe', {
+        body: { swipeFileUrl, swipeFileId },
+      }).then(() => {
+        qc.invalidateQueries({ queryKey: ['swipe_files', projectId] });
+      }).catch(() => {
+        // Analysis failed silently — user can retry later
+      });
+
       return data;
     },
     onSuccess: (data) => qc.invalidateQueries({ queryKey: ['swipe_files', data.project_id] }),

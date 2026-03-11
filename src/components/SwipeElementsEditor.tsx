@@ -1,9 +1,8 @@
 import { useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, Type, Image, Stamp, Loader2, ScanSearch, X } from 'lucide-react';
+import { ChevronDown, Type, Image, Stamp, Loader2, X } from 'lucide-react';
 import type { SwipeAnalysis } from '@/hooks/useSwipeAnalysis';
 
 export interface ElementOverrides {
@@ -14,8 +13,7 @@ export interface ElementOverrides {
 
 interface Props {
   analysis: SwipeAnalysis | null;
-  analyzing: boolean;
-  onAnalyze: () => void;
+  isPending: boolean;
   overrides: ElementOverrides;
   onChange: (overrides: ElementOverrides) => void;
   hasLogo: boolean;
@@ -31,7 +29,7 @@ const ROLE_LABELS: Record<string, string> = {
   other: 'Texto',
 };
 
-export default function SwipeElementsEditor({ analysis, analyzing, onAnalyze, overrides, onChange, hasLogo, hasPersonPhotos }: Props) {
+export default function SwipeElementsEditor({ analysis, isPending, overrides, onChange, hasLogo, hasPersonPhotos }: Props) {
   // Initialize overrides when analysis arrives
   useEffect(() => {
     if (!analysis) return;
@@ -51,15 +49,7 @@ export default function SwipeElementsEditor({ analysis, analyzing, onAnalyze, ov
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [analysis]);
 
-  if (!analysis && !analyzing) {
-    return (
-      <Button variant="outline" size="sm" onClick={onAnalyze} className="text-[10px] h-7 gap-1">
-        <ScanSearch className="h-3 w-3" /> Analisar elementos
-      </Button>
-    );
-  }
-
-  if (analyzing) {
+  if (isPending) {
     return (
       <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground py-1">
         <Loader2 className="h-3 w-3 animate-spin" /> Analisando elementos...
@@ -119,7 +109,6 @@ export default function SwipeElementsEditor({ analysis, analyzing, onAnalyze, ov
         Elementos detectados ({analysis.texts.length + analysis.logos.length + analysis.photos.length})
       </CollapsibleTrigger>
       <CollapsibleContent className="space-y-1.5 pt-1.5">
-        {/* Texts */}
         {hasTexts && analysis.texts.map((t) => {
           const ov = overrides.texts[t.id];
           const isRemoved = ov?.action === 'remove';
@@ -143,7 +132,6 @@ export default function SwipeElementsEditor({ analysis, analyzing, onAnalyze, ov
           );
         })}
 
-        {/* Logos */}
         {hasLogos && analysis.logos.map((l) => (
           <div key={l.id} className="flex items-center gap-1.5">
             <Stamp className="h-3 w-3 text-muted-foreground flex-shrink-0" />
@@ -159,7 +147,6 @@ export default function SwipeElementsEditor({ analysis, analyzing, onAnalyze, ov
           </div>
         ))}
 
-        {/* Photos */}
         {hasPhotos && analysis.photos.map((p) => (
           <div key={p.id} className="flex items-center gap-1.5">
             <Image className="h-3 w-3 text-muted-foreground flex-shrink-0" />
