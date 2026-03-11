@@ -67,6 +67,7 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
   const hasLogo = !!brandKit?.logo_url;
   const personPhotos = brandKit?.people_photos?.filter(Boolean) ?? [];
   const hasPersonPhotos = personPhotos.length > 0;
+  const hasGrid = !!(brandKit as any)?.person_grid_url;
 
   const handleGenerate = async () => {
     if (!projectId || !selectedSwipe || !prompt.trim()) {
