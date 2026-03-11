@@ -58,6 +58,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
       setLogoUrl(kit.logo_url ?? '');
       setPhotos(kit.photos ?? []);
       setPeoplePhotos(kit.people_photos ?? []);
+      setPersonGridUrl(kit.person_grid_url ?? '');
     } else {
       setPrimaryColor('');
       setSecondaryColor('');
