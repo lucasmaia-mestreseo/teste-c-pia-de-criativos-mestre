@@ -505,71 +505,87 @@ CRITICAL RULES:
       });
     }
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3.1-flash-image-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userContent },
-        ],
-        modalities: ["image", "text"],
-      }),
-    });
+    const MAX_ATTEMPTS = 3;
+    let generatedImage: string | undefined;
 
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em breve." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos insuficientes. Adicione créditos ao seu workspace." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const errText = await aiResponse.text();
-      console.error("AI gateway error:", aiResponse.status, errText);
-      throw new Error("Erro na geração de imagem");
-    }
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const model = attempt < 3
+        ? "google/gemini-3.1-flash-image-preview"
+        : "google/gemini-3.1-pro-image-preview";
 
-    const aiData = await aiResponse.json();
-    console.log("AI response keys:", JSON.stringify(Object.keys(aiData)));
-    console.log("AI choices[0].message keys:", JSON.stringify(Object.keys(aiData.choices?.[0]?.message || {})));
-    
-    // Try multiple known response formats
-    let generatedImage = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    
-    if (!generatedImage) {
-      // Alternative format: inline content parts with image
-      const parts = aiData.choices?.[0]?.message?.content;
-      if (Array.isArray(parts)) {
-        for (const part of parts) {
-          if (part.type === "image_url" && part.image_url?.url) {
-            generatedImage = part.image_url.url;
-            break;
-          }
-          if (part.type === "image" && part.image_url?.url) {
-            generatedImage = part.image_url.url;
-            break;
-          }
-          if (part.inline_data?.data) {
-            generatedImage = `data:${part.inline_data.mime_type || "image/png"};base64,${part.inline_data.data}`;
-            break;
+      console.log(`Attempt ${attempt}/${MAX_ATTEMPTS} with model ${model}`);
+
+      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userContent },
+          ],
+          modalities: ["image", "text"],
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        if (aiResponse.status === 429) {
+          return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em breve." }), {
+            status: 429,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (aiResponse.status === 402) {
+          return new Response(JSON.stringify({ error: "Créditos insuficientes. Adicione créditos ao seu workspace." }), {
+            status: 402,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const errText = await aiResponse.text();
+        console.error(`AI gateway error (attempt ${attempt}):`, aiResponse.status, errText);
+        if (attempt < MAX_ATTEMPTS) {
+          await new Promise(r => setTimeout(r, 1000));
+          continue;
+        }
+        throw new Error("Erro na geração de imagem");
+      }
+
+      const aiData = await aiResponse.json();
+      console.log(`Attempt ${attempt} - response keys:`, JSON.stringify(Object.keys(aiData)));
+      console.log(`Attempt ${attempt} - message keys:`, JSON.stringify(Object.keys(aiData.choices?.[0]?.message || {})));
+
+      // Try multiple known response formats
+      generatedImage = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+
+      if (!generatedImage) {
+        const parts = aiData.choices?.[0]?.message?.content;
+        if (Array.isArray(parts)) {
+          for (const part of parts) {
+            if ((part.type === "image_url" || part.type === "image") && part.image_url?.url) {
+              generatedImage = part.image_url.url;
+              break;
+            }
+            if (part.inline_data?.data) {
+              generatedImage = `data:${part.inline_data.mime_type || "image/png"};base64,${part.inline_data.data}`;
+              break;
+            }
           }
         }
       }
+
+      if (generatedImage) break;
+
+      console.warn(`Attempt ${attempt} failed - no image. finish_reason: ${aiData.choices?.[0]?.native_finish_reason || aiData.choices?.[0]?.finish_reason}`);
+      if (attempt < MAX_ATTEMPTS) {
+        await new Promise(r => setTimeout(r, 1000));
+      }
     }
 
     if (!generatedImage) {
-      console.error("Full AI response structure:", JSON.stringify(aiData).substring(0, 2000));
-      throw new Error("Nenhuma imagem foi gerada pela IA");
+      throw new Error("A IA não conseguiu gerar a imagem após múltiplas tentativas. Tente novamente ou simplifique o prompt.");
     }
 
     // Extract base64 data and upload to storage
