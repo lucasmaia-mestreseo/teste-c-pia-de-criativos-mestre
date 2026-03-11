@@ -7,7 +7,7 @@ import ContextPanel from '@/components/ContextPanel';
 import HistoryPanel from '@/components/HistoryPanel';
 import type { Tables } from '@/integrations/supabase/types';
 
-type RightPanel = 'generate' | 'brandkit' | 'history';
+type RightPanel = 'generate' | 'brandkit' | 'context' | 'history';
 
 const Index = () => {
   const [projectId, setProjectId] = useState<string | null>(null);
