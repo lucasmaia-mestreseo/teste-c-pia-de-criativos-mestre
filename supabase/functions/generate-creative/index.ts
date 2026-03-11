@@ -540,9 +540,35 @@ CRITICAL RULES:
     }
 
     const aiData = await aiResponse.json();
-    const generatedImage = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    console.log("AI response keys:", JSON.stringify(Object.keys(aiData)));
+    console.log("AI choices[0].message keys:", JSON.stringify(Object.keys(aiData.choices?.[0]?.message || {})));
+    
+    // Try multiple known response formats
+    let generatedImage = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    
+    if (!generatedImage) {
+      // Alternative format: inline content parts with image
+      const parts = aiData.choices?.[0]?.message?.content;
+      if (Array.isArray(parts)) {
+        for (const part of parts) {
+          if (part.type === "image_url" && part.image_url?.url) {
+            generatedImage = part.image_url.url;
+            break;
+          }
+          if (part.type === "image" && part.image_url?.url) {
+            generatedImage = part.image_url.url;
+            break;
+          }
+          if (part.inline_data?.data) {
+            generatedImage = `data:${part.inline_data.mime_type || "image/png"};base64,${part.inline_data.data}`;
+            break;
+          }
+        }
+      }
+    }
 
     if (!generatedImage) {
+      console.error("Full AI response structure:", JSON.stringify(aiData).substring(0, 2000));
       throw new Error("Nenhuma imagem foi gerada pela IA");
     }
 
