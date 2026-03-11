@@ -91,6 +91,7 @@ interface BrandKitInput {
   typography?: string | null;
   logoUrl?: string | null;
   personPhotoUrl?: string | null;
+  personGridUrl?: string | null;
 }
 
 interface ElementOverride {
