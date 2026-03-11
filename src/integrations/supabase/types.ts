@@ -141,6 +141,7 @@ export type Database = {
       }
       swipe_files: {
         Row: {
+          analysis: Json | null
           created_at: string
           height: number | null
           id: string
@@ -150,6 +151,7 @@ export type Database = {
           width: number | null
         }
         Insert: {
+          analysis?: Json | null
           created_at?: string
           height?: number | null
           id?: string
@@ -159,6 +161,7 @@ export type Database = {
           width?: number | null
         }
         Update: {
+          analysis?: Json | null
           created_at?: string
           height?: number | null
           id?: string

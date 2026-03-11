@@ -7,6 +7,8 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Slider } from '@/components/ui/slider';
 import { useGeneratedCreatives, useDeleteCreative } from '@/hooks/useGeneratedCreatives';
 import { useBrandKit } from '@/hooks/useBrandKit';
+import { useSwipeAnalysis } from '@/hooks/useSwipeAnalysis';
+import SwipeElementsEditor, { type ElementOverrides } from '@/components/SwipeElementsEditor';
 import { supabase } from '@/integrations/supabase/client';
 import { Zap, Download, Trash2, Loader2, Maximize2, Minimize2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -14,6 +16,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { Tables } from '@/integrations/supabase/types';
 
 const FORMATS = ['9:16', '4:5', '1:1', '16:9'] as const;
+
+const EMPTY_OVERRIDES: ElementOverrides = { texts: {}, logos: {}, photos: {} };
 
 interface GeneratePanelProps {
   projectId: string | null;
@@ -29,10 +33,13 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
   const [selectedPersonPhoto, setSelectedPersonPhoto] = useState<string>('');
   const [thumbSize, setThumbSize] = useState(80);
   const [modalImage, setModalImage] = useState<{ url: string; prompt: string; id: string; projectId: string } | null>(null);
+  const [elementOverrides, setElementOverrides] = useState<ElementOverrides>(EMPTY_OVERRIDES);
   const { data: creatives } = useGeneratedCreatives(projectId);
   const { data: brandKit } = useBrandKit(projectId);
   const deleteCreative = useDeleteCreative();
   const qc = useQueryClient();
+
+  const { analysis, analyzing, analyze } = useSwipeAnalysis(selectedSwipe as any);
 
   const hasLogo = !!brandKit?.logo_url;
   const personPhotos = brandKit?.people_photos?.filter(Boolean) ?? [];
@@ -61,6 +68,7 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
             logoUrl: includeLogo && hasLogo ? brandKit.logo_url : null,
             personPhotoUrl: includePersonPhoto && selectedPersonPhoto ? selectedPersonPhoto : null,
           } : null,
+          elementOverrides: analysis ? elementOverrides : null,
         },
       });
       if (error) throw error;
@@ -182,6 +190,19 @@ export default function GeneratePanel({ projectId, selectedSwipe }: GeneratePane
 
       {/* === PROMPT + OPTIONS (bottom) === */}
       <div className="px-3 pb-3 pt-2 space-y-2">
+        {/* Swipe Elements Editor */}
+        {selectedSwipe && (
+          <SwipeElementsEditor
+            analysis={analysis}
+            analyzing={analyzing}
+            onAnalyze={analyze}
+            overrides={elementOverrides}
+            onChange={setElementOverrides}
+            hasLogo={hasLogo}
+            hasPersonPhotos={hasPersonPhotos}
+          />
+        )}
+
         <div className="flex gap-2 items-start">
           {selectedSwipe && (
             <div className="w-12 h-12 rounded-md overflow-hidden border bg-secondary flex-shrink-0">
