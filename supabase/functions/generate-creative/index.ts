@@ -79,6 +79,32 @@ Be precise and exhaustive. Every single character of text must be listed. Answer
   }
 }
 
+/** Strip non-essential PNG chunks (metadata, EXIF, text) keeping only image data */
+function stripPngMetadata(data: Uint8Array): Uint8Array {
+  const PNG_SIG = [137, 80, 78, 71, 13, 10, 26, 10];
+  // Verify PNG signature
+  for (let i = 0; i < 8; i++) {
+    if (data[i] !== PNG_SIG[i]) return data; // Not a PNG, return as-is
+  }
+  const keepTypes = new Set(["IHDR", "PLTE", "tRNS", "IDAT", "IEND"]);
+  const chunks: Uint8Array[] = [data.slice(0, 8)]; // signature
+  let offset = 8;
+  while (offset < data.length) {
+    const len = (data[offset] << 24) | (data[offset+1] << 16) | (data[offset+2] << 8) | data[offset+3];
+    const type = String.fromCharCode(data[offset+4], data[offset+5], data[offset+6], data[offset+7]);
+    const chunkSize = 12 + len; // 4 len + 4 type + data + 4 crc
+    if (keepTypes.has(type)) {
+      chunks.push(data.slice(offset, offset + chunkSize));
+    }
+    offset += chunkSize;
+    if (type === "IEND") break;
+  }
+  const totalLen = chunks.reduce((s, c) => s + c.length, 0);
+  const result = new Uint8Array(totalLen);
+  let pos = 0;
+  for (const chunk of chunks) { result.set(chunk, pos); pos += chunk.length; }
+  return result;
+}
 
 /* ------------------------------------------------------------------ */
 /*  Helper: build the structured instruction block for user content   */
