@@ -120,7 +120,8 @@ CRITICAL: The lighting and color grading must remain identical to the input sour
 
     // Upload to storage
     const base64Data = generatedImage.replace(/^data:image\/\w+;base64,/, "");
-    const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+    const rawBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+    const imageBytes = stripPngMetadata(rawBytes);
     const filePath = `${projectId}/grid-${crypto.randomUUID()}.png`;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;

@@ -588,9 +588,10 @@ CRITICAL RULES:
       throw new Error("A IA não conseguiu gerar a imagem após múltiplas tentativas. Tente novamente ou simplifique o prompt.");
     }
 
-    // Extract base64 data and upload to storage
+    // Extract base64 data and strip PNG metadata before upload
     const base64Data = generatedImage.replace(/^data:image\/\w+;base64,/, "");
-    const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+    const rawBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+    const imageBytes = stripPngMetadata(rawBytes);
     const filePath = `${projectId}/${crypto.randomUUID()}.png`;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
