@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Zap, Download, Trash2, Loader2, Maximize2, Minimize2 } from 'lucide-react';
+import { stripPngMetadata } from '@/lib/stripPngMetadata';
 import { toast } from 'sonner';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import type { Tables } from '@/integrations/supabase/types';
@@ -156,7 +157,9 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
   const handleDownload = async (url: string, name: string) => {
     try {
       const res = await fetch(url);
-      const blob = await res.blob();
+      const buf = await res.arrayBuffer();
+      const clean = stripPngMetadata(new Uint8Array(buf));
+      const blob = new Blob([clean.buffer as ArrayBuffer], { type: 'image/png' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = name;

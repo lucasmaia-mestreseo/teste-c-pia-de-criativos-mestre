@@ -1,6 +1,7 @@
 import { useGeneratedCreatives, useDeleteCreative } from '@/hooks/useGeneratedCreatives';
 import { Download, Trash2, Clock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { stripPngMetadata } from '@/lib/stripPngMetadata';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -15,7 +16,9 @@ export default function HistoryPanel({ projectId }: HistoryPanelProps) {
   const handleDownload = async (url: string, id: string) => {
     try {
       const res = await fetch(url);
-      const blob = await res.blob();
+      const buf = await res.arrayBuffer();
+      const clean = stripPngMetadata(new Uint8Array(buf));
+      const blob = new Blob([clean.buffer as ArrayBuffer], { type: 'image/png' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = `creative-${id}.png`;
