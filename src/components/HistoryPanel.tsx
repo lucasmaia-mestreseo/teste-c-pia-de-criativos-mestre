@@ -16,7 +16,9 @@ export default function HistoryPanel({ projectId }: HistoryPanelProps) {
   const handleDownload = async (url: string, id: string) => {
     try {
       const res = await fetch(url);
-      const blob = await res.blob();
+      const buf = await res.arrayBuffer();
+      const clean = stripPngMetadata(new Uint8Array(buf));
+      const blob = new Blob([clean], { type: 'image/png' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = `creative-${id}.png`;
