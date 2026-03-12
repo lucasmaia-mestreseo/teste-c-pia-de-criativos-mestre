@@ -159,7 +159,7 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
       const res = await fetch(url);
       const buf = await res.arrayBuffer();
       const clean = stripPngMetadata(new Uint8Array(buf));
-      const blob = new Blob([clean], { type: 'image/png' });
+      const blob = new Blob([clean.buffer as ArrayBuffer], { type: 'image/png' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = name;
