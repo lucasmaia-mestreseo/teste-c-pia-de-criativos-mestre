@@ -1,6 +1,7 @@
 import { useGeneratedCreatives, useDeleteCreative } from '@/hooks/useGeneratedCreatives';
 import { Download, Trash2, Clock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { stripPngMetadata } from '@/lib/stripPngMetadata';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
