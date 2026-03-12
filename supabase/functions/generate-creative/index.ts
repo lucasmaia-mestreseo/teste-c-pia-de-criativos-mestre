@@ -79,6 +79,32 @@ Be precise and exhaustive. Every single character of text must be listed. Answer
   }
 }
 
+/** Strip non-essential PNG chunks (metadata, EXIF, text) keeping only image data */
+function stripPngMetadata(data: Uint8Array): Uint8Array {
+  const PNG_SIG = [137, 80, 78, 71, 13, 10, 26, 10];
+  // Verify PNG signature
+  for (let i = 0; i < 8; i++) {
+    if (data[i] !== PNG_SIG[i]) return data; // Not a PNG, return as-is
+  }
+  const keepTypes = new Set(["IHDR", "PLTE", "tRNS", "IDAT", "IEND"]);
+  const chunks: Uint8Array[] = [data.slice(0, 8)]; // signature
+  let offset = 8;
+  while (offset < data.length) {
+    const len = (data[offset] << 24) | (data[offset+1] << 16) | (data[offset+2] << 8) | data[offset+3];
+    const type = String.fromCharCode(data[offset+4], data[offset+5], data[offset+6], data[offset+7]);
+    const chunkSize = 12 + len; // 4 len + 4 type + data + 4 crc
+    if (keepTypes.has(type)) {
+      chunks.push(data.slice(offset, offset + chunkSize));
+    }
+    offset += chunkSize;
+    if (type === "IEND") break;
+  }
+  const totalLen = chunks.reduce((s, c) => s + c.length, 0);
+  const result = new Uint8Array(totalLen);
+  let pos = 0;
+  for (const chunk of chunks) { result.set(chunk, pos); pos += chunk.length; }
+  return result;
+}
 
 /* ------------------------------------------------------------------ */
 /*  Helper: build the structured instruction block for user content   */
@@ -588,9 +614,10 @@ CRITICAL RULES:
       throw new Error("A IA não conseguiu gerar a imagem após múltiplas tentativas. Tente novamente ou simplifique o prompt.");
     }
 
-    // Extract base64 data and upload to storage
+    // Extract base64 data and strip PNG metadata before upload
     const base64Data = generatedImage.replace(/^data:image\/\w+;base64,/, "");
-    const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+    const rawBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+    const imageBytes = stripPngMetadata(rawBytes);
     const filePath = `${projectId}/${crypto.randomUUID()}.png`;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;

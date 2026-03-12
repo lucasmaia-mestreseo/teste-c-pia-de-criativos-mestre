@@ -7,6 +7,32 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+/** Strip non-essential PNG chunks (metadata, EXIF, text) keeping only image data */
+function stripPngMetadata(data: Uint8Array): Uint8Array {
+  const PNG_SIG = [137, 80, 78, 71, 13, 10, 26, 10];
+  for (let i = 0; i < 8; i++) {
+    if (data[i] !== PNG_SIG[i]) return data;
+  }
+  const keepTypes = new Set(["IHDR", "PLTE", "tRNS", "IDAT", "IEND"]);
+  const chunks: Uint8Array[] = [data.slice(0, 8)];
+  let offset = 8;
+  while (offset < data.length) {
+    const len = (data[offset] << 24) | (data[offset+1] << 16) | (data[offset+2] << 8) | data[offset+3];
+    const type = String.fromCharCode(data[offset+4], data[offset+5], data[offset+6], data[offset+7]);
+    const chunkSize = 12 + len;
+    if (keepTypes.has(type)) {
+      chunks.push(data.slice(offset, offset + chunkSize));
+    }
+    offset += chunkSize;
+    if (type === "IEND") break;
+  }
+  const totalLen = chunks.reduce((s, c) => s + c.length, 0);
+  const result = new Uint8Array(totalLen);
+  let pos = 0;
+  for (const chunk of chunks) { result.set(chunk, pos); pos += chunk.length; }
+  return result;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -120,7 +146,8 @@ CRITICAL: The lighting and color grading must remain identical to the input sour
 
     // Upload to storage
     const base64Data = generatedImage.replace(/^data:image\/\w+;base64,/, "");
-    const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+    const rawBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+    const imageBytes = stripPngMetadata(rawBytes);
     const filePath = `${projectId}/grid-${crypto.randomUUID()}.png`;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
