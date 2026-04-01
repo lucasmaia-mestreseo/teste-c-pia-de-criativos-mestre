@@ -46,6 +46,8 @@ export default function DynamicGeneratePanel({ projectId }: DynamicGeneratePanel
     radical: 1,
   });
   const [format, setFormat] = useState<string>('1:1');
+  const [ignoreBrandKit, setIgnoreBrandKit] = useState(false);
+  const [ignoreContext, setIgnoreContext] = useState(false);
   const [generating, setGenerating] = useState(false);
 
   const { data: formats } = useCreativeFormats();
