@@ -25,9 +25,10 @@ Deno.serve(async (req) => {
     const { data: { user } } = await anonClient.auth.getUser();
     if (!user) throw new Error("Não autenticado");
 
-    const { projectId, types } = await req.json();
+    const { projectId, types, format } = await req.json();
     // types: Array<{ type: 'conservative' | 'innovative' | 'radical', count: number }>
     if (!projectId || !types?.length) throw new Error("projectId e types são obrigatórios");
+    const selectedFormat = format || "1:1";
 
     // Fetch project context and brand kit
     const { data: project } = await anonClient.from("projects").select("context, voice_guide, name").eq("id", projectId).single();
