@@ -489,6 +489,14 @@ CRITICAL RULES:
       );
       userContent.push({ type: "text", text: instructionBlock });
 
+      // Template base image
+      if (creationMode === 'templates' && templateBaseImageUrl) {
+        userContent.push(
+          { type: "text", text: "📎 IMAGEM BASE DO MODELO (use como referência visual de estrutura e layout para este tipo de anúncio):" },
+          { type: "image_url", image_url: { url: templateBaseImageUrl } },
+        );
+      }
+
       if (attachedImages?.length > 0) {
         userContent.push({ type: "text", text: "📎 IMAGENS DE REFERÊNCIA ANEXADAS PELO USUÁRIO:" });
         for (const imgUrl of attachedImages) {
