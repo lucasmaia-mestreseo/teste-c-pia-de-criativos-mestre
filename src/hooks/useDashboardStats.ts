@@ -11,8 +11,7 @@ export function useDashboardStats() {
     queryFn: async () => {
       const { count, error } = await supabase
         .from('generated_creatives')
-        .select('*', { count: 'exact', head: true })
-        .eq('created_by', user!.id);
+        .select('*', { count: 'exact', head: true });
       if (error) throw error;
       return count ?? 0;
     },
