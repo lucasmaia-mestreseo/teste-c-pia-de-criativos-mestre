@@ -215,7 +215,8 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
         photos,
         people_photos: peoplePhotos,
         person_grid_url: personGridUrl || undefined,
-      });
+        design_screenshot_url: designScreenshotUrl || undefined,
+      } as any);
       toast.success('Brand Kit salvo!');
     } catch { toast.error('Erro ao salvar'); }
   };
