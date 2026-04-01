@@ -55,6 +55,7 @@ const Index = () => {
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
         onboardingPending={onboardingPending}
+        onGoToDashboard={() => setProjectId(null)}
       />
 
       {/* Main content area */}

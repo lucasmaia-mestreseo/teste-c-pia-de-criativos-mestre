@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 // ─── Types ───
 
@@ -134,7 +135,7 @@ export default function AdminPage() {
         </aside>
 
         {/* Content */}
-        <main className="flex-1 p-6 max-w-4xl">
+        <main className="flex-1 p-6">
           {activeSection === 'projects' && <ProjectsTab />}
           {activeSection === 'users' && <UsersTab currentUser={user} currentRole={role} />}
           {activeSection === 'usage' && <UsageTab />}
@@ -420,57 +421,72 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
         )}
       </div>
 
-      <div className="space-y-2">
-        {users.map((u) => (
-          <div key={u.user_id} className="flex items-center gap-4 p-4 rounded-lg border bg-card">
-            <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">{u.name}</p>
-              <p className="text-sm text-muted-foreground truncate">{u.email}</p>
-            </div>
-
-            <Badge className={`${roleBadgeColor(u.role)} border text-xs`}>
-              {ROLE_LABELS[u.role || ''] || 'Sem nível'}
-            </Badge>
-
-            <Badge variant={u.approved ? 'default' : 'secondary'} className="text-xs">
-              {u.approved ? 'Aprovado' : 'Pendente'}
-            </Badge>
-
-            <div className="flex items-center gap-1">
-              {!u.approved && (
-                <Button size="icon" variant="ghost" onClick={() => handleApprove(u.user_id, true)} title="Aprovar">
-                  <Check className="h-4 w-4 text-green-400" />
-                </Button>
-              )}
-              {u.approved && (
-                <Button size="icon" variant="ghost" onClick={() => handleApprove(u.user_id, false)} title="Revogar">
-                  <X className="h-4 w-4 text-orange-400" />
-                </Button>
-              )}
-
-              <Select value={u.role || ''} onValueChange={(v) => handleRoleChange(u.user_id, v as AppRole)}>
-                <SelectTrigger className="w-[130px] h-8 text-xs bg-secondary">
-                  <SelectValue placeholder="Definir nível" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableRoles.map((r) => (
-                    <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Button size="icon" variant="ghost" onClick={() => openEdit(u)} title="Editar">
-                <Pencil className="h-4 w-4" />
-              </Button>
-
-              {u.role !== 'owner' && u.user_id !== currentUser?.id && (
-                <Button size="icon" variant="ghost" onClick={() => handleRemoveUser(u.user_id)} title="Desativar">
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              )}
-            </div>
-          </div>
-        ))}
+      <div className="rounded-lg border bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nome / Email</TableHead>
+              <TableHead>Cargo</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Nível</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {users.map((u) => (
+              <TableRow key={u.user_id}>
+                <TableCell>
+                  <p className="font-medium">{u.name}</p>
+                  <p className="text-xs text-muted-foreground">{u.email}</p>
+                </TableCell>
+                <TableCell>
+                  <Badge className={`${roleBadgeColor(u.role)} border text-xs`}>
+                    {ROLE_LABELS[u.role || ''] || 'Sem nível'}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge variant={u.approved ? 'default' : 'secondary'} className="text-xs">
+                    {u.approved ? 'Aprovado' : 'Pendente'}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Select value={u.role || ''} onValueChange={(v) => handleRoleChange(u.user_id, v as AppRole)}>
+                    <SelectTrigger className="w-[130px] h-8 text-xs bg-secondary">
+                      <SelectValue placeholder="Definir nível" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableRoles.map((r) => (
+                        <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    {!u.approved && (
+                      <Button size="icon" variant="ghost" onClick={() => handleApprove(u.user_id, true)} title="Aprovar">
+                        <Check className="h-4 w-4 text-green-400" />
+                      </Button>
+                    )}
+                    {u.approved && (
+                      <Button size="icon" variant="ghost" onClick={() => handleApprove(u.user_id, false)} title="Revogar">
+                        <X className="h-4 w-4 text-orange-400" />
+                      </Button>
+                    )}
+                    <Button size="icon" variant="ghost" onClick={() => openEdit(u)} title="Editar">
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    {u.role !== 'owner' && u.user_id !== currentUser?.id && (
+                      <Button size="icon" variant="ghost" onClick={() => handleRemoveUser(u.user_id)} title="Desativar">
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
 
       <Dialog open={!!editUser} onOpenChange={(open) => !open && setEditUser(null)}>
