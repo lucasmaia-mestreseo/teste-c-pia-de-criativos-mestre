@@ -5,14 +5,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Slider } from '@/components/ui/slider';
-import { useGeneratedCreatives, useDeleteCreative } from '@/hooks/useGeneratedCreatives';
+import { useGeneratedCreatives, useDeleteCreative, useToggleFavorite } from '@/hooks/useGeneratedCreatives';
 import { useBrandKit } from '@/hooks/useBrandKit';
 import { useSwipeAnalysis } from '@/hooks/useSwipeAnalysis';
 import SwipeElementsEditor, { type ElementOverrides } from '@/components/SwipeElementsEditor';
 import { supabase } from '@/integrations/supabase/client';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Zap, Download, Trash2, Loader2, Maximize2, Minimize2 } from 'lucide-react';
+import { Zap, Download, Trash2, Loader2, Maximize2, Minimize2, Star } from 'lucide-react';
 import { stripPngMetadata } from '@/lib/stripPngMetadata';
 import { toast } from 'sonner';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
@@ -47,6 +47,7 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
   const { data: creatives } = useGeneratedCreatives(projectId);
   const { data: brandKit } = useBrandKit(projectId);
   const deleteCreative = useDeleteCreative();
+  const toggleFavorite = useToggleFavorite();
   const qc = useQueryClient();
 
   const { analysis, isPending } = useSwipeAnalysis(selectedSwipe as any);
@@ -216,6 +217,16 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
                 onClick={() => setModalImage({ url: c.image_url, prompt: c.prompt, id: c.id, projectId: c.project_id })}
               >
                 <img src={c.image_url} alt={c.prompt} className="w-full h-full object-cover" />
+                {/* Favorite star */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFavorite.mutate({ id: c.id, projectId: c.project_id, favorite: !(c as any).favorite });
+                  }}
+                  className="absolute top-1 right-1 p-0.5 rounded-full bg-background/60 hover:bg-background/80 transition-colors"
+                >
+                  <Star className={`h-3.5 w-3.5 ${(c as any).favorite ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`} />
+                </button>
                 <div className="absolute inset-0 bg-background/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDownload(c.image_url, `creative-${c.id}.png`); }}

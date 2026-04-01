@@ -9,11 +9,11 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { useProjects, useCreateProject } from '@/hooks/useProjects';
 import { useAuth } from '@/contexts/AuthContext';
-import { Palette, Clock, Plus, Zap, FileText, Shield, LogOut, User, PanelLeftClose, PanelLeftOpen, Sparkles } from 'lucide-react';
+import { Palette, Clock, Plus, Zap, FileText, Shield, LogOut, User, PanelLeftClose, PanelLeftOpen, Sparkles, Image } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-type RightPanel = 'generate' | 'brandkit' | 'context' | 'history' | 'dynamic';
+type RightPanel = 'generate' | 'brandkit' | 'context' | 'history' | 'dynamic' | 'creatives';
 
 interface RightSidebarProps {
   selectedProjectId: string | null;
@@ -58,6 +58,7 @@ export default function RightSidebar({ selectedProjectId, onSelectProject, activ
   const navItems: { panel: RightPanel; icon: React.ElementType; label: string }[] = [
     { panel: 'generate', icon: Zap, label: 'Gerar' },
     { panel: 'dynamic', icon: Sparkles, label: 'Geração Dinâmica' },
+    { panel: 'creatives', icon: Image, label: 'Criativos' },
     { panel: 'brandkit', icon: Palette, label: 'Brand Kit' },
     { panel: 'context', icon: FileText, label: 'Contexto' },
     { panel: 'history', icon: Clock, label: 'Histórico' },
