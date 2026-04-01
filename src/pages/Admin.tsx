@@ -134,7 +134,7 @@ export default function AdminPage() {
         </aside>
 
         {/* Content */}
-        <main className="flex-1 p-6 max-w-4xl">
+        <main className="flex-1 p-6">
           {activeSection === 'projects' && <ProjectsTab />}
           {activeSection === 'users' && <UsersTab currentUser={user} currentRole={role} />}
           {activeSection === 'usage' && <UsageTab />}
