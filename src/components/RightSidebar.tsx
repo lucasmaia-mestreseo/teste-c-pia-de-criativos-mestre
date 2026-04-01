@@ -9,8 +9,9 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { useProjects, useCreateProject } from '@/hooks/useProjects';
 import { useAuth } from '@/contexts/AuthContext';
-import { Palette, Clock, Plus, Zap, FileText, Shield, LogOut, User, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { Palette, Clock, Plus, Zap, FileText, Shield, LogOut, User, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 type RightPanel = 'generate' | 'brandkit' | 'context' | 'history';
 
@@ -54,19 +55,6 @@ export default function RightSidebar({ selectedProjectId, onSelectProject, activ
     }
   };
 
-  // Collapsed: show only a floating button
-  if (collapsed) {
-    return (
-      <button
-        onClick={onToggle}
-        className="fixed left-4 top-4 z-50 p-2 rounded-lg bg-card border border-border shadow-lg hover:bg-accent transition-colors"
-        title="Abrir menu"
-      >
-        <PanelRightOpen className="h-5 w-5" />
-      </button>
-    );
-  }
-
   const navItems: { panel: RightPanel; icon: React.ElementType; label: string }[] = [
     { panel: 'generate', icon: Zap, label: 'Gerar' },
     { panel: 'brandkit', icon: Palette, label: 'Brand Kit' },
@@ -75,117 +63,144 @@ export default function RightSidebar({ selectedProjectId, onSelectProject, activ
   ];
 
   return (
-    <aside className="w-[280px] border-r bg-card flex flex-col h-full flex-shrink-0">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-4">
-        <div className="flex items-center gap-2">
-          <Zap className="h-5 w-5 text-primary fill-primary" />
-          <span className="text-lg font-bold tracking-tight">Criativos Mestre</span>
+    <aside
+      className={cn(
+        "h-full border-r bg-card flex flex-col flex-shrink-0 transition-all duration-300 overflow-hidden",
+        collapsed ? "w-[48px]" : "w-[280px]"
+      )}
+    >
+      {collapsed ? (
+        /* Collapsed sliver — just the expand icon */
+        <div className="flex flex-col items-center pt-4">
+          <button
+            onClick={onToggle}
+            className="p-1.5 rounded-md hover:bg-accent transition-colors"
+            title="Abrir menu"
+          >
+            <PanelLeftOpen className="h-5 w-5" />
+          </button>
         </div>
-        <button onClick={onToggle} className="p-1.5 rounded-md hover:bg-accent transition-colors" title="Fechar menu">
-          <PanelRightClose className="h-4 w-4" />
-        </button>
-      </div>
-
-      <Separator />
-
-      {/* Project selector */}
-      <div className="px-4 py-4 space-y-2">
-        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Projeto</label>
-        <Select value={selectedProjectId ?? ''} onValueChange={onSelectProject}>
-          <SelectTrigger className="w-full bg-secondary border-border">
-            <SelectValue placeholder="Selecione um projeto" />
-          </SelectTrigger>
-          <SelectContent>
-            {projects?.filter((p: any) => p.active !== false).map((p) => (
-              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {canCreateProject && (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" variant="outline" className="w-full">
-                <Plus className="h-4 w-4 mr-1" /> Novo Projeto
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-card">
-              <DialogHeader><DialogTitle>Novo Projeto</DialogTitle></DialogHeader>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Nome do projeto"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                  className="bg-secondary"
-                />
-                <Button onClick={handleCreate} disabled={createProject.isPending}>Criar</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
-      </div>
-
-      {/* Navigation - only when project selected */}
-      {selectedProjectId && (
+      ) : (
         <>
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-4">
+            <div className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-primary fill-primary" />
+              <span className="text-lg font-bold tracking-tight whitespace-nowrap">Criativos Mestre</span>
+            </div>
+            <button onClick={onToggle} className="p-1.5 rounded-md hover:bg-accent transition-colors" title="Fechar menu">
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
+          </div>
+
           <Separator />
-          <nav className="px-3 py-3 space-y-1">
-            {navItems.map(({ panel, icon: Icon, label }) => (
-              <button
-                key={panel}
-                onClick={() => onPanelChange(panel)}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  activePanel === panel
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {label}
-              </button>
-            ))}
-          </nav>
+
+          {/* Project selector */}
+          <div className="px-4 py-4 space-y-2">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Projeto</label>
+            <Select value={selectedProjectId ?? ''} onValueChange={onSelectProject}>
+              <SelectTrigger className="w-full bg-secondary border-border">
+                <SelectValue placeholder="Selecione um projeto" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects?.filter((p: any) => p.active !== false).map((p) => (
+                  <SelectItem
+                    key={p.id}
+                    value={p.id}
+                    className="cursor-pointer hover:bg-secondary hover:text-foreground focus:bg-secondary focus:text-foreground"
+                  >
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {canCreateProject && (
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline" className="w-full">
+                    <Plus className="h-4 w-4 mr-1" /> Novo Projeto
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-card">
+                  <DialogHeader><DialogTitle>Novo Projeto</DialogTitle></DialogHeader>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Nome do projeto"
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+                      className="bg-secondary"
+                    />
+                    <Button onClick={handleCreate} disabled={createProject.isPending}>Criar</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
+
+          {/* Navigation - only when project selected */}
+          {selectedProjectId && (
+            <>
+              <Separator />
+              <nav className="px-3 py-3 space-y-1">
+                {navItems.map(({ panel, icon: Icon, label }) => (
+                  <button
+                    key={panel}
+                    onClick={() => onPanelChange(panel)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all border border-transparent",
+                      activePanel === panel
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:border-primary/50 hover:text-primary'
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {label}
+                  </button>
+                ))}
+              </nav>
+            </>
+          )}
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* User section */}
+          <Separator />
+          <div className="px-4 py-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-accent transition-colors">
+                  <Avatar className="h-9 w-9">
+                    <AvatarFallback className="text-xs font-semibold bg-primary text-primary-foreground">
+                      {userInitials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="text-left flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{profile?.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{profile?.email}</p>
+                  </div>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" side="top" className="w-56">
+                <DropdownMenuItem onClick={() => navigate('/profile')}>
+                  <User className="h-4 w-4 mr-2" /> Perfil
+                </DropdownMenuItem>
+                {canAdmin && (
+                  <DropdownMenuItem onClick={() => navigate('/admin')}>
+                    <Shield className="h-4 w-4 mr-2" /> Administração
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={signOut}>
+                  <LogOut className="h-4 w-4 mr-2" /> Sair
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </>
       )}
-
-      {/* Spacer */}
-      <div className="flex-1" />
-
-      {/* User section */}
-      <Separator />
-      <div className="px-4 py-4">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-accent transition-colors">
-              <Avatar className="h-9 w-9">
-                <AvatarFallback className="text-xs font-semibold bg-primary text-primary-foreground">
-                  {userInitials}
-                </AvatarFallback>
-              </Avatar>
-              <div className="text-left flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{profile?.name}</p>
-                <p className="text-xs text-muted-foreground truncate">{profile?.email}</p>
-              </div>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" side="top" className="w-56">
-            <DropdownMenuItem onClick={() => navigate('/profile')}>
-              <User className="h-4 w-4 mr-2" /> Perfil
-            </DropdownMenuItem>
-            {canAdmin && (
-              <DropdownMenuItem onClick={() => navigate('/admin')}>
-                <Shield className="h-4 w-4 mr-2" /> Administração
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={signOut}>
-              <LogOut className="h-4 w-4 mr-2" /> Sair
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
     </aside>
   );
 }
