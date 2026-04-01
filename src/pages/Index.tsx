@@ -54,6 +54,7 @@ const Index = () => {
         onPanelChange={setActivePanel}
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+        onboardingPending={onboardingPending}
       />
 
       {/* Main content area */}
@@ -62,6 +63,8 @@ const Index = () => {
           <div className="flex-1 overflow-hidden">
             <DashboardPanel onSelectProject={handleProjectChange} />
           </div>
+        ) : onboardingPending ? (
+          <ProjectOnboarding projectId={projectId!} onComplete={handleOnboardingComplete} />
         ) : (
           <>
             {/* Left column - only when generating */}
