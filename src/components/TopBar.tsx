@@ -1,10 +1,13 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useProjects, useCreateProject } from '@/hooks/useProjects';
-import { Palette, Clock, Plus, Zap, FileText } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Palette, Clock, Plus, Zap, FileText, Shield, FileCode, LogOut, User } from 'lucide-react';
 import { toast } from 'sonner';
 
 type RightPanel = 'generate' | 'brandkit' | 'context' | 'history';
@@ -19,8 +22,14 @@ interface TopBarProps {
 export default function TopBar({ selectedProjectId, onSelectProject, activePanel, onPanelChange }: TopBarProps) {
   const { data: projects } = useProjects();
   const createProject = useCreateProject();
+  const { profile, role, signOut } = useAuth();
+  const navigate = useNavigate();
   const [newName, setNewName] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  const canCreateProject = role === 'owner' || role === 'admin' || role === 'manager';
+  const canManageUsers = role === 'owner' || role === 'admin';
+  const canEditPrompts = role === 'owner';
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -54,24 +63,26 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
           </SelectContent>
         </Select>
 
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="icon" variant="ghost"><Plus className="h-4 w-4" /></Button>
-          </DialogTrigger>
-          <DialogContent className="bg-card">
-            <DialogHeader><DialogTitle>Novo Projeto</DialogTitle></DialogHeader>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Nome do projeto"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                className="bg-secondary"
-              />
-              <Button onClick={handleCreate} disabled={createProject.isPending}>Criar</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        {canCreateProject && (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="icon" variant="ghost"><Plus className="h-4 w-4" /></Button>
+            </DialogTrigger>
+            <DialogContent className="bg-card">
+              <DialogHeader><DialogTitle>Novo Projeto</DialogTitle></DialogHeader>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Nome do projeto"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+                  className="bg-secondary"
+                />
+                <Button onClick={handleCreate} disabled={createProject.isPending}>Criar</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <div className="flex items-center gap-1">
@@ -103,6 +114,39 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
         >
           <Clock className="h-4 w-4 mr-1" /> Histórico
         </Button>
+
+        <div className="ml-3 border-l pl-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="gap-2">
+                <User className="h-4 w-4" />
+                <span className="text-xs max-w-[120px] truncate">{profile?.name || 'Usuário'}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <div className="px-2 py-1.5">
+                <p className="text-sm font-medium">{profile?.name}</p>
+                <p className="text-xs text-muted-foreground">{profile?.email}</p>
+                <p className="text-xs text-muted-foreground capitalize mt-0.5">{role || 'Sem nível'}</p>
+              </div>
+              <DropdownMenuSeparator />
+              {canManageUsers && (
+                <DropdownMenuItem onClick={() => navigate('/admin/users')}>
+                  <Shield className="h-4 w-4 mr-2" /> Gerenciar Usuários
+                </DropdownMenuItem>
+              )}
+              {canEditPrompts && (
+                <DropdownMenuItem onClick={() => navigate('/admin/prompts')}>
+                  <FileCode className="h-4 w-4 mr-2" /> Editar Prompts
+                </DropdownMenuItem>
+              )}
+              {(canManageUsers || canEditPrompts) && <DropdownMenuSeparator />}
+              <DropdownMenuItem onClick={signOut}>
+                <LogOut className="h-4 w-4 mr-2" /> Sair
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </header>
   );
