@@ -389,6 +389,35 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
 
   return (
     <>
+      {/* Invite section */}
+      <div className="mb-6 space-y-3">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase">Convidar Usuário</h3>
+        <div className="flex gap-2">
+          <Input
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            placeholder="email@agenciamestre.com"
+            className="bg-secondary max-w-sm"
+            onKeyDown={(e) => e.key === 'Enter' && handleInvite()}
+          />
+          <Button onClick={handleInvite} disabled={inviting} size="sm">
+            {inviting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
+            Convidar
+          </Button>
+        </div>
+        {invitations.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground font-medium">Convites pendentes</p>
+            {invitations.filter(inv => !inv.accepted_at).map((inv) => (
+              <div key={inv.id} className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+                <span>{inv.email}</span>
+                <span className="text-[10px]">— {format(new Date(inv.created_at), 'dd/MM/yyyy')}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="space-y-2">
         {users.map((u) => (
           <div key={u.user_id} className="flex items-center gap-4 p-4 rounded-lg border bg-card">
