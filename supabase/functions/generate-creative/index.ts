@@ -426,7 +426,7 @@ serve(async (req) => {
         .single();
 
       const templateBase = tpRow?.prompt || '';
-      const templateBaseImageUrl = tpRow?.base_image_url || null;
+      templateBaseImageUrl = tpRow?.base_image_url || null;
       const fieldLines = Object.entries(templateFields)
         .filter(([_, v]) => v && (v as string).trim())
         .map(([k, v]) => `- ${k}: ${v}`)
