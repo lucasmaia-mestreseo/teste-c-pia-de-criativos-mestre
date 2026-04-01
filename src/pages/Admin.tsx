@@ -81,12 +81,13 @@ const roleBadgeColor = (r: AppRole | null) => {
   }
 };
 
-type Section = 'projects' | 'users' | 'usage' | 'prompts';
+type Section = 'projects' | 'users' | 'usage' | 'prompts' | 'formats';
 
 const SIDEBAR_ITEMS: { id: Section; label: string; icon: React.ReactNode; ownerOnly?: boolean }[] = [
   { id: 'projects', label: 'Projetos', icon: <FolderOpen className="h-4 w-4" /> },
   { id: 'users', label: 'Usuários', icon: <Users className="h-4 w-4" /> },
   { id: 'usage', label: 'Uso do Sistema', icon: <BarChart3 className="h-4 w-4" /> },
+  { id: 'formats', label: 'Formatos', icon: <ImageIcon className="h-4 w-4" /> },
   { id: 'prompts', label: 'Prompts', icon: <FileCode className="h-4 w-4" />, ownerOnly: true },
 ];
 

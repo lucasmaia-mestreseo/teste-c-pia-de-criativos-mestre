@@ -10,6 +10,7 @@ import TemplatesPanel, { type TemplateData } from '@/components/TemplatesPanel';
 import CreationModeSelector, { type CreationMode } from '@/components/CreationModeSelector';
 import DashboardPanel from '@/components/DashboardPanel';
 import DynamicGeneratePanel from '@/components/DynamicGeneratePanel';
+import DynamicResultsPanel from '@/components/DynamicResultsPanel';
 import CreativesPanel from '@/components/CreativesPanel';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -84,6 +85,13 @@ const Index = () => {
               </div>
             )}
 
+            {/* Left column for dynamic - controls */}
+            {activePanel === 'dynamic' && (
+              <div className="w-[35%] border-r bg-card flex-shrink-0 flex flex-col">
+                <DynamicGeneratePanel projectId={projectId} />
+              </div>
+            )}
+
             {/* Right column - Dynamic panel */}
             <div className="flex-1 bg-background overflow-hidden">
               {activePanel === 'generate' && (
@@ -105,7 +113,7 @@ const Index = () => {
                 <HistoryPanel projectId={projectId} />
               )}
               {activePanel === 'dynamic' && (
-                <DynamicGeneratePanel projectId={projectId} />
+                <DynamicResultsPanel projectId={projectId} />
               )}
               {activePanel === 'creatives' && (
                 <CreativesPanel projectId={projectId} />
