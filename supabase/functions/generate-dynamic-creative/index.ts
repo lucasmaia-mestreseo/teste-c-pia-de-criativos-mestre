@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     const { data: { user } } = await anonClient.auth.getUser();
     if (!user) throw new Error("Não autenticado");
 
-    const { projectId, types, format } = await req.json();
+    const { projectId, types, format, ignoreBrandKit, ignoreContext } = await req.json();
     // types: Array<{ type: 'conservative' | 'innovative' | 'radical', count: number }>
     if (!projectId || !types?.length) throw new Error("projectId e types são obrigatórios");
     const selectedFormat = format || "1:1";
