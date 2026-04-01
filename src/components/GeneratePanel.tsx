@@ -42,7 +42,9 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
   const [includePersonPhoto, setIncludePersonPhoto] = useState(false);
   const [selectedPersonPhoto, setSelectedPersonPhoto] = useState<string>('');
   const [personMode, setPersonMode] = useState<'photo' | 'grid'>('photo');
-  const [thumbSize, setThumbSize] = useState(() => Number(localStorage.getItem(STORAGE_KEY)) || 80);
+  const [ignoreBrandKit, setIgnoreBrandKit] = useState(false);
+  const [ignoreContext, setIgnoreContext] = useState(false);
+  const [thumbSize, setThumbSize] = useState(() => Number(localStorage.getItem(STORAGE_KEY)) || 160);
   const [modalImage, setModalImage] = useState<{ url: string; prompt: string; id: string; projectId: string; favorite: boolean } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; projectId: string } | null>(null);
   const [elementOverrides, setElementOverrides] = useState<ElementOverrides>(EMPTY_OVERRIDES);
