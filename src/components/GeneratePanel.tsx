@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Slider } from '@/components/ui/slider';
-import { useGeneratedCreatives, useDeleteCreative } from '@/hooks/useGeneratedCreatives';
+import { useGeneratedCreatives, useDeleteCreative, useToggleFavorite } from '@/hooks/useGeneratedCreatives';
 import { useBrandKit } from '@/hooks/useBrandKit';
 import { useSwipeAnalysis } from '@/hooks/useSwipeAnalysis';
 import SwipeElementsEditor, { type ElementOverrides } from '@/components/SwipeElementsEditor';
