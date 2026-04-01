@@ -8,8 +8,8 @@ import AuthGuard from "@/components/AuthGuard";
 import Index from "./pages/Index.tsx";
 import Auth from "./pages/Auth.tsx";
 import PendingApproval from "./pages/PendingApproval.tsx";
-import AdminUsers from "./pages/AdminUsers.tsx";
-import AdminPrompts from "./pages/AdminPrompts.tsx";
+import Profile from "./pages/Profile.tsx";
+import Admin from "./pages/Admin.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -33,18 +33,18 @@ const App = () => (
               }
             />
             <Route
-              path="/admin/users"
+              path="/profile"
               element={
                 <AuthGuard>
-                  <AdminUsers />
+                  <Profile />
                 </AuthGuard>
               }
             />
             <Route
-              path="/admin/prompts"
+              path="/admin"
               element={
                 <AuthGuard>
-                  <AdminPrompts />
+                  <Admin />
                 </AuthGuard>
               }
             />

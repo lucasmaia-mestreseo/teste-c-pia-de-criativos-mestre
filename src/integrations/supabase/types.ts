@@ -76,6 +76,7 @@ export type Database = {
       generated_creatives: {
         Row: {
           created_at: string
+          created_by: string | null
           format: string
           id: string
           image_url: string
@@ -85,6 +86,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
           format: string
           id?: string
           image_url: string
@@ -94,6 +96,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          created_by?: string | null
           format?: string
           id?: string
           image_url?: string
@@ -150,6 +153,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          active: boolean
           context: string | null
           created_at: string
           description: string | null
@@ -158,6 +162,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          active?: boolean
           context?: string | null
           created_at?: string
           description?: string | null
@@ -166,6 +171,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          active?: boolean
           context?: string | null
           created_at?: string
           description?: string | null

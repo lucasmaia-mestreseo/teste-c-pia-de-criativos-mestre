@@ -4,25 +4,21 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Zap, Loader2, Mail } from 'lucide-react';
+import { Zap, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ALLOWED_DOMAIN = 'agenciamestre.com';
 
-type AuthStep = 'form' | 'otp' | 'signup-done';
-
 export default function AuthPage() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<'login' | 'signup'>('login');
-  const [step, setStep] = useState<AuthStep>('form');
   const [loading, setLoading] = useState(false);
+  const [signupDone, setSignupDone] = useState(false);
 
   // Login
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  const [otpCode, setOtpCode] = useState('');
 
   // Signup
   const [signupName, setSignupName] = useState('');
@@ -45,37 +41,10 @@ export default function AuthPage() {
         password: loginPassword,
       });
       if (error) throw error;
-
-      // Sign out the password session, then send OTP
-      await supabase.auth.signOut();
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: loginEmail,
-      });
-      if (otpError) throw otpError;
-
-      setStep('otp');
-      toast.success('Código enviado para seu email!');
-    } catch (e: any) {
-      toast.error(e.message || 'Erro no login');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    if (otpCode.length !== 6) return;
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.verifyOtp({
-        email: loginEmail,
-        token: otpCode,
-        type: 'email',
-      });
-      if (error) throw error;
       toast.success('Login realizado!');
       navigate('/');
     } catch (e: any) {
-      toast.error(e.message || 'Código inválido');
+      toast.error(e.message || 'Erro no login');
     } finally {
       setLoading(false);
     }
@@ -106,7 +75,6 @@ export default function AuthPage() {
       });
       if (error) throw error;
 
-      // Create profile
       if (data.user) {
         await supabase.from('profiles').insert({
           user_id: data.user.id,
@@ -115,7 +83,7 @@ export default function AuthPage() {
         });
       }
 
-      setStep('signup-done');
+      setSignupDone(true);
     } catch (e: any) {
       toast.error(e.message || 'Erro no cadastro');
     } finally {
@@ -123,52 +91,7 @@ export default function AuthPage() {
     }
   };
 
-  if (step === 'otp') {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="w-full max-w-sm space-y-6 p-6">
-          <div className="text-center space-y-2">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <Zap className="h-6 w-6 text-primary fill-primary" />
-              <h1 className="text-xl font-bold">Clonador Mestre</h1>
-            </div>
-            <Mail className="h-12 w-12 mx-auto text-primary" />
-            <h2 className="text-lg font-semibold">Verifique seu email</h2>
-            <p className="text-sm text-muted-foreground">
-              Enviamos um código de 6 dígitos para <strong>{loginEmail}</strong>
-            </p>
-          </div>
-
-          <div className="flex justify-center">
-            <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
-              <InputOTPGroup>
-                <InputOTPSlot index={0} />
-                <InputOTPSlot index={1} />
-                <InputOTPSlot index={2} />
-                <InputOTPSlot index={3} />
-                <InputOTPSlot index={4} />
-                <InputOTPSlot index={5} />
-              </InputOTPGroup>
-            </InputOTP>
-          </div>
-
-          <Button onClick={handleVerifyOtp} disabled={loading || otpCode.length !== 6} className="w-full">
-            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            Verificar
-          </Button>
-
-          <button
-            onClick={() => { setStep('form'); setOtpCode(''); }}
-            className="text-sm text-muted-foreground hover:text-foreground w-full text-center"
-          >
-            Voltar ao login
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (step === 'signup-done') {
+  if (signupDone) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="w-full max-w-sm space-y-4 p-6 text-center">
@@ -177,7 +100,7 @@ export default function AuthPage() {
           <p className="text-sm text-muted-foreground">
             Verifique seu email para confirmar sua conta. Após a confirmação, um administrador precisará aprovar seu acesso.
           </p>
-          <Button variant="outline" onClick={() => { setStep('form'); setTab('login'); }} className="w-full">
+          <Button variant="outline" onClick={() => { setSignupDone(false); setTab('login'); }} className="w-full">
             Ir para login
           </Button>
         </div>
