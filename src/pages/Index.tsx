@@ -12,6 +12,8 @@ import DashboardPanel from '@/components/DashboardPanel';
 import DynamicGeneratePanel from '@/components/DynamicGeneratePanel';
 import DynamicResultsPanel from '@/components/DynamicResultsPanel';
 import CreativesPanel from '@/components/CreativesPanel';
+import ProjectOnboarding from '@/components/ProjectOnboarding';
+import { useProject } from '@/hooks/useProject';
 import type { Tables } from '@/integrations/supabase/types';
 
 type RightPanel = 'generate' | 'brandkit' | 'context' | 'history' | 'dynamic' | 'creatives';
@@ -25,11 +27,18 @@ const Index = () => {
   const [templateData, setTemplateData] = useState<TemplateData>({ templateId: null, fields: {}, prompt: '', attachedImages: [] });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  const project = useProject(projectId);
+  const onboardingPending = !!(projectId && project.data && !(project.data as any).onboarding_completed);
+
   const handleProjectChange = (id: string) => {
     setProjectId(id);
     setSelectedSwipe(null);
     setFreePromptData({ prompt: '', attachedImages: [] });
     setTemplateData({ templateId: null, fields: {}, prompt: '', attachedImages: [] });
+    setActivePanel('generate');
+  };
+
+  const handleOnboardingComplete = () => {
     setActivePanel('generate');
   };
 
@@ -45,6 +54,7 @@ const Index = () => {
         onPanelChange={setActivePanel}
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+        onboardingPending={onboardingPending}
       />
 
       {/* Main content area */}
@@ -53,6 +63,8 @@ const Index = () => {
           <div className="flex-1 overflow-hidden">
             <DashboardPanel onSelectProject={handleProjectChange} />
           </div>
+        ) : onboardingPending ? (
+          <ProjectOnboarding projectId={projectId!} onComplete={handleOnboardingComplete} />
         ) : (
           <>
             {/* Left column - only when generating */}
