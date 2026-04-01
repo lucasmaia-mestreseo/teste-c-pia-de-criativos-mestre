@@ -39,7 +39,6 @@ export function useDashboardStats() {
       const { data, error } = await supabase
         .from('generated_creatives')
         .select('id, image_url, project_id, created_at, format')
-        .eq('created_by', user!.id)
         .order('created_at', { ascending: false })
         .limit(10);
       if (error) throw error;
