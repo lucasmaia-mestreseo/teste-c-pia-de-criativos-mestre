@@ -114,7 +114,7 @@ export default function AuthPage() {
         <div className="text-center space-y-1">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Zap className="h-6 w-6 text-primary fill-primary" />
-            <h1 className="text-xl font-bold">Clonador Mestre</h1>
+            <h1 className="text-xl font-bold">Criativos Mestre</h1>
           </div>
           <p className="text-sm text-muted-foreground">Acesso restrito a @{ALLOWED_DOMAIN}</p>
         </div>

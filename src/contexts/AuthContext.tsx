@@ -33,12 +33,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
-    const { data: p } = await supabase
+  const fetchProfile = async (userId: string, userEmail?: string, userName?: string) => {
+    let { data: p } = await supabase
       .from('profiles')
       .select('name, email, approved')
       .eq('user_id', userId)
       .single();
+
+    // Auto-create profile if missing (handles signup race condition)
+    if (!p && userEmail) {
+      const fallbackName = userName || userEmail.split('@')[0];
+      await supabase.from('profiles').insert({
+        user_id: userId,
+        name: fallbackName,
+        email: userEmail.toLowerCase(),
+      });
+      const { data: created } = await supabase
+        .from('profiles')
+        .select('name, email, approved')
+        .eq('user_id', userId)
+        .single();
+      p = created;
+    }
     setProfile(p || null);
 
     const { data: r } = await supabase
@@ -52,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshProfile = async () => {
-    if (user) await fetchProfile(user.id);
+    if (user) await fetchProfile(user.id, user.email, user.user_metadata?.name);
   };
 
   useEffect(() => {
@@ -61,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(sess);
         setUser(sess?.user ?? null);
         if (sess?.user) {
-          await fetchProfile(sess.user.id);
+          await fetchProfile(sess.user.id, sess.user.email, sess.user.user_metadata?.name);
         } else {
           setProfile(null);
           setRole(null);
@@ -74,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
-        fetchProfile(s.user.id).then(() => setLoading(false));
+        fetchProfile(s.user.id, s.user.email, s.user.user_metadata?.name).then(() => setLoading(false));
       } else {
         setLoading(false);
       }
