@@ -20,6 +20,7 @@ export type Database = {
           background_color: string | null
           colors: string[] | null
           created_at: string
+          design_screenshot_url: string | null
           id: string
           logo_url: string | null
           people_photos: string[] | null
@@ -36,6 +37,7 @@ export type Database = {
           background_color?: string | null
           colors?: string[] | null
           created_at?: string
+          design_screenshot_url?: string | null
           id?: string
           logo_url?: string | null
           people_photos?: string[] | null
@@ -52,6 +54,7 @@ export type Database = {
           background_color?: string | null
           colors?: string[] | null
           created_at?: string
+          design_screenshot_url?: string | null
           id?: string
           logo_url?: string | null
           people_photos?: string[] | null
@@ -160,6 +163,7 @@ export type Database = {
           id: string
           name: string
           updated_at: string
+          voice_guide: string | null
         }
         Insert: {
           active?: boolean
@@ -169,6 +173,7 @@ export type Database = {
           id?: string
           name: string
           updated_at?: string
+          voice_guide?: string | null
         }
         Update: {
           active?: boolean
@@ -178,6 +183,7 @@ export type Database = {
           id?: string
           name?: string
           updated_at?: string
+          voice_guide?: string | null
         }
         Relationships: []
       }
@@ -243,6 +249,30 @@ export type Database = {
           prompt?: string
           updated_at?: string
           updated_by?: string | null
+        }
+        Relationships: []
+      }
+      user_invitations: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          id: string
+          invited_by: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          invited_by: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          invited_by?: string
         }
         Relationships: []
       }
