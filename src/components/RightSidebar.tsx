@@ -13,7 +13,7 @@ import { Palette, Clock, Plus, Zap, FileText, Shield, LogOut, User, PanelLeftClo
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-type RightPanel = 'generate' | 'brandkit' | 'context' | 'history';
+type RightPanel = 'generate' | 'brandkit' | 'context' | 'history' | 'dynamic';
 
 interface RightSidebarProps {
   selectedProjectId: string | null;
