@@ -27,11 +27,18 @@ const Index = () => {
   const [templateData, setTemplateData] = useState<TemplateData>({ templateId: null, fields: {}, prompt: '', attachedImages: [] });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  const project = useProject(projectId);
+  const onboardingPending = !!(projectId && project.data && !(project.data as any).onboarding_completed);
+
   const handleProjectChange = (id: string) => {
     setProjectId(id);
     setSelectedSwipe(null);
     setFreePromptData({ prompt: '', attachedImages: [] });
     setTemplateData({ templateId: null, fields: {}, prompt: '', attachedImages: [] });
+    setActivePanel('generate');
+  };
+
+  const handleOnboardingComplete = () => {
     setActivePanel('generate');
   };
 
