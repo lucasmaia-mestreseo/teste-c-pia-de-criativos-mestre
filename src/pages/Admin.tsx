@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth, type AppRole } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -6,16 +6,16 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   ArrowLeft, Check, X, Trash2, Loader2, Shield, Plus, Power, PowerOff,
-  Save, Pencil, BarChart3, FileCode, Eye
+  Save, Pencil, BarChart3, FileCode, FolderOpen, Users, Upload, ImageIcon
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 // ─── Types ───
 
@@ -46,6 +46,7 @@ interface UsageRow {
 interface PromptRow {
   id: string;
   prompt: string;
+  base_image_url: string | null;
 }
 
 const TEMPLATE_LABELS: Record<string, string> = {
@@ -75,15 +76,26 @@ const roleBadgeColor = (r: AppRole | null) => {
   }
 };
 
+type Section = 'projects' | 'users' | 'usage' | 'prompts';
+
+const SIDEBAR_ITEMS: { id: Section; label: string; icon: React.ReactNode; ownerOnly?: boolean }[] = [
+  { id: 'projects', label: 'Projetos', icon: <FolderOpen className="h-4 w-4" /> },
+  { id: 'users', label: 'Usuários', icon: <Users className="h-4 w-4" /> },
+  { id: 'usage', label: 'Uso do Sistema', icon: <BarChart3 className="h-4 w-4" /> },
+  { id: 'prompts', label: 'Prompts', icon: <FileCode className="h-4 w-4" />, ownerOnly: true },
+];
+
 export default function AdminPage() {
   const { user, role, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('projects');
+  const [activeSection, setActiveSection] = useState<Section>('projects');
 
   const canManageUsers = role === 'owner' || role === 'admin';
 
   if (authLoading) return null;
   if (!canManageUsers) return <Navigate to="/" replace />;
+
+  const visibleItems = SIDEBAR_ITEMS.filter((i) => !i.ownerOnly || role === 'owner');
 
   return (
     <div className="min-h-screen bg-background">
@@ -95,20 +107,33 @@ export default function AdminPage() {
         <h1 className="text-lg font-bold">Administração</h1>
       </header>
 
-      <div className="max-w-5xl mx-auto p-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 mb-6">
-            <TabsTrigger value="projects">Projetos</TabsTrigger>
-            <TabsTrigger value="users">Usuários</TabsTrigger>
-            <TabsTrigger value="usage">Uso do Sistema</TabsTrigger>
-            {role === 'owner' && <TabsTrigger value="prompts">Prompts</TabsTrigger>}
-          </TabsList>
+      <div className="flex">
+        {/* Sidebar */}
+        <aside className="w-56 min-h-[calc(100vh-57px)] border-r bg-card/50 p-3 space-y-1 shrink-0">
+          {visibleItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveSection(item.id)}
+              className={cn(
+                'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left',
+                activeSection === item.id
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+              )}
+            >
+              {item.icon}
+              {item.label}
+            </button>
+          ))}
+        </aside>
 
-          <TabsContent value="projects"><ProjectsTab /></TabsContent>
-          <TabsContent value="users"><UsersTab currentUser={user} currentRole={role} /></TabsContent>
-          <TabsContent value="usage"><UsageTab /></TabsContent>
-          {role === 'owner' && <TabsContent value="prompts"><PromptsTab userId={user?.id} /></TabsContent>}
-        </Tabs>
+        {/* Content */}
+        <main className="flex-1 p-6 max-w-4xl">
+          {activeSection === 'projects' && <ProjectsTab />}
+          {activeSection === 'users' && <UsersTab currentUser={user} currentRole={role} />}
+          {activeSection === 'usage' && <UsageTab />}
+          {activeSection === 'prompts' && role === 'owner' && <PromptsTab userId={user?.id} />}
+        </main>
       </div>
     </div>
   );
@@ -453,7 +478,6 @@ function UsageTab() {
     });
     rows.sort((a, b) => b.count - a.count);
 
-    // Add users with 0 creatives
     (profiles || []).forEach((p: any) => {
       if (!countMap.has(p.user_id)) {
         rows.push({ user_id: p.user_id, name: p.name, email: p.email, count: 0 });
@@ -511,10 +535,12 @@ function PromptsTab({ userId }: { userId?: string }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, string>>({});
+  const [uploading, setUploading] = useState<string | null>(null);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
-    supabase.from('template_prompts').select('id, prompt').then(({ data }) => {
-      setPrompts(data || []);
+    supabase.from('template_prompts').select('id, prompt, base_image_url').then(({ data }) => {
+      setPrompts((data as any) || []);
       setLoading(false);
     });
   }, []);
@@ -525,7 +551,7 @@ function PromptsTab({ userId }: { userId?: string }) {
     setSaving(id);
     const { error } = await supabase
       .from('template_prompts')
-      .update({ prompt: newPrompt, updated_by: userId })
+      .update({ prompt: newPrompt, updated_by: userId } as any)
       .eq('id', id);
     if (error) {
       toast.error('Erro ao salvar');
@@ -537,23 +563,134 @@ function PromptsTab({ userId }: { userId?: string }) {
     setSaving(null);
   };
 
+  const handleImageUpload = async (id: string, file: File) => {
+    setUploading(id);
+    const ext = file.name.split('.').pop() || 'png';
+    const path = `template-bases/${id}.${ext}`;
+
+    const { error: upErr } = await supabase.storage
+      .from('generated-creatives')
+      .upload(path, file, { upsert: true, contentType: file.type });
+
+    if (upErr) {
+      toast.error('Erro ao fazer upload da imagem');
+      setUploading(null);
+      return;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('generated-creatives')
+      .getPublicUrl(path);
+
+    const { error: dbErr } = await supabase
+      .from('template_prompts')
+      .update({ base_image_url: publicUrl, updated_by: userId } as any)
+      .eq('id', id);
+
+    if (dbErr) {
+      toast.error('Erro ao salvar URL da imagem');
+    } else {
+      toast.success('Imagem base salva!');
+      setPrompts((prev) => prev.map((p) => (p.id === id ? { ...p, base_image_url: publicUrl } : p)));
+    }
+    setUploading(null);
+  };
+
+  const handleRemoveImage = async (id: string) => {
+    setSaving(id);
+    const { error } = await supabase
+      .from('template_prompts')
+      .update({ base_image_url: null, updated_by: userId } as any)
+      .eq('id', id);
+
+    if (error) {
+      toast.error('Erro ao remover imagem');
+    } else {
+      toast.success('Imagem removida');
+      setPrompts((prev) => prev.map((p) => (p.id === id ? { ...p, base_image_url: null } : p)));
+    }
+    setSaving(null);
+  };
+
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
   return (
     <div className="space-y-6">
       {prompts.map((p) => (
-        <div key={p.id} className="space-y-2 p-4 rounded-lg border bg-card">
+        <div key={p.id} className="space-y-3 p-4 rounded-lg border bg-card">
           <h3 className="text-sm font-semibold text-primary">{TEMPLATE_LABELS[p.id] || p.id}</h3>
-          <Textarea
-            value={edits[p.id] ?? p.prompt}
-            onChange={(e) => setEdits((prev) => ({ ...prev, [p.id]: e.target.value }))}
-            className="bg-secondary min-h-[120px] text-sm font-mono"
-          />
+
+          {/* Prompt */}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Prompt do modelo</label>
+            <Textarea
+              value={edits[p.id] ?? p.prompt}
+              onChange={(e) => setEdits((prev) => ({ ...prev, [p.id]: e.target.value }))}
+              className="bg-secondary min-h-[120px] text-sm font-mono"
+            />
+          </div>
+
+          {/* Base Image */}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Imagem base de referência</label>
+            {p.base_image_url ? (
+              <div className="flex items-start gap-3">
+                <img
+                  src={p.base_image_url}
+                  alt="Imagem base"
+                  className="w-32 h-32 object-cover rounded-lg border"
+                />
+                <div className="flex flex-col gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => fileInputRefs.current[p.id]?.click()}
+                    disabled={uploading === p.id}
+                  >
+                    {uploading === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Upload className="h-3.5 w-3.5 mr-1" />}
+                    Trocar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive"
+                    onClick={() => handleRemoveImage(p.id)}
+                    disabled={saving === p.id}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-1" />
+                    Remover
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => fileInputRefs.current[p.id]?.click()}
+                disabled={uploading === p.id}
+                className="flex items-center gap-2 px-4 py-3 rounded-lg border border-dashed bg-secondary/50 hover:bg-secondary transition-colors text-sm text-muted-foreground"
+              >
+                {uploading === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
+                Fazer upload de imagem base
+              </button>
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              ref={(el) => { fileInputRefs.current[p.id] = el; }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleImageUpload(p.id, file);
+                e.target.value = '';
+              }}
+            />
+          </div>
+
+          {/* Save prompt button */}
           {edits[p.id] !== undefined && edits[p.id] !== p.prompt && (
             <div className="flex justify-end">
               <Button size="sm" onClick={() => handleSave(p.id)} disabled={saving === p.id}>
                 {saving === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
-                Salvar
+                Salvar Prompt
               </Button>
             </div>
           )}
