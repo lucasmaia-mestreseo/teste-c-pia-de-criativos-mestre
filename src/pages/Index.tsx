@@ -10,9 +10,10 @@ import TemplatesPanel, { type TemplateData } from '@/components/TemplatesPanel';
 import CreationModeSelector, { type CreationMode } from '@/components/CreationModeSelector';
 import DashboardPanel from '@/components/DashboardPanel';
 import DynamicGeneratePanel from '@/components/DynamicGeneratePanel';
+import CreativesPanel from '@/components/CreativesPanel';
 import type { Tables } from '@/integrations/supabase/types';
 
-type RightPanel = 'generate' | 'brandkit' | 'context' | 'history' | 'dynamic';
+type RightPanel = 'generate' | 'brandkit' | 'context' | 'history' | 'dynamic' | 'creatives';
 
 const Index = () => {
   const [projectId, setProjectId] = useState<string | null>(null);
