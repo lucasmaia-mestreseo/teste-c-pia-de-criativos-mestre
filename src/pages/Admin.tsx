@@ -248,6 +248,9 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
   const [editName, setEditName] = useState('');
   const [editPassword, setEditPassword] = useState('');
   const [saving, setSaving] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviting, setInviting] = useState(false);
+  const [invitations, setInvitations] = useState<any[]>([]);
 
   const fetchUsers = async () => {
     const { data: profiles } = await supabase.from('profiles').select('*');
