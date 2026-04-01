@@ -2,57 +2,57 @@
 
 # Ajustes 01, 02 e 03
 
-## AJUSTE 01 — Admin: telas full-width + tabela de usuários alinhada
+## AJUSTE 01 — Opções para ignorar Brand Kit e Contexto
 
-**Problema:** O conteúdo admin tem `max-w-4xl` que limita a largura. A lista de usuários usa cards independentes sem alinhamento em colunas.
+### Frontend
 
-**Arquivo:** `src/pages/Admin.tsx`
+**`src/components/GeneratePanel.tsx`:**
+- Adicionar dois estados: `ignoreBrandKit` e `ignoreContext` (default `false`)
+- Renderizar dois checkboxes na área de controles (perto do formato): "Ignorar Brand Kit" e "Ignorar Contexto"
+- No `handleGenerate`: se `ignoreBrandKit`, enviar `brandKit: null` no body; se `ignoreContext`, adicionar `ignoreContext: true` no body
 
-1. Linha 137: remover `max-w-4xl` do `<main>`, substituir por `max-w-6xl` ou remover completamente para ocupar tela toda
-2. **UsersTab** (linhas 423-470): substituir os cards individuais por uma tabela HTML (`<Table>` do shadcn) com colunas fixas: Nome/Email | Cargo | Status | Ações. Isso alinha tudo corretamente como no screenshot de referência.
+**`src/components/DynamicGeneratePanel.tsx`:**
+- Mesmo padrão: dois estados + dois checkboxes antes do botão de gerar
+- Enviar `ignoreBrandKit: true` e `ignoreContext: true` no body quando marcados
 
-Estrutura da tabela:
-```text
-| Nome / Email          | Cargo      | Status   | Nível (select) | Ações        |
-|-----------------------|------------|----------|----------------|--------------|
-| Fabio Ricotta         | Owner      | Aprovado | Owner ▼        | ✏️           |
-| fabio@agencia...      |            |          |                |              |
-```
+### Edge Functions
 
-- Usar `Table, TableHeader, TableBody, TableRow, TableHead, TableCell` de `@/components/ui/table`
-- Manter a seção de convite acima da tabela
+**`supabase/functions/generate-creative/index.ts`:**
+- Ler `ignoreContext` do body. Se `true`, não incluir `project.context` e `project.voice_guide` no prompt de geração
+- O brandKit já é controlado pelo frontend (envia `null`)
 
-**ProjectsTab** e demais tabs: mesma abordagem — remover `max-w-4xl` para mais espaço.
+**`supabase/functions/generate-dynamic-creative/index.ts`:**
+- Ler `ignoreBrandKit` e `ignoreContext` do body
+- Se `ignoreBrandKit`: setar `brandInfo` como string vazia e não usar cores do brandKit no image prompt
+- Se `ignoreContext`: não incluir context e voice_guide no prompt do briefing
 
-## AJUSTE 02 — Logo "Criativos Mestre" leva ao dashboard
+## AJUSTE 02 — Tamanho dos thumbnails
 
-**Arquivo:** `src/components/RightSidebar.tsx` (linha 89-93)
+Três arquivos com sliders de thumb size:
 
-- Importar `useNavigate` (já importado)
-- O logo/nome já está na linha 91-92. Envolver em um `<button>` ou `<div onClick>` que:
-  - Chama `onSelectProject('')` ou um novo callback `onGoHome` para limpar o `projectId`
-  - Isso fará `showDashboard = !projectId` ser `true` no `Index.tsx`
+| Arquivo | Default atual | Max atual | Novo default | Novo max |
+|---------|--------------|-----------|-------------|---------|
+| `GeneratePanel.tsx` | 80 | 160 | 160 | 640 |
+| `DynamicResultsPanel.tsx` | 100 | 200 | 200 | 800 |
+| `CreativesPanel.tsx` | 100 | 200 | 200 | 800 |
 
-Solução mais simples: aceitar a prop `onSelectProject` que já existe e chamar com valor que limpa a seleção. No `Index.tsx`, o `handleProjectChange` espera um ID válido, então precisamos de um callback dedicado. Alternativa: no click do logo, simplesmente setar `projectId` para `null` via nova prop `onGoToDashboard`.
+- Alterar o valor default no `useState` (manter leitura do localStorage para valores já salvos)
+- Alterar o `max` do `<Slider>`
 
-- Adicionar prop `onGoToDashboard?: () => void` ao `RightSidebar`
-- No `Index.tsx`, passar `onGoToDashboard={() => setProjectId(null)}`
-- No logo, `onClick={onGoToDashboard}` com `cursor-pointer`
+## AJUSTE 03 — Projetos em ordem alfabética
 
-## AJUSTE 03 — Hover nos projetos do dashboard igual ao menu
-
-**Arquivo:** `src/components/DashboardPanel.tsx` (linha 105)
-
-Atualmente: `hover:bg-accent` (fundo amarelo sólido).
-
-Mudar para: `border border-transparent hover:border-primary/50 hover:text-primary` (linha fina + texto colorido, padrão do sidebar).
+**`src/components/RightSidebar.tsx` (linha 110):**
+- Adicionar `.sort((a, b) => a.name.localeCompare(b.name))` antes do `.map()`
 
 ## Arquivos
 
 | Ação | Arquivo |
 |------|---------|
-| Editar | `src/pages/Admin.tsx` — remover max-w-4xl, converter UsersTab para tabela |
-| Editar | `src/components/RightSidebar.tsx` — logo clicável + nova prop |
-| Editar | `src/pages/Index.tsx` — passar `onGoToDashboard` |
-| Editar | `src/components/DashboardPanel.tsx` — hover padronizado nos projetos |
+| Editar | `src/components/GeneratePanel.tsx` — checkboxes + lógica |
+| Editar | `src/components/DynamicGeneratePanel.tsx` — checkboxes + envio |
+| Editar | `supabase/functions/generate-creative/index.ts` — respeitar ignoreContext |
+| Editar | `supabase/functions/generate-dynamic-creative/index.ts` — respeitar flags |
+| Editar | `src/components/DynamicResultsPanel.tsx` — default e max do slider |
+| Editar | `src/components/CreativesPanel.tsx` — default e max do slider |
+| Editar | `src/components/RightSidebar.tsx` — sort alfabético |
 
