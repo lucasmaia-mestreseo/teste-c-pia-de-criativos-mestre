@@ -81,12 +81,13 @@ const roleBadgeColor = (r: AppRole | null) => {
   }
 };
 
-type Section = 'projects' | 'users' | 'usage' | 'prompts';
+type Section = 'projects' | 'users' | 'usage' | 'prompts' | 'formats';
 
 const SIDEBAR_ITEMS: { id: Section; label: string; icon: React.ReactNode; ownerOnly?: boolean }[] = [
   { id: 'projects', label: 'Projetos', icon: <FolderOpen className="h-4 w-4" /> },
   { id: 'users', label: 'Usuários', icon: <Users className="h-4 w-4" /> },
   { id: 'usage', label: 'Uso do Sistema', icon: <BarChart3 className="h-4 w-4" /> },
+  { id: 'formats', label: 'Formatos', icon: <ImageIcon className="h-4 w-4" /> },
   { id: 'prompts', label: 'Prompts', icon: <FileCode className="h-4 w-4" />, ownerOnly: true },
 ];
 
@@ -137,6 +138,7 @@ export default function AdminPage() {
           {activeSection === 'projects' && <ProjectsTab />}
           {activeSection === 'users' && <UsersTab currentUser={user} currentRole={role} />}
           {activeSection === 'usage' && <UsageTab />}
+          {activeSection === 'formats' && <FormatsTab />}
           {activeSection === 'prompts' && role === 'owner' && <PromptsTab userId={user?.id} />}
         </main>
       </div>
@@ -760,6 +762,87 @@ function PromptsTab({ userId }: { userId?: string }) {
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+// ─── Formats Tab ───
+
+function FormatsTab() {
+  const [formats, setFormats] = useState<{ id: string; label: string; active: boolean; sort_order: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newLabel, setNewLabel] = useState('');
+  const [creating, setCreating] = useState(false);
+
+  const fetchFormats = async () => {
+    const { data } = await supabase.from('creative_formats').select('*').order('sort_order');
+    setFormats((data as any) || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchFormats(); }, []);
+
+  const handleCreate = async () => {
+    if (!newLabel.trim()) return;
+    setCreating(true);
+    const maxOrder = formats.reduce((max, f) => Math.max(max, f.sort_order), 0);
+    const { error } = await supabase.from('creative_formats').insert({ label: newLabel.trim(), sort_order: maxOrder + 1 } as any);
+    if (error) toast.error(error.message?.includes('duplicate') ? 'Formato já existe' : 'Erro ao criar');
+    else {
+      toast.success('Formato criado!');
+      setNewLabel('');
+      fetchFormats();
+    }
+    setCreating(false);
+  };
+
+  const handleToggle = async (id: string, active: boolean) => {
+    await supabase.from('creative_formats').update({ active: !active } as any).eq('id', id);
+    fetchFormats();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Remover este formato?')) return;
+    await supabase.from('creative_formats').delete().eq('id', id);
+    toast.success('Formato removido');
+    fetchFormats();
+  };
+
+  if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        <Input
+          placeholder="Ex: 9:16"
+          value={newLabel}
+          onChange={(e) => setNewLabel(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+          className="bg-secondary max-w-xs"
+        />
+        <Button onClick={handleCreate} disabled={creating}>
+          <Plus className="h-4 w-4 mr-1" /> Adicionar
+        </Button>
+      </div>
+
+      <div className="space-y-2">
+        {formats.map((f) => (
+          <div key={f.id} className={`flex items-center gap-4 p-4 rounded-lg border bg-card ${!f.active ? 'opacity-50' : ''}`}>
+            <span className="font-medium flex-1">{f.label}</span>
+            <Badge variant={f.active ? 'default' : 'secondary'} className="text-xs">
+              {f.active ? 'Ativo' : 'Inativo'}
+            </Badge>
+            <div className="flex gap-1">
+              <Button size="icon" variant="ghost" onClick={() => handleToggle(f.id, f.active)} title={f.active ? 'Desativar' : 'Ativar'}>
+                {f.active ? <PowerOff className="h-4 w-4 text-orange-400" /> : <Power className="h-4 w-4 text-green-400" />}
+              </Button>
+              <Button size="icon" variant="ghost" onClick={() => handleDelete(f.id)} title="Remover">
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

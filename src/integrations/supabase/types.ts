@@ -76,6 +76,27 @@ export type Database = {
           },
         ]
       }
+      creative_formats: {
+        Row: {
+          active: boolean
+          id: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          id?: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          id?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       generated_creatives: {
         Row: {
           created_at: string
