@@ -75,7 +75,7 @@ export default function RightSidebar({ selectedProjectId, onSelectProject, activ
   ];
 
   return (
-    <aside className="w-[280px] border-l bg-card flex flex-col h-full flex-shrink-0">
+    <aside className="w-[280px] border-r bg-card flex flex-col h-full flex-shrink-0">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-4">
         <div className="flex items-center gap-2">
