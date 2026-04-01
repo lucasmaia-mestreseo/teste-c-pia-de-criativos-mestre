@@ -59,7 +59,7 @@ export default function RightSidebar({ selectedProjectId, onSelectProject, activ
     return (
       <button
         onClick={onToggle}
-        className="fixed right-4 top-4 z-50 p-2 rounded-lg bg-card border border-border shadow-lg hover:bg-accent transition-colors"
+        className="fixed left-4 top-4 z-50 p-2 rounded-lg bg-card border border-border shadow-lg hover:bg-accent transition-colors"
         title="Abrir menu"
       >
         <PanelRightOpen className="h-5 w-5" />
