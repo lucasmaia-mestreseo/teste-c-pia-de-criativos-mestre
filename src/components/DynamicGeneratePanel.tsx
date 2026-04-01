@@ -72,7 +72,7 @@ export default function DynamicGeneratePanel({ projectId }: DynamicGeneratePanel
 
     try {
       const { data, error } = await supabase.functions.invoke('generate-dynamic-creative', {
-        body: { projectId, types, format },
+        body: { projectId, types, format, ignoreBrandKit, ignoreContext },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
