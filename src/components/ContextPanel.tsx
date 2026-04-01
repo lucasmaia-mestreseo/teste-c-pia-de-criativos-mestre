@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { FileText, Save, Loader2, Globe } from 'lucide-react';
+import { FileText, Save, Loader2, Globe, Maximize2, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ContextPanelProps {
@@ -18,6 +19,7 @@ export default function ContextPanel({ projectId }: ContextPanelProps) {
   const [dirty, setDirty] = useState(false);
   const [extractUrl, setExtractUrl] = useState('');
   const [extracting, setExtracting] = useState(false);
+  const [expandedField, setExpandedField] = useState<'context' | 'voice' | null>(null);
 
   const { data: project } = useQuery({
     queryKey: ['project-context', projectId],
@@ -56,13 +58,6 @@ export default function ContextPanel({ projectId }: ContextPanelProps) {
     },
     onError: () => toast.error('Erro ao salvar contexto'),
   });
-
-  // Auto-save with debounce
-  useEffect(() => {
-    if (!dirty || !projectId) return;
-    const t = setTimeout(() => save.mutate({ context: localContext, voice_guide: localVoice }), 1500);
-    return () => clearTimeout(t);
-  }, [localContext, localVoice, dirty, projectId]);
 
   const handleExtractFromUrl = async () => {
     if (!extractUrl.trim() || !projectId) return;
@@ -103,15 +98,22 @@ export default function ContextPanel({ projectId }: ContextPanelProps) {
       <div className="flex items-center gap-2">
         <FileText className="h-4 w-4 text-primary" />
         <h2 className="text-sm font-semibold">Contexto do Projeto</h2>
-        {dirty && (
-          <span className="flex items-center gap-1 text-[10px] text-muted-foreground ml-auto">
-            {save.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-            {save.isPending ? 'Salvando...' : 'Alterações pendentes'}
-          </span>
-        )}
-        {!dirty && localContext && (
-          <span className="text-[10px] text-muted-foreground ml-auto">✓ Salvo</span>
-        )}
+        <div className="ml-auto flex items-center gap-2">
+          {dirty && (
+            <Button
+              size="sm"
+              onClick={() => save.mutate({ context: localContext, voice_guide: localVoice })}
+              disabled={save.isPending}
+              className="h-7 text-xs"
+            >
+              {save.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
+              Salvar
+            </Button>
+          )}
+          {!dirty && localContext && (
+            <span className="text-[10px] text-muted-foreground">✓ Salvo</span>
+          )}
+        </div>
       </div>
 
       {/* Extract from URL */}
@@ -141,7 +143,16 @@ export default function ContextPanel({ projectId }: ContextPanelProps) {
 
       {/* Context */}
       <div className="space-y-1.5 flex-1 flex flex-col">
-        <label className="text-xs font-medium text-muted-foreground uppercase">Contexto</label>
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-medium text-muted-foreground uppercase">Contexto</label>
+          <button
+            onClick={() => setExpandedField('context')}
+            className="p-1 rounded hover:bg-accent transition-colors"
+            title="Expandir"
+          >
+            <Maximize2 className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
+        </div>
         <p className="text-[11px] text-muted-foreground leading-relaxed">
           Descreva tudo sobre o projeto: público-alvo, produto/serviço, tom de voz, ofertas, diferenciais, etc.
         </p>
@@ -155,7 +166,16 @@ export default function ContextPanel({ projectId }: ContextPanelProps) {
 
       {/* Voice Guide */}
       <div className="space-y-1.5 flex-1 flex flex-col">
-        <label className="text-xs font-medium text-muted-foreground uppercase">Tom de Voz / Guia de Voz</label>
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-medium text-muted-foreground uppercase">Tom de Voz / Guia de Voz</label>
+          <button
+            onClick={() => setExpandedField('voice')}
+            className="p-1 rounded hover:bg-accent transition-colors"
+            title="Expandir"
+          >
+            <Maximize2 className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
+        </div>
         <p className="text-[11px] text-muted-foreground leading-relaxed">
           Guia de voz da marca, extraído automaticamente ou editado manualmente.
         </p>
@@ -166,6 +186,26 @@ export default function ContextPanel({ projectId }: ContextPanelProps) {
           className="flex-1 bg-secondary resize-none text-sm min-h-[120px]"
         />
       </div>
+
+      {/* Fullscreen Dialog */}
+      <Dialog open={expandedField !== null} onOpenChange={(open) => { if (!open) setExpandedField(null); }}>
+        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              {expandedField === 'context' ? 'Contexto' : 'Tom de Voz / Guia de Voz'}
+            </DialogTitle>
+          </DialogHeader>
+          <Textarea
+            value={expandedField === 'context' ? localContext : localVoice}
+            onChange={(e) => {
+              if (expandedField === 'context') setLocalContext(e.target.value);
+              else setLocalVoice(e.target.value);
+              setDirty(true);
+            }}
+            className="flex-1 bg-secondary resize-none text-sm"
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

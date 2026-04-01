@@ -5,6 +5,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const CHUNK_SIZE = 8192;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+    const chunk = bytes.subarray(i, i + CHUNK_SIZE);
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  return btoa(binary);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -15,10 +26,8 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
 
     if (!firecrawlKey) throw new Error("Firecrawl não configurado");
-    if (!lovableKey) throw new Error("Lovable AI não configurado");
 
     const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -34,7 +43,6 @@ Deno.serve(async (req) => {
 
     console.log("Scraping URL for design system:", formattedUrl);
 
-    // Firecrawl: get screenshot + branding
     const fcResponse = await fetch("https://api.firecrawl.dev/v1/scrape", {
       method: "POST",
       headers: {
@@ -60,9 +68,26 @@ Deno.serve(async (req) => {
       const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-      // Convert base64 to bytes
-      const base64Data = screenshot.replace(/^data:image\/\w+;base64,/, "");
-      const bytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+      let bytes: Uint8Array;
+
+      if (screenshot.startsWith("data:")) {
+        // Base64 data URI
+        const base64Data = screenshot.replace(/^data:image\/\w+;base64,/, "");
+        const cleaned = base64Data.replace(/\s/g, "");
+        bytes = Uint8Array.from(atob(cleaned), (c) => c.charCodeAt(0));
+      } else if (screenshot.startsWith("http")) {
+        // It's a URL — fetch the image
+        console.log("Screenshot is a URL, fetching...");
+        const imgResponse = await fetch(screenshot);
+        if (!imgResponse.ok) throw new Error(`Failed to fetch screenshot: ${imgResponse.status}`);
+        const arrayBuffer = await imgResponse.arrayBuffer();
+        bytes = new Uint8Array(arrayBuffer);
+      } else {
+        // Raw base64 without prefix
+        const cleaned = screenshot.replace(/\s/g, "");
+        bytes = Uint8Array.from(atob(cleaned), (c) => c.charCodeAt(0));
+      }
+
       const path = `${projectId}/design-screenshot-${Date.now()}.png`;
 
       const { error: uploadErr } = await adminClient.storage

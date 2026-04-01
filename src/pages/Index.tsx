@@ -53,33 +53,35 @@ const Index = () => {
           </div>
         ) : (
           <>
-            {/* Left column */}
-            <div className="w-[35%] border-r bg-card flex-shrink-0 flex flex-col">
-              <CreationModeSelector mode={creationMode} onChange={setCreationMode} />
-              <div className="flex-1 min-h-0">
-                {creationMode === 'swipe' && (
-                  <SwipeFilePanel
-                    projectId={projectId}
-                    selectedSwipe={selectedSwipe}
-                    onSelectSwipe={setSelectedSwipe}
-                  />
-                )}
-                {creationMode === 'free' && (
-                  <FreePromptPanel
-                    projectId={projectId}
-                    data={freePromptData}
-                    onChange={setFreePromptData}
-                  />
-                )}
-                {creationMode === 'templates' && (
-                  <TemplatesPanel
-                    projectId={projectId}
-                    data={templateData}
-                    onChange={setTemplateData}
-                  />
-                )}
+            {/* Left column - only when generating */}
+            {activePanel === 'generate' && (
+              <div className="w-[35%] border-r bg-card flex-shrink-0 flex flex-col">
+                <CreationModeSelector mode={creationMode} onChange={setCreationMode} />
+                <div className="flex-1 min-h-0">
+                  {creationMode === 'swipe' && (
+                    <SwipeFilePanel
+                      projectId={projectId}
+                      selectedSwipe={selectedSwipe}
+                      onSelectSwipe={setSelectedSwipe}
+                    />
+                  )}
+                  {creationMode === 'free' && (
+                    <FreePromptPanel
+                      projectId={projectId}
+                      data={freePromptData}
+                      onChange={setFreePromptData}
+                    />
+                  )}
+                  {creationMode === 'templates' && (
+                    <TemplatesPanel
+                      projectId={projectId}
+                      data={templateData}
+                      onChange={setTemplateData}
+                    />
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Right column - Dynamic panel */}
             <div className="flex-1 bg-background overflow-hidden">
