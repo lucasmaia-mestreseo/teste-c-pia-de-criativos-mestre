@@ -114,9 +114,44 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
     }
   };
 
+  const handleExtractDesignSystem = async () => {
+    if (!siteUrl.trim() || !projectId) return;
+    setExtracting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('extract-design-system', {
+        body: { url: siteUrl.trim(), projectId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      if (data.screenshotUrl) {
+        setDesignScreenshotUrl(data.screenshotUrl);
+      }
+
+      const extractedData = {
+        primary_color: data.primary_color,
+        secondary_color: data.secondary_color,
+        background_color: data.background_color,
+        aux_colors: data.aux_colors,
+        typography: data.typography,
+      };
+
+      if (hasExistingData) {
+        setPendingExtraction(extractedData);
+        setShowConfirm(true);
+      } else {
+        applyExtraction(extractedData, 'replace');
+        toast.success('Design System extraído com sucesso!');
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao extrair Design System');
+    } finally {
+      setExtracting(false);
+    }
+  };
+
   const handleExtractFromUrl = () => {
-    if (!siteUrl.trim()) return;
-    handleExtraction({ url: siteUrl.trim() });
+    handleExtractDesignSystem();
   };
 
   const handleScreenshotUpload = async (file: File) => {
