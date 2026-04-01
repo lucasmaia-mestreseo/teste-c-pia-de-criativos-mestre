@@ -1,45 +1,58 @@
 
 
-# Corrigir Dashboard — `created_by` NULL
+# Ajustes 01, 02 e 03
 
-## Problema raiz
+## AJUSTE 01 — Admin: telas full-width + tabela de usuários alinhada
 
-A edge function `generate-creative` **não extrai o usuário autenticado** e insere criativos sem `created_by`. Todos os 29 criativos existentes têm `created_by = NULL`. O dashboard filtra por `created_by = user.id`, logo retorna zero.
+**Problema:** O conteúdo admin tem `max-w-4xl` que limita a largura. A lista de usuários usa cards independentes sem alinhamento em colunas.
 
-## Correções
+**Arquivo:** `src/pages/Admin.tsx`
 
-### 1. Edge function `generate-creative` — adicionar `created_by`
+1. Linha 137: remover `max-w-4xl` do `<main>`, substituir por `max-w-6xl` ou remover completamente para ocupar tela toda
+2. **UsersTab** (linhas 423-470): substituir os cards individuais por uma tabela HTML (`<Table>` do shadcn) com colunas fixas: Nome/Email | Cargo | Status | Ações. Isso alinha tudo corretamente como no screenshot de referência.
 
-**Arquivo:** `supabase/functions/generate-creative/index.ts`
-
-No início do handler (após `req.json()`), extrair o usuário autenticado do header de autorização (mesmo padrão já usado em `generate-dynamic-creative`):
-
-```typescript
-const authHeader = req.headers.get("Authorization");
-const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
-  global: { headers: { Authorization: authHeader } },
-});
-const { data: { user } } = await anonClient.auth.getUser();
+Estrutura da tabela:
+```text
+| Nome / Email          | Cargo      | Status   | Nível (select) | Ações        |
+|-----------------------|------------|----------|----------------|--------------|
+| Fabio Ricotta         | Owner      | Aprovado | Owner ▼        | ✏️           |
+| fabio@agencia...      |            |          |                |              |
 ```
 
-Na inserção (linha ~647), adicionar `created_by: user?.id ?? null`.
+- Usar `Table, TableHeader, TableBody, TableRow, TableHead, TableCell` de `@/components/ui/table`
+- Manter a seção de convite acima da tabela
 
-### 2. Migration — preencher `created_by` nos registros existentes
+**ProjectsTab** e demais tabs: mesma abordagem — remover `max-w-4xl` para mais espaço.
 
-Criar migration que atualiza os registros NULL com base em algum critério. Como não há como saber quem gerou retroativamente, a abordagem mais segura é associar ao owner/admin. Alternativa: deixar como estão e ajustar o dashboard para também mostrar criativos sem `created_by`.
+## AJUSTE 02 — Logo "Criativos Mestre" leva ao dashboard
 
-### 3. Dashboard — mostrar criativos sem `created_by` (solução imediata)
+**Arquivo:** `src/components/RightSidebar.tsx` (linha 89-93)
 
-**Arquivo:** `src/hooks/useDashboardStats.ts`
+- Importar `useNavigate` (já importado)
+- O logo/nome já está na linha 91-92. Envolver em um `<button>` ou `<div onClick>` que:
+  - Chama `onSelectProject('')` ou um novo callback `onGoHome` para limpar o `projectId`
+  - Isso fará `showDashboard = !projectId` ser `true` no `Index.tsx`
 
-Remover o filtro `.eq('created_by', user!.id)` de todas as queries. Isso faz o dashboard mostrar **todos os criativos visíveis** (RLS já controla acesso). Criativos antigos (sem `created_by`) e novos (com `created_by`) aparecerão.
+Solução mais simples: aceitar a prop `onSelectProject` que já existe e chamar com valor que limpa a seleção. No `Index.tsx`, o `handleProjectChange` espera um ID válido, então precisamos de um callback dedicado. Alternativa: no click do logo, simplesmente setar `projectId` para `null` via nova prop `onGoToDashboard`.
 
-Alternativamente, usar `.or(\`created_by.eq.${user!.id},created_by.is.null\`)` para incluir ambos.
+- Adicionar prop `onGoToDashboard?: () => void` ao `RightSidebar`
+- No `Index.tsx`, passar `onGoToDashboard={() => setProjectId(null)}`
+- No logo, `onClick={onGoToDashboard}` com `cursor-pointer`
+
+## AJUSTE 03 — Hover nos projetos do dashboard igual ao menu
+
+**Arquivo:** `src/components/DashboardPanel.tsx` (linha 105)
+
+Atualmente: `hover:bg-accent` (fundo amarelo sólido).
+
+Mudar para: `border border-transparent hover:border-primary/50 hover:text-primary` (linha fina + texto colorido, padrão do sidebar).
 
 ## Arquivos
 
 | Ação | Arquivo |
 |------|---------|
-| Editar | `supabase/functions/generate-creative/index.ts` — extrair user e passar `created_by` |
-| Editar | `src/hooks/useDashboardStats.ts` — remover filtro por `created_by` ou usar `.or()` |
+| Editar | `src/pages/Admin.tsx` — remover max-w-4xl, converter UsersTab para tabela |
+| Editar | `src/components/RightSidebar.tsx` — logo clicável + nova prop |
+| Editar | `src/pages/Index.tsx` — passar `onGoToDashboard` |
+| Editar | `src/components/DashboardPanel.tsx` — hover padronizado nos projetos |
 
