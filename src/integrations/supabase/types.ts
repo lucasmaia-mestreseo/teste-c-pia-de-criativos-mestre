@@ -224,18 +224,21 @@ export type Database = {
       }
       template_prompts: {
         Row: {
+          base_image_url: string | null
           id: string
           prompt: string
           updated_at: string
           updated_by: string | null
         }
         Insert: {
+          base_image_url?: string | null
           id: string
           prompt: string
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
+          base_image_url?: string | null
           id?: string
           prompt?: string
           updated_at?: string
