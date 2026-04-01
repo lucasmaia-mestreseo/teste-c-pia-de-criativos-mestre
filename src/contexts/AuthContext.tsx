@@ -77,7 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(sess);
         setUser(sess?.user ?? null);
         if (sess?.user) {
-          await fetchProfile(sess.user.id, sess.user.email, sess.user.user_metadata?.name);
+          try {
+            await fetchProfile(sess.user.id, sess.user.email, sess.user.user_metadata?.name);
+          } catch (e) {
+            console.error('Failed to fetch profile:', e);
+          }
         } else {
           setProfile(null);
           setRole(null);
@@ -90,11 +94,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
-        fetchProfile(s.user.id, s.user.email, s.user.user_metadata?.name).then(() => setLoading(false));
+        fetchProfile(s.user.id, s.user.email, s.user.user_metadata?.name)
+          .catch(e => console.error('Failed to fetch profile:', e))
+          .finally(() => setLoading(false));
       } else {
         setLoading(false);
       }
-    });
+    }).catch(() => setLoading(false));
 
     return () => subscription.unsubscribe();
   }, []);
