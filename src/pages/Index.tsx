@@ -18,7 +18,7 @@ const Index = () => {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [activePanel, setActivePanel] = useState<RightPanel>('generate');
   const [selectedSwipe, setSelectedSwipe] = useState<Tables<'swipe_files'> | null>(null);
-  const [creationMode, setCreationMode] = useState<CreationMode>('swipe');
+  const [creationMode, setCreationMode] = useState<CreationMode>('free');
   const [freePromptData, setFreePromptData] = useState<FreePromptData>({ prompt: '', attachedImages: [] });
   const [templateData, setTemplateData] = useState<TemplateData>({ templateId: null, fields: {}, prompt: '', attachedImages: [] });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
