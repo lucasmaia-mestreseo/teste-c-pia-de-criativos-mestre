@@ -420,11 +420,12 @@ serve(async (req) => {
       const dbClient = createClient(supabaseUrl, supabaseKey);
       const { data: tpRow } = await dbClient
         .from("template_prompts")
-        .select("prompt")
+        .select("prompt, base_image_url")
         .eq("id", templateId)
         .single();
 
       const templateBase = tpRow?.prompt || '';
+      const templateBaseImageUrl = tpRow?.base_image_url || null;
       const fieldLines = Object.entries(templateFields)
         .filter(([_, v]) => v && (v as string).trim())
         .map(([k, v]) => `- ${k}: ${v}`)
