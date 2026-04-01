@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { useProjects, useCreateProject } from '@/hooks/useProjects';
 import { useAuth } from '@/contexts/AuthContext';
-import { Palette, Clock, Plus, Zap, FileText, Shield, LogOut, User, PanelLeftClose, PanelLeftOpen, Sparkles } from 'lucide-react';
+import { Palette, Clock, Plus, Zap, FileText, Shield, LogOut, User, PanelLeftClose, PanelLeftOpen, Sparkles, Image } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
