@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useProjects, useCreateProject } from '@/hooks/useProjects';
 import { useAuth } from '@/contexts/AuthContext';
-import { Palette, Clock, Plus, Zap, FileText, Shield, FileCode, LogOut, User } from 'lucide-react';
+import { Palette, Clock, Plus, Zap, FileText, Shield, LogOut, User } from 'lucide-react';
 import { toast } from 'sonner';
 
 type RightPanel = 'generate' | 'brandkit' | 'context' | 'history';
@@ -28,8 +29,14 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const canCreateProject = role === 'owner' || role === 'admin' || role === 'manager';
-  const canManageUsers = role === 'owner' || role === 'admin';
-  const canEditPrompts = role === 'owner';
+  const canAdmin = role === 'owner' || role === 'admin';
+
+  const userInitials = profile?.name
+    ?.split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || 'U';
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -57,7 +64,7 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
             <SelectValue placeholder="Selecione um projeto" />
           </SelectTrigger>
           <SelectContent>
-            {projects?.map((p) => (
+            {projects?.filter((p: any) => p.active !== false).map((p) => (
               <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
             ))}
           </SelectContent>
@@ -118,29 +125,29 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
         <div className="ml-3 border-l pl-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-2">
-                <User className="h-4 w-4" />
-                <span className="text-xs max-w-[120px] truncate">{profile?.name || 'Usuário'}</span>
+              <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 p-0">
+                <Avatar className="h-9 w-9">
+                  <AvatarFallback className="text-xs font-semibold bg-primary text-primary-foreground">
+                    {userInitials}
+                  </AvatarFallback>
+                </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <div className="px-2 py-1.5">
                 <p className="text-sm font-medium">{profile?.name}</p>
                 <p className="text-xs text-muted-foreground">{profile?.email}</p>
-                <p className="text-xs text-muted-foreground capitalize mt-0.5">{role || 'Sem nível'}</p>
               </div>
               <DropdownMenuSeparator />
-              {canManageUsers && (
-                <DropdownMenuItem onClick={() => navigate('/admin/users')}>
-                  <Shield className="h-4 w-4 mr-2" /> Gerenciar Usuários
+              <DropdownMenuItem onClick={() => navigate('/profile')}>
+                <User className="h-4 w-4 mr-2" /> Perfil
+              </DropdownMenuItem>
+              {canAdmin && (
+                <DropdownMenuItem onClick={() => navigate('/admin')}>
+                  <Shield className="h-4 w-4 mr-2" /> Administração
                 </DropdownMenuItem>
               )}
-              {canEditPrompts && (
-                <DropdownMenuItem onClick={() => navigate('/admin/prompts')}>
-                  <FileCode className="h-4 w-4 mr-2" /> Editar Prompts
-                </DropdownMenuItem>
-              )}
-              {(canManageUsers || canEditPrompts) && <DropdownMenuSeparator />}
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={signOut}>
                 <LogOut className="h-4 w-4 mr-2" /> Sair
               </DropdownMenuItem>
