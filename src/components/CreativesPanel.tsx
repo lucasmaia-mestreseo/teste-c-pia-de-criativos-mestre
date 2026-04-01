@@ -15,7 +15,7 @@ interface CreativesPanelProps {
 const STORAGE_KEY = 'thumbSize-creatives';
 
 export default function CreativesPanel({ projectId }: CreativesPanelProps) {
-  const [thumbSize, setThumbSize] = useState(() => Number(localStorage.getItem(STORAGE_KEY)) || 100);
+  const [thumbSize, setThumbSize] = useState(() => Number(localStorage.getItem(STORAGE_KEY)) || 200);
   const [onlyFavorites, setOnlyFavorites] = useState(false);
   const [modalCreative, setModalCreative] = useState<any | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; projectId: string } | null>(null);
@@ -84,7 +84,7 @@ export default function CreativesPanel({ projectId }: CreativesPanelProps) {
               value={[thumbSize]}
               onValueChange={handleThumbSizeChange}
               min={48}
-              max={200}
+              max={800}
               step={8}
               className="w-20"
             />

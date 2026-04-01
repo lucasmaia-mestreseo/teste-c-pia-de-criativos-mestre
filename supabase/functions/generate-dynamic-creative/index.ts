@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     const { data: { user } } = await anonClient.auth.getUser();
     if (!user) throw new Error("Não autenticado");
 
-    const { projectId, types, format } = await req.json();
+    const { projectId, types, format, ignoreBrandKit, ignoreContext } = await req.json();
     // types: Array<{ type: 'conservative' | 'innovative' | 'radical', count: number }>
     if (!projectId || !types?.length) throw new Error("projectId e types são obrigatórios");
     const selectedFormat = format || "1:1";
@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
     const { data: prompts } = await anonClient.from("template_prompts").select("id, prompt").in("id", promptIds);
     const promptMap = new Map((prompts || []).map((p: any) => [p.id, p.prompt]));
 
-    const brandInfo = brandKit
+    const brandInfo = (!ignoreBrandKit && brandKit)
       ? `Cores: primária ${brandKit.primary_color || "N/A"}, secundária ${brandKit.secondary_color || "N/A"}, fundo ${brandKit.background_color || "N/A"}. Tipografia: ${brandKit.typography || "N/A"}.`
       : "Sem brand kit definido.";
 
@@ -70,9 +70,9 @@ Deno.serve(async (req) => {
               {
                 role: "user",
                 content: `Contexto do projeto "${project?.name || ""}":
-${project?.context || "Sem contexto definido."}
+${ignoreContext ? "Sem contexto definido." : (project?.context || "Sem contexto definido.")}
 
-Tom de voz: ${project?.voice_guide || "Não definido."}
+Tom de voz: ${ignoreContext ? "Não definido." : (project?.voice_guide || "Não definido.")}
 
 Brand Kit: ${brandInfo}
 
@@ -135,8 +135,8 @@ Retorne em formato JSON com as chaves: titulo, copy, proposta_imagem, objetivo_e
         const imagePrompt = `Create a professional ad creative image for social media.
 Title: "${briefing.titulo || ""}"
 Visual concept: ${briefing.proposta_imagem || "professional marketing image"}
-Brand colors: primary ${brandKit?.primary_color || "#333"}, secondary ${brandKit?.secondary_color || "#666"}
-Typography: ${brandKit?.typography || "modern sans-serif"}
+Brand colors: primary ${(!ignoreBrandKit && brandKit?.primary_color) || "#333"}, secondary ${(!ignoreBrandKit && brandKit?.secondary_color) || "#666"}
+Typography: ${(!ignoreBrandKit && brandKit?.typography) || "modern sans-serif"}
 Style: Clean, professional, high-conversion ad creative.
 DO NOT include any text in the image. The image should be purely visual.`;
 

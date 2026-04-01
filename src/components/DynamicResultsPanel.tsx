@@ -16,7 +16,7 @@ interface DynamicResultsPanelProps {
 const STORAGE_KEY = 'thumbSize-dynamic';
 
 export default function DynamicResultsPanel({ projectId, generating }: DynamicResultsPanelProps) {
-  const [thumbSize, setThumbSize] = useState(() => Number(localStorage.getItem(STORAGE_KEY)) || 100);
+  const [thumbSize, setThumbSize] = useState(() => Number(localStorage.getItem(STORAGE_KEY)) || 200);
   const [modalCreative, setModalCreative] = useState<any | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; projectId: string } | null>(null);
 
@@ -69,7 +69,7 @@ export default function DynamicResultsPanel({ projectId, generating }: DynamicRe
             value={[thumbSize]}
             onValueChange={handleThumbSizeChange}
             min={48}
-            max={200}
+            max={800}
             step={8}
             className="w-20"
           />

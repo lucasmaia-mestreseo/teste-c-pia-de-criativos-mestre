@@ -42,7 +42,9 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
   const [includePersonPhoto, setIncludePersonPhoto] = useState(false);
   const [selectedPersonPhoto, setSelectedPersonPhoto] = useState<string>('');
   const [personMode, setPersonMode] = useState<'photo' | 'grid'>('photo');
-  const [thumbSize, setThumbSize] = useState(() => Number(localStorage.getItem(STORAGE_KEY)) || 80);
+  const [ignoreBrandKit, setIgnoreBrandKit] = useState(false);
+  const [ignoreContext, setIgnoreContext] = useState(false);
+  const [thumbSize, setThumbSize] = useState(() => Number(localStorage.getItem(STORAGE_KEY)) || 160);
   const [modalImage, setModalImage] = useState<{ url: string; prompt: string; id: string; projectId: string; favorite: boolean } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; projectId: string } | null>(null);
   const [elementOverrides, setElementOverrides] = useState<ElementOverrides>(EMPTY_OVERRIDES);
@@ -126,7 +128,7 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
         format,
         projectId,
         mode: creationMode,
-        brandKit: brandKit ? {
+        brandKit: ignoreBrandKit ? null : (brandKit ? {
           primaryColor: brandKit.primary_color,
           secondaryColor: brandKit.secondary_color,
           backgroundColor: brandKit.background_color,
@@ -135,7 +137,8 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
           logoUrl,
           personPhotoUrl,
           personGridUrl,
-        } : null,
+        } : null),
+        ignoreContext,
       };
 
       if (creationMode === 'swipe') {
@@ -212,7 +215,7 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
                   value={[thumbSize]}
                   onValueChange={handleThumbSizeChange}
                   min={48}
-                  max={160}
+                  max={640}
                   step={8}
                   className="w-16"
                 />
@@ -385,6 +388,16 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
           </div>
         )}
 
+        <div className="flex flex-wrap items-center gap-3 mb-1">
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <Checkbox checked={ignoreBrandKit} onCheckedChange={(v) => setIgnoreBrandKit(!!v)} className="h-3.5 w-3.5" />
+            <span className="text-[10px] text-muted-foreground">Ignorar Brand Kit</span>
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <Checkbox checked={ignoreContext} onCheckedChange={(v) => setIgnoreContext(!!v)} className="h-3.5 w-3.5" />
+            <span className="text-[10px] text-muted-foreground">Ignorar Contexto</span>
+          </label>
+        </div>
         <div className="flex items-center gap-2">
           <Select value={format} onValueChange={setFormat}>
             <SelectTrigger className="w-[80px] bg-secondary h-8 text-xs"><SelectValue /></SelectTrigger>
