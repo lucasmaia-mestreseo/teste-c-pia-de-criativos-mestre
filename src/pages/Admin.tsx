@@ -277,7 +277,34 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
     setLoading(false);
   };
 
-  useEffect(() => { fetchUsers(); }, []);
+  const fetchInvitations = async () => {
+    const { data } = await supabase.from('user_invitations').select('*').order('created_at', { ascending: false });
+    setInvitations(data || []);
+  };
+
+  useEffect(() => { fetchUsers(); fetchInvitations(); }, []);
+
+  const handleInvite = async () => {
+    const email = inviteEmail.trim().toLowerCase();
+    if (!email) return;
+    if (!email.endsWith('@agenciamestre.com')) {
+      toast.error('Apenas emails @agenciamestre.com são permitidos');
+      return;
+    }
+    setInviting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('invite-user', { body: { email } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success('Convite enviado!');
+      setInviteEmail('');
+      fetchInvitations();
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao enviar convite');
+    } finally {
+      setInviting(false);
+    }
+  };
 
   const handleApprove = async (userId: string, approved: boolean) => {
     await supabase.from('profiles').update({ approved }).eq('user_id', userId);
