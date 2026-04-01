@@ -663,6 +663,7 @@ CRITICAL RULES:
       image_url: publicUrl,
       prompt: effectivePrompt,
       format,
+      created_by: authenticatedUserId,
     });
     if (dbError) throw dbError;
 

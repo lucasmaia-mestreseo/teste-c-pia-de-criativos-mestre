@@ -26,7 +26,6 @@ export function useDashboardStats() {
       const { count, error } = await supabase
         .from('generated_creatives')
         .select('*', { count: 'exact', head: true })
-        .eq('created_by', user!.id)
         .gte('created_at', sevenDaysAgo.toISOString());
       if (error) throw error;
       return count ?? 0;
