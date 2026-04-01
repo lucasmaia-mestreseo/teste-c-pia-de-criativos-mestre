@@ -77,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(sess);
         setUser(sess?.user ?? null);
         if (sess?.user) {
-          await fetchProfile(sess.user.id);
+          await fetchProfile(sess.user.id, sess.user.email, sess.user.user_metadata?.name);
         } else {
           setProfile(null);
           setRole(null);
