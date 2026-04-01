@@ -1,36 +1,62 @@
 
 
-# Menu Lateral no Admin + Imagem Base nos Prompts
+# Fix Persistent Loading Screen
 
-## 1. Layout do Admin com sidebar lateral
+## Root Cause
 
-Substituir o `Tabs` horizontal atual em `src/pages/Admin.tsx` por um layout com sidebar à esquerda e conteúdo à direita:
+The `onAuthStateChange` callback is `async` and `await`s Supabase queries (`fetchProfile`). Per official Supabase documentation, **awaiting Supabase API calls inside `onAuthStateChange` causes a deadlock** — the auth state listener blocks itself, preventing `setLoading(false)` from ever executing.
 
-- Sidebar fixa (~220px) com itens de navegação vertical: Projetos, Usuários, Uso do Sistema, Prompts (owner only)
-- Área de conteúdo ocupa o restante da largura
-- Estado `activeSection` controla qual seção é exibida
-- Usar estilos simples com botões/links verticais (sem necessidade do componente Sidebar do shadcn, basta um `div` com navegação)
+## Solution
 
-## 2. Imagem base por template no Prompts
+Refactor `src/contexts/AuthContext.tsx` to follow the recommended pattern:
 
-### Migration: adicionar coluna `base_image_url` à tabela `template_prompts`
-```sql
-ALTER TABLE template_prompts ADD COLUMN base_image_url text;
+1. **Remove `async/await` from `onAuthStateChange`** — only set session/user synchronously in the callback
+2. **Use `setTimeout` to offload `fetchProfile`** outside the auth listener lock
+3. **Use `getSession()` as the primary initialization path** — it resolves the session from storage first, then triggers profile fetch
+4. **Ensure `setLoading(false)` is always reached** via `finally` blocks
+
+```typescript
+useEffect(() => {
+  let initialDone = false;
+
+  // 1. Initial session restore
+  supabase.auth.getSession().then(({ data: { session: s } }) => {
+    setSession(s);
+    setUser(s?.user ?? null);
+    if (s?.user) {
+      fetchProfile(s.user.id, s.user.email, s.user.user_metadata?.name)
+        .catch(e => console.error('Failed to fetch profile:', e))
+        .finally(() => { initialDone = true; setLoading(false); });
+    } else {
+      initialDone = true;
+      setLoading(false);
+    }
+  }).catch(() => { initialDone = true; setLoading(false); });
+
+  // 2. Subsequent auth changes — NO async, NO await
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    (_event, sess) => {
+      setSession(sess);
+      setUser(sess?.user ?? null);
+      if (sess?.user) {
+        // Fire and forget — offload to avoid deadlock
+        setTimeout(() => {
+          fetchProfile(sess.user.id, sess.user.email, sess.user.user_metadata?.name)
+            .catch(e => console.error('Failed to fetch profile:', e))
+            .finally(() => { if (!initialDone) { initialDone = true; setLoading(false); } });
+        }, 0);
+      } else {
+        setProfile(null);
+        setRole(null);
+        if (!initialDone) { initialDone = true; setLoading(false); }
+      }
+    }
+  );
+
+  return () => subscription.unsubscribe();
+}, []);
 ```
 
-### UI no PromptsTab
-Para cada template, além do textarea do prompt, adicionar:
-- Preview da imagem base atual (se existir)
-- Botão de upload de imagem (usa storage bucket existente, ex: `generated-creatives` ou um novo `template-images`)
-- Botão para remover a imagem
-- Ao salvar, atualiza tanto `prompt` quanto `base_image_url`
-
-### Edge Function `generate-creative`
-- Ao buscar o prompt do template, incluir também `base_image_url`
-- Enviar a imagem base como parte do contexto visual na chamada de geração da IA (como `image_url` adicional nas messages)
-
-## Arquivos a modificar
-- **`src/pages/Admin.tsx`** — trocar Tabs por sidebar lateral; adicionar upload de imagem no PromptsTab
-- **Migration SQL** — adicionar coluna `base_image_url` em `template_prompts`
-- **`supabase/functions/generate-creative/index.ts`** — consumir `base_image_url` do template
+## File to modify
+- **`src/contexts/AuthContext.tsx`** — refactor useEffect to eliminate async deadlock
 
