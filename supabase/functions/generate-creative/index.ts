@@ -414,17 +414,17 @@ serve(async (req) => {
     const userContent: any[] = [];
 
     if (creationMode === 'templates' && templateId && templateFields) {
-      const TEMPLATE_PROMPTS: Record<string, string> = {
-        'hero': 'Crie um anúncio com estrutura HERO: produto/elemento centralizado como protagonista, fundo limpo com glow/iluminação dramática, alto contraste.',
-        'problem-solution': 'Crie um anúncio com estrutura PROBLEMA → SOLUÇÃO: imagem dividida visualmente em duas partes com forte contraste. Lado esquerdo representa a dor, lado direito mostra a solução.',
-        'main-benefit': 'Crie um anúncio com estrutura BENEFÍCIO PRINCIPAL: headline dominante e grande, design minimalista, alto contraste, mensagem direta.',
-        'list-ad': 'Crie um anúncio com estrutura LISTA (List Ad): headline no topo, benefícios organizados em bullet points com checkmarks/ícones, estrutura escaneável.',
-        'authority': 'Crie um anúncio com estrutura AUTORIDADE: foto do especialista/criador em destaque, headline de autoridade, prova social com números/credenciais.',
-        'demonstration': 'Crie um anúncio com estrutura DEMONSTRAÇÃO: produto/interface em uso visível, setas ou callouts apontando funcionalidades, headline explicativa.',
-        'direct-offer': 'Crie um anúncio com estrutura OFERTA DIRETA: oferta/desconto destacado com grande visibilidade, elementos de urgência, forte contraste visual.',
-      };
+      // Fetch template prompt from database
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const dbClient = createClient(supabaseUrl, supabaseKey);
+      const { data: tpRow } = await dbClient
+        .from("template_prompts")
+        .select("prompt")
+        .eq("id", templateId)
+        .single();
 
-      const templateBase = TEMPLATE_PROMPTS[templateId] || '';
+      const templateBase = tpRow?.prompt || '';
       const fieldLines = Object.entries(templateFields)
         .filter(([_, v]) => v && (v as string).trim())
         .map(([k, v]) => `- ${k}: ${v}`)
