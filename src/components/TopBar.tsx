@@ -56,7 +56,7 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2">
           <Zap className="h-5 w-5 text-primary fill-primary" />
-          <h1 className="text-lg font-bold tracking-tight">Clonador Mestre</h1>
+          <h1 className="text-lg font-bold tracking-tight">Criativos Mestre</h1>
         </div>
 
         <Select value={selectedProjectId ?? ''} onValueChange={onSelectProject}>

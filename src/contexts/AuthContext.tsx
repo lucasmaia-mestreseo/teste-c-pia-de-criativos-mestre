@@ -33,12 +33,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
-    const { data: p } = await supabase
+  const fetchProfile = async (userId: string, userEmail?: string, userName?: string) => {
+    let { data: p } = await supabase
       .from('profiles')
       .select('name, email, approved')
       .eq('user_id', userId)
       .single();
+
+    // Auto-create profile if missing (handles signup race condition)
+    if (!p && userEmail) {
+      const fallbackName = userName || userEmail.split('@')[0];
+      await supabase.from('profiles').insert({
+        user_id: userId,
+        name: fallbackName,
+        email: userEmail.toLowerCase(),
+      });
+      const { data: created } = await supabase
+        .from('profiles')
+        .select('name, email, approved')
+        .eq('user_id', userId)
+        .single();
+      p = created;
+    }
     setProfile(p || null);
 
     const { data: r } = await supabase
