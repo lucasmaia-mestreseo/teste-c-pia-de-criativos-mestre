@@ -12,6 +12,8 @@ import DashboardPanel from '@/components/DashboardPanel';
 import DynamicGeneratePanel from '@/components/DynamicGeneratePanel';
 import DynamicResultsPanel from '@/components/DynamicResultsPanel';
 import CreativesPanel from '@/components/CreativesPanel';
+import ProjectOnboarding from '@/components/ProjectOnboarding';
+import { useProject } from '@/hooks/useProject';
 import type { Tables } from '@/integrations/supabase/types';
 
 type RightPanel = 'generate' | 'brandkit' | 'context' | 'history' | 'dynamic' | 'creatives';
