@@ -411,6 +411,7 @@ serve(async (req) => {
     /* ---- Build prompt & content based on creation mode ---- */
     let effectivePrompt = prompt || '';
     let systemPrompt = '';
+    let templateBaseImageUrl: string | null = null;
     const userContent: any[] = [];
 
     if (creationMode === 'templates' && templateId && templateFields) {
