@@ -186,6 +186,7 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          onboarding_completed: boolean
           updated_at: string
           voice_guide: string | null
         }
@@ -196,6 +197,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          onboarding_completed?: boolean
           updated_at?: string
           voice_guide?: string | null
         }
@@ -206,6 +208,7 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          onboarding_completed?: boolean
           updated_at?: string
           voice_guide?: string | null
         }
