@@ -147,15 +147,23 @@ export default function RightSidebar({ selectedProjectId, onSelectProject, activ
             <>
               <Separator />
               <nav className="px-3 py-3 space-y-1">
+                {onboardingPending && (
+                  <div className="px-3 py-1.5 mb-2">
+                    <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Configurar</span>
+                  </div>
+                )}
                 {navItems.map(({ panel, icon: Icon, label }) => (
                   <button
                     key={panel}
-                    onClick={() => onPanelChange(panel)}
+                    onClick={() => !onboardingPending && onPanelChange(panel)}
+                    disabled={onboardingPending}
                     className={cn(
                       "w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all border border-transparent",
-                      activePanel === panel
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:border-primary/50 hover:text-primary'
+                      onboardingPending
+                        ? 'text-muted-foreground/50 cursor-not-allowed'
+                        : activePanel === panel
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:border-primary/50 hover:text-primary'
                     )}
                   >
                     <Icon className="h-4 w-4" />
