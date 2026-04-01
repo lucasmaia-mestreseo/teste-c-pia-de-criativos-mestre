@@ -58,6 +58,7 @@ export default function RightSidebar({ selectedProjectId, onSelectProject, activ
   const navItems: { panel: RightPanel; icon: React.ElementType; label: string }[] = [
     { panel: 'generate', icon: Zap, label: 'Gerar' },
     { panel: 'dynamic', icon: Sparkles, label: 'Geração Dinâmica' },
+    { panel: 'creatives', icon: Image, label: 'Criativos' },
     { panel: 'brandkit', icon: Palette, label: 'Brand Kit' },
     { panel: 'context', icon: FileText, label: 'Contexto' },
     { panel: 'history', icon: Clock, label: 'Histórico' },
