@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
     const { data: prompts } = await anonClient.from("template_prompts").select("id, prompt").in("id", promptIds);
     const promptMap = new Map((prompts || []).map((p: any) => [p.id, p.prompt]));
 
-    const brandInfo = brandKit
+    const brandInfo = (!ignoreBrandKit && brandKit)
       ? `Cores: primária ${brandKit.primary_color || "N/A"}, secundária ${brandKit.secondary_color || "N/A"}, fundo ${brandKit.background_color || "N/A"}. Tipografia: ${brandKit.typography || "N/A"}.`
       : "Sem brand kit definido.";
 
