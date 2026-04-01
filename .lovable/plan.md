@@ -1,57 +1,60 @@
-# Onboarding de Projeto
 
-## Conceito
+# Onboarding de Projeto — Plano de Implementação
 
-Quando um projeto é selecionado e ainda não tem o onboarding completo, o usuário vê um wizard de 3 passos em vez das funcionalidades normais. Só após concluir o onboarding o projeto fica liberado.
+## 1. Migration — coluna `onboarding_completed`
 
-## Database
-
-**Migration:** Adicionar coluna `onboarding_completed boolean NOT NULL DEFAULT false` na tabela `projects`.
-
-Projetos existentes serão marcados como `true` automaticamente na migration para não bloquear quem já usa.
+**Arquivo:** `supabase/migrations/20260401190000_add_onboarding_completed.sql`
 
 ```sql
 ALTER TABLE public.projects ADD COLUMN onboarding_completed boolean NOT NULL DEFAULT false;
 UPDATE public.projects SET onboarding_completed = true;
 ```
 
-## Novo componente: `ProjectOnboarding.tsx`
+Projetos existentes ficam marcados como concluídos. Novos projetos começam com `false`.
 
-Wizard com 3 etapas:
+## 2. Hook `useProject.ts` (novo)
 
-1. **Brand Kit** — Exibe o `BrandKitPanel` existente com botão "Próximo" ao salvar pelo menos a cor primária ou logo
-2. **Contexto e Tom de Voz** — Exibe o `ContextPanel` existente com botão "Próximo" ao salvar contexto
-3. **Gerar primeiro criativo** — Redireciona para o painel "Gerar" e marca `onboarding_completed = true`
+**Arquivo:** `src/hooks/useProject.ts`
 
-Cada etapa mostra um stepper visual (indicador de progresso 1/2/3) no topo. O usuário pode voltar a etapas anteriores mas não pode pular para frente sem completar.
+- `useProject(projectId)` — retorna dados do projeto incluindo `onboarding_completed`
+- `useCompleteOnboarding()` — mutation que faz `UPDATE projects SET onboarding_completed = true WHERE id = ?`
 
-O botão "Pular" não existirá — o onboarding é obrigatório.
+## 3. Componente `ProjectOnboarding.tsx` (novo)
 
-## Lógica em `Index.tsx`
+**Arquivo:** `src/components/ProjectOnboarding.tsx`
+
+Wizard de 3 etapas com stepper visual no topo:
+
+| Etapa | Conteúdo | Condição para avançar |
+|-------|----------|----------------------|
+| 1 — Brand Kit | Renderiza `<BrandKitPanel>` embutido | Botão "Próximo" manual |
+| 2 — Contexto | Renderiza `<ContextPanel>` embutido | Botão "Próximo" manual |
+| 3 — Concluir | Mensagem de sucesso + botão "Começar a criar" | Marca `onboarding_completed = true` e redireciona para "Gerar" |
+
+- Stepper mostra passos 1/2/3 com indicador visual do passo atual
+- Botão "Voltar" disponível nos passos 2 e 3
+- Sem opção de pular
+
+## 4. Editar `Index.tsx`
 
 Quando `projectId` está selecionado:
-- Buscar o projeto e checar `onboarding_completed`
-- Se `false` → renderizar `<ProjectOnboarding>` no lugar do conteúdo principal
-- Se `true` → renderizar normalmente
-- O sidebar de navegação (Gerar, Dinâmica, etc.) fica desabilitado/oculto durante o onboarding
+- Usar `useProject(projectId)` para checar `onboarding_completed`
+- Se `false` → renderizar `<ProjectOnboarding projectId={projectId} onComplete={() => ...} />` no lugar de todo o conteúdo principal
+- Se `true` → fluxo normal atual
+- Passar callback `onComplete` que invalida queries e muda `activePanel` para `'generate'`
 
-## Hook: `useProject(projectId)`
+## 5. Editar `RightSidebar.tsx`
 
-Novo hook simples que retorna os dados de um projeto específico (incluindo `onboarding_completed`). Usado pelo Index para decidir o fluxo.
+- Aceitar nova prop `onboardingPending?: boolean`
+- Quando `true`, os `navItems` ficam desabilitados (opacity reduzida, pointer-events none)
+- Badge "Configurar" ao lado do nome do projeto no selector
 
-## Sidebar (`RightSidebar.tsx`)
-
-Quando o projeto selecionado tem `onboarding_completed === false`:
-- Os itens de navegação ficam desabilitados (cinza, sem click)
-- Mostra badge "Configurar" ao lado do nome do projeto
-
-## Arquivos
+## Arquivos totais
 
 | Ação | Arquivo |
 |------|---------|
-| Migration | Adicionar `onboarding_completed` em `projects` |
-| Criar | `src/components/ProjectOnboarding.tsx` |
+| Migration | `supabase/migrations/20260401190000_add_onboarding_completed.sql` |
 | Criar | `src/hooks/useProject.ts` |
-| Editar | `src/pages/Index.tsx` — condicional de onboarding |
-| Editar | `src/components/RightSidebar.tsx` — desabilitar nav durante onboarding |
-| Editar | `src/hooks/useProjects.ts` — adicionar mutation para marcar onboarding completo |
+| Criar | `src/components/ProjectOnboarding.tsx` |
+| Editar | `src/pages/Index.tsx` |
+| Editar | `src/components/RightSidebar.tsx` |
