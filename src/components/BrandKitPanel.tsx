@@ -39,6 +39,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
   const [extracting, setExtracting] = useState(false);
   const [personGridUrl, setPersonGridUrl] = useState('');
   const [generatingGrid, setGeneratingGrid] = useState(false);
+  const [designScreenshotUrl, setDesignScreenshotUrl] = useState('');
 
   const [pendingExtraction, setPendingExtraction] = useState<any>(null);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -59,6 +60,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
       setPhotos(kit.photos ?? []);
       setPeoplePhotos(kit.people_photos ?? []);
       setPersonGridUrl(kit.person_grid_url ?? '');
+      setDesignScreenshotUrl((kit as any).design_screenshot_url ?? '');
     } else {
       setPrimaryColor('');
       setSecondaryColor('');
@@ -69,6 +71,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
       setPhotos([]);
       setPeoplePhotos([]);
       setPersonGridUrl('');
+      setDesignScreenshotUrl('');
     }
   }, [kit]);
 
@@ -111,9 +114,44 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
     }
   };
 
+  const handleExtractDesignSystem = async () => {
+    if (!siteUrl.trim() || !projectId) return;
+    setExtracting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('extract-design-system', {
+        body: { url: siteUrl.trim(), projectId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      if (data.screenshotUrl) {
+        setDesignScreenshotUrl(data.screenshotUrl);
+      }
+
+      const extractedData = {
+        primary_color: data.primary_color,
+        secondary_color: data.secondary_color,
+        background_color: data.background_color,
+        aux_colors: data.aux_colors,
+        typography: data.typography,
+      };
+
+      if (hasExistingData) {
+        setPendingExtraction(extractedData);
+        setShowConfirm(true);
+      } else {
+        applyExtraction(extractedData, 'replace');
+        toast.success('Design System extraído com sucesso!');
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao extrair Design System');
+    } finally {
+      setExtracting(false);
+    }
+  };
+
   const handleExtractFromUrl = () => {
-    if (!siteUrl.trim()) return;
-    handleExtraction({ url: siteUrl.trim() });
+    handleExtractDesignSystem();
   };
 
   const handleScreenshotUpload = async (file: File) => {
@@ -177,7 +215,8 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
         photos,
         people_photos: peoplePhotos,
         person_grid_url: personGridUrl || undefined,
-      });
+        design_screenshot_url: designScreenshotUrl || undefined,
+      } as any);
       toast.success('Brand Kit salvo!');
     } catch { toast.error('Erro ao salvar'); }
   };
@@ -224,9 +263,9 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
         </Button>
       </div>
 
-      {/* Extract from URL or Screenshot */}
+      {/* Extract Design System from URL */}
       <div className="space-y-2">
-        <Label className="text-xs uppercase text-muted-foreground">Extrair branding</Label>
+        <Label className="text-xs uppercase text-muted-foreground">Extrair Design System</Label>
         <div className="flex gap-2">
           <Input
             value={siteUrl}
@@ -236,7 +275,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
           />
           <Button variant="outline" size="sm" onClick={handleExtractFromUrl} disabled={extracting || !siteUrl.trim()} className="shrink-0">
             {extracting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
-            <span className="ml-1">URL</span>
+            <span className="ml-1">Extrair</span>
           </Button>
           <Button variant="outline" size="sm" onClick={() => screenshotInputRef.current?.click()} disabled={extracting} className="shrink-0">
             {extracting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Image className="h-4 w-4" />}
@@ -244,8 +283,24 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
           </Button>
         </div>
         <input ref={screenshotInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleScreenshotUpload(e.target.files[0])} />
-        <p className="text-xs text-muted-foreground">Cole uma URL ou envie um screenshot para a IA extrair cores e tipografia</p>
+        <p className="text-xs text-muted-foreground">Cole uma URL para capturar o screenshot e extrair o Design System automaticamente</p>
       </div>
+
+      {/* Design Screenshot */}
+      {designScreenshotUrl && (
+        <div className="space-y-2">
+          <Label className="text-xs uppercase text-muted-foreground">Screenshot do Site</Label>
+          <div className="relative group">
+            <img src={designScreenshotUrl} alt="Screenshot do site" className="w-full rounded border border-border bg-secondary" />
+            <button
+              onClick={() => setDesignScreenshotUrl('')}
+              className="absolute top-1 right-1 p-1 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Categorized Colors */}
       <div className="space-y-3">

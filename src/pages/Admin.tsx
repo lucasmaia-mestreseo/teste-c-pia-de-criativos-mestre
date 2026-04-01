@@ -57,6 +57,11 @@ const TEMPLATE_LABELS: Record<string, string> = {
   authority: 'Autoridade',
   demonstration: 'Demonstração',
   'direct-offer': 'Oferta Direta',
+  'context-extraction': 'Extração de Contexto (URL)',
+  'voice-analysis': 'Análise de Tom de Voz',
+  'dynamic-conservative': 'Geração Dinâmica — Conservador',
+  'dynamic-innovative': 'Geração Dinâmica — Inovador',
+  'dynamic-radical': 'Geração Dinâmica — Fora da Caixa',
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -243,6 +248,9 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
   const [editName, setEditName] = useState('');
   const [editPassword, setEditPassword] = useState('');
   const [saving, setSaving] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviting, setInviting] = useState(false);
+  const [invitations, setInvitations] = useState<any[]>([]);
 
   const fetchUsers = async () => {
     const { data: profiles } = await supabase.from('profiles').select('*');
@@ -269,7 +277,34 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
     setLoading(false);
   };
 
-  useEffect(() => { fetchUsers(); }, []);
+  const fetchInvitations = async () => {
+    const { data } = await supabase.from('user_invitations').select('*').order('created_at', { ascending: false });
+    setInvitations(data || []);
+  };
+
+  useEffect(() => { fetchUsers(); fetchInvitations(); }, []);
+
+  const handleInvite = async () => {
+    const email = inviteEmail.trim().toLowerCase();
+    if (!email) return;
+    if (!email.endsWith('@agenciamestre.com')) {
+      toast.error('Apenas emails @agenciamestre.com são permitidos');
+      return;
+    }
+    setInviting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('invite-user', { body: { email } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success('Convite enviado!');
+      setInviteEmail('');
+      fetchInvitations();
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao enviar convite');
+    } finally {
+      setInviting(false);
+    }
+  };
 
   const handleApprove = async (userId: string, approved: boolean) => {
     await supabase.from('profiles').update({ approved }).eq('user_id', userId);
@@ -354,6 +389,35 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
 
   return (
     <>
+      {/* Invite section */}
+      <div className="mb-6 space-y-3">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase">Convidar Usuário</h3>
+        <div className="flex gap-2">
+          <Input
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            placeholder="email@agenciamestre.com"
+            className="bg-secondary max-w-sm"
+            onKeyDown={(e) => e.key === 'Enter' && handleInvite()}
+          />
+          <Button onClick={handleInvite} disabled={inviting} size="sm">
+            {inviting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
+            Convidar
+          </Button>
+        </div>
+        {invitations.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground font-medium">Convites pendentes</p>
+            {invitations.filter(inv => !inv.accepted_at).map((inv) => (
+              <div key={inv.id} className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+                <span>{inv.email}</span>
+                <span className="text-[10px]">— {format(new Date(inv.created_at), 'dd/MM/yyyy')}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="space-y-2">
         {users.map((u) => (
           <div key={u.user_id} className="flex items-center gap-4 p-4 rounded-lg border bg-card">

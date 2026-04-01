@@ -9,15 +9,16 @@ import FreePromptPanel, { type FreePromptData } from '@/components/FreePromptPan
 import TemplatesPanel, { type TemplateData } from '@/components/TemplatesPanel';
 import CreationModeSelector, { type CreationMode } from '@/components/CreationModeSelector';
 import DashboardPanel from '@/components/DashboardPanel';
+import DynamicGeneratePanel from '@/components/DynamicGeneratePanel';
 import type { Tables } from '@/integrations/supabase/types';
 
-type RightPanel = 'generate' | 'brandkit' | 'context' | 'history';
+type RightPanel = 'generate' | 'brandkit' | 'context' | 'history' | 'dynamic';
 
 const Index = () => {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [activePanel, setActivePanel] = useState<RightPanel>('generate');
   const [selectedSwipe, setSelectedSwipe] = useState<Tables<'swipe_files'> | null>(null);
-  const [creationMode, setCreationMode] = useState<CreationMode>('swipe');
+  const [creationMode, setCreationMode] = useState<CreationMode>('free');
   const [freePromptData, setFreePromptData] = useState<FreePromptData>({ prompt: '', attachedImages: [] });
   const [templateData, setTemplateData] = useState<TemplateData>({ templateId: null, fields: {}, prompt: '', attachedImages: [] });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -99,6 +100,9 @@ const Index = () => {
               )}
               {activePanel === 'history' && (
                 <HistoryPanel projectId={projectId} />
+              )}
+              {activePanel === 'dynamic' && (
+                <DynamicGeneratePanel projectId={projectId} />
               )}
             </div>
           </>
