@@ -47,6 +47,7 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
   const { data: creatives } = useGeneratedCreatives(projectId);
   const { data: brandKit } = useBrandKit(projectId);
   const deleteCreative = useDeleteCreative();
+  const toggleFavorite = useToggleFavorite();
   const qc = useQueryClient();
 
   const { analysis, isPending } = useSwipeAnalysis(selectedSwipe as any);
