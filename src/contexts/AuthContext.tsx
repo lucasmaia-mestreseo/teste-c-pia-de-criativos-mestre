@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
-        fetchProfile(s.user.id).then(() => setLoading(false));
+        fetchProfile(s.user.id, s.user.email, s.user.user_metadata?.name).then(() => setLoading(false));
       } else {
         setLoading(false);
       }
