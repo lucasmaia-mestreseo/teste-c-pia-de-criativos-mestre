@@ -34,6 +34,16 @@ const Index = () => {
 
   return (
     <div className="flex h-screen overflow-hidden">
+      {/* Left Sidebar */}
+      <RightSidebar
+        selectedProjectId={projectId}
+        onSelectProject={handleProjectChange}
+        activePanel={activePanel}
+        onPanelChange={setActivePanel}
+        collapsed={sidebarCollapsed}
+        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+      />
+
       {/* Main content area */}
       <div className="flex flex-1 overflow-hidden">
         {showDashboard ? (
@@ -94,16 +104,6 @@ const Index = () => {
           </>
         )}
       </div>
-
-      {/* Right Sidebar */}
-      <RightSidebar
-        selectedProjectId={projectId}
-        onSelectProject={handleProjectChange}
-        activePanel={activePanel}
-        onPanelChange={setActivePanel}
-        collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-      />
     </div>
   );
 };
