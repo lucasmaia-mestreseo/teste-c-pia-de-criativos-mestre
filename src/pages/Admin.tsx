@@ -121,10 +121,10 @@ export default function AdminPage() {
               key={item.id}
               onClick={() => setActiveSection(item.id)}
               className={cn(
-                'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left',
+                'w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all text-left border border-transparent',
                 activeSection === item.id
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:border-primary/50 hover:text-primary'
               )}
             >
               {item.icon}
