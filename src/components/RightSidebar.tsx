@@ -60,6 +60,7 @@ export default function RightSidebar({ selectedProjectId, onSelectProject, activ
     { panel: 'brandkit', icon: Palette, label: 'Brand Kit' },
     { panel: 'context', icon: FileText, label: 'Contexto' },
     { panel: 'history', icon: Clock, label: 'Histórico' },
+    { panel: 'dynamic', icon: Sparkles, label: 'Geração Dinâmica' },
   ];
 
   return (

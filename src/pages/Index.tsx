@@ -101,6 +101,9 @@ const Index = () => {
               {activePanel === 'history' && (
                 <HistoryPanel projectId={projectId} />
               )}
+              {activePanel === 'dynamic' && (
+                <DynamicGeneratePanel projectId={projectId} />
+              )}
             </div>
           </>
         )}
