@@ -1,60 +1,85 @@
 
-# 4 Ajustes: Criativos, Favoritos, Grid Dinâmico, Dimensões
 
-## AJUSTE 01 — Nova opção "Criativos" no menu lateral
+# 7 Ajustes: Zoom, Hover, Confirmação, Dimensões, Admin, Criativos Dinâmicos
 
-Novo painel que lista todos os criativos do projeto no mesmo grid usado em "Gerar" (thumbnails com slider de tamanho, clique para abrir modal com detalhes).
+## AJUSTE 01 — Persistir zoom do grid
+
+Salvar `thumbSize` no `localStorage` por painel (generate, dynamic, creatives). Ao montar, ler o valor salvo.
+
+**Arquivos:** `GeneratePanel.tsx`, `DynamicGeneratePanel.tsx`, `CreativesPanel.tsx`
+- Trocar `useState(80)` por `useState(() => Number(localStorage.getItem('thumbSize-generate')) || 80)`
+- No `onValueChange` do Slider, gravar `localStorage.setItem('thumbSize-generate', v)`
+
+## AJUSTE 02 — Hover com 4 ações visíveis
+
+Substituir o overlay atual (que esconde a estrela) por 4 botoes sempre visíveis no hover, sem cobrir a imagem inteira:
+- **Expandir** (Eye/Maximize2) — abre o modal de detalhes
+- **Favoritar** (Star) — toggle favorito
+- **Download** (Download)
+- **Deletar** (Trash2)
+
+Posicionar como barra no bottom do thumbnail com fundo semi-transparente. Remover o overlay full-cover atual.
+
+**Arquivos:** `GeneratePanel.tsx`, `DynamicGeneratePanel.tsx`, `CreativesPanel.tsx` — mesma refatoracao nos 3 grids.
+
+## AJUSTE 03 — Confirmacao de exclusao
+
+Adicionar `AlertDialog` antes de deletar em todos os grids e modais. Ao clicar Trash2, abrir confirmacao "Tem certeza que deseja excluir este criativo?" com botoes Cancelar/Excluir.
+
+**Arquivos:** `GeneratePanel.tsx`, `DynamicGeneratePanel.tsx`, `CreativesPanel.tsx` — estado `deleteTarget: string | null`, AlertDialog condicional.
+
+## AJUSTE 04 — Seletor de dimensoes na Geracao Dinamica
+
+O Select de formato ja existe no DynamicGeneratePanel (linha 274-279). O problema pode ser visual — verificar se esta renderizando. Se o usuario nao ve, pode ser que o layout esconda. Confirmar que `format` e enviado no body (ja esta na linha 83).
+
+Sem mudanca necessaria se ja funciona. Se nao aparece visualmente, ajustar layout.
+
+## AJUSTE 05 — Admin: gerenciar dimensoes disponiveis
+
+Criar tabela `creative_formats` com colunas `id`, `label` (ex: "9:16"), `active` (boolean).
+
+No Admin, nova secao para CRUD de formatos. Nos paineis de geracao, buscar formatos da tabela em vez de usar constante hardcoded.
 
 **Arquivos:**
-- `src/components/CreativesPanel.tsx` (novo) — grid de criativos com slider de tamanho, modal de detalhes, download, excluir, filtro por favoritos
-- `src/components/RightSidebar.tsx` — adicionar item "Criativos" no `navItems` (com ícone `Image`)
-- `src/pages/Index.tsx` — adicionar tipo `'creatives'` ao `RightPanel`, renderizar `CreativesPanel`
+- Migration: criar tabela `creative_formats`, inserir defaults, RLS
+- `Admin.tsx` — nova secao "Formatos" com lista editavel
+- `GeneratePanel.tsx`, `DynamicGeneratePanel.tsx` — hook `useCreativeFormats()` em vez de `FORMATS` constante
+- Novo hook: `src/hooks/useCreativeFormats.ts`
 
-## AJUSTE 02 — Favoritos
+## AJUSTE 06 — Criativos dinamicos nao aparecem em "Criativos"
 
-### Database
-- Migration: adicionar coluna `favorite boolean NOT NULL DEFAULT false` na tabela `generated_creatives`
-- Adicionar UPDATE RLS policy para usuários aprovados
+O `CreativesPanel` usa `useGeneratedCreatives(projectId)` que busca todos os criativos do projeto. Os criativos dinamicos estao sendo salvos com o mesmo `project_id`. O problema provavelmente e que a edge function `generate-dynamic-creative` nao esta salvando na tabela corretamente ou o `projectId` enviado esta errado.
 
-### Hook
-- `src/hooks/useGeneratedCreatives.ts` — adicionar mutation `useToggleFavorite` que faz `UPDATE` no campo `favorite`
+Verificar a edge function — se salva com `project_id` correto. Provavelmente funciona e o bug e outro. O `CreativesPanel` ja mostra todos sem filtro, entao deveria mostrar dinamicos tambem.
 
-### UI — Ícone de estrela em todos os grids
-- `src/components/GeneratePanel.tsx` — adicionar estrela no canto superior direito de cada thumbnail (sempre visível, preenchida se favorito)
-- `src/components/DynamicGeneratePanel.tsx` — mesmo ícone de estrela nos resultados
-- `src/components/CreativesPanel.tsx` — estrela + botão de filtro "Apenas favoritos"
+Acao: investigar e corrigir a edge function se necessario.
 
-## AJUSTE 03 — Grid de imagens na Geração Dinâmica
+## AJUSTE 07 — Coluna de resultados na Geracao Dinamica
 
-Substituir o layout atual de resultados (cards verticais) pelo mesmo grid de thumbnails usado em "Gerar":
-- Slider de tamanho (Minimize2/Maximize2)
-- Flex wrap com thumbnails
-- Clique para abrir modal com imagem + detalhes do briefing (título, copy, proposta visual, objetivo)
+Mudar o layout do `DynamicGeneratePanel` para ter duas colunas: esquerda com config/controles, direita com grid de resultados (igual ao GeneratePanel).
 
-**Arquivo:** `src/components/DynamicGeneratePanel.tsx`
-
-## AJUSTE 04 — Seletor de dimensões na Geração Dinâmica
-
-Adicionar o mesmo Select de formato (`9:16`, `4:5`, `1:1`, `16:9`) ao painel de configuração, e enviar o `format` no body da edge function.
+Atualizar `Index.tsx` para renderizar o DynamicGeneratePanel em layout de duas colunas quando `activePanel === 'dynamic'`.
 
 **Arquivos:**
-- `src/components/DynamicGeneratePanel.tsx` — adicionar Select de formato antes do botão Gerar
-- `supabase/functions/generate-dynamic-creative/index.ts` — receber e usar `format` no body
+- `Index.tsx` — quando `activePanel === 'dynamic'`, renderizar coluna esquerda com controles e coluna direita com grid
+- `DynamicGeneratePanel.tsx` — separar em dois componentes ou aceitar prop para modo split
+
+---
 
 ## Resumo de Migrations
 
-1. `ALTER TABLE generated_creatives ADD COLUMN favorite boolean NOT NULL DEFAULT false;`
-2. RLS policy de UPDATE para approved users (já existe DELETE para project_access, mas não UPDATE)
+1. `CREATE TABLE creative_formats (id uuid PK, label text NOT NULL UNIQUE, active boolean DEFAULT true, sort_order int DEFAULT 0);` + RLS + seed com 9:16, 4:5, 1:1, 16:9
 
 ## Arquivos totais
 
-| Ação | Arquivo |
+| Acao | Arquivo |
 |------|---------|
-| Criar | `src/components/CreativesPanel.tsx` |
-| Editar | `src/components/RightSidebar.tsx` |
-| Editar | `src/pages/Index.tsx` |
-| Editar | `src/hooks/useGeneratedCreatives.ts` |
+| Criar | `src/hooks/useCreativeFormats.ts` |
+| Migration | tabela creative_formats + seed |
 | Editar | `src/components/GeneratePanel.tsx` |
 | Editar | `src/components/DynamicGeneratePanel.tsx` |
-| Editar | `supabase/functions/generate-dynamic-creative/index.ts` |
-| Migration | favorite column + UPDATE RLS |
+| Editar | `src/components/CreativesPanel.tsx` |
+| Editar | `src/pages/Index.tsx` |
+| Editar | `src/pages/Admin.tsx` |
+| Possivelmente | `supabase/functions/generate-dynamic-creative/index.ts` |
+
