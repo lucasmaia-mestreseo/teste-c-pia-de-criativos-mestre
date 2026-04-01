@@ -70,9 +70,9 @@ Deno.serve(async (req) => {
               {
                 role: "user",
                 content: `Contexto do projeto "${project?.name || ""}":
-${project?.context || "Sem contexto definido."}
+${ignoreContext ? "Sem contexto definido." : (project?.context || "Sem contexto definido.")}
 
-Tom de voz: ${project?.voice_guide || "Não definido."}
+Tom de voz: ${ignoreContext ? "Não definido." : (project?.voice_guide || "Não definido.")}
 
 Brand Kit: ${brandInfo}
 
