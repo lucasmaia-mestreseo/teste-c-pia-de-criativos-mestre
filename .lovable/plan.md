@@ -1,60 +1,37 @@
 
-# Onboarding de Projeto — Plano de Implementação
 
-## 1. Migration — coluna `onboarding_completed`
+# Padronizar hover nos menus e corrigir legibilidade do usuário
 
-**Arquivo:** `supabase/migrations/20260401190000_add_onboarding_completed.sql`
+## Problema 1 — Admin sidebar com hover diferente
 
-```sql
-ALTER TABLE public.projects ADD COLUMN onboarding_completed boolean NOT NULL DEFAULT false;
-UPDATE public.projects SET onboarding_completed = true;
-```
+O menu lateral principal (`RightSidebar.tsx`) usa o padrão:
+- Ativo: `bg-primary text-primary-foreground`
+- Hover: `border border-primary/50 text-primary` (linha fina + texto colorido)
 
-Projetos existentes ficam marcados como concluídos. Novos projetos começam com `false`.
+Já o Admin (`Admin.tsx` linha 123-128) usa:
+- Ativo: `bg-primary/10 text-primary`
+- Hover: `hover:bg-accent hover:text-foreground` (fundo sólido, sem borda)
 
-## 2. Hook `useProject.ts` (novo)
+**Correção:** Alterar o Admin para usar o mesmo padrão de borda fina + texto primary no hover.
 
-**Arquivo:** `src/hooks/useProject.ts`
+**Arquivo:** `src/pages/Admin.tsx` (linhas 123-128)
+- Adicionar `border border-transparent` no base
+- Ativo: `bg-primary text-primary-foreground` (igual ao sidebar principal)
+- Hover: `hover:border-primary/50 hover:text-primary` (remover `hover:bg-accent hover:text-foreground`)
 
-- `useProject(projectId)` — retorna dados do projeto incluindo `onboarding_completed`
-- `useCompleteOnboarding()` — mutation que faz `UPDATE projects SET onboarding_completed = true WHERE id = ?`
+## Problema 2 — Nome do usuário ilegível no hover
 
-## 3. Componente `ProjectOnboarding.tsx` (novo)
+O botão do usuário (`RightSidebar.tsx` linha 185) usa `hover:bg-accent`. Como `accent` é a cor amarela (primary), o texto branco fica ilegível sobre fundo amarelo.
 
-**Arquivo:** `src/components/ProjectOnboarding.tsx`
+**Correção:** Trocar para `hover:bg-secondary` (cinza escuro) que mantém contraste com o texto claro.
 
-Wizard de 3 etapas com stepper visual no topo:
+**Arquivo:** `src/components/RightSidebar.tsx` (linha 185)
+- Mudar `hover:bg-accent` → `hover:bg-secondary`
 
-| Etapa | Conteúdo | Condição para avançar |
-|-------|----------|----------------------|
-| 1 — Brand Kit | Renderiza `<BrandKitPanel>` embutido | Botão "Próximo" manual |
-| 2 — Contexto | Renderiza `<ContextPanel>` embutido | Botão "Próximo" manual |
-| 3 — Concluir | Mensagem de sucesso + botão "Começar a criar" | Marca `onboarding_completed = true` e redireciona para "Gerar" |
-
-- Stepper mostra passos 1/2/3 com indicador visual do passo atual
-- Botão "Voltar" disponível nos passos 2 e 3
-- Sem opção de pular
-
-## 4. Editar `Index.tsx`
-
-Quando `projectId` está selecionado:
-- Usar `useProject(projectId)` para checar `onboarding_completed`
-- Se `false` → renderizar `<ProjectOnboarding projectId={projectId} onComplete={() => ...} />` no lugar de todo o conteúdo principal
-- Se `true` → fluxo normal atual
-- Passar callback `onComplete` que invalida queries e muda `activePanel` para `'generate'`
-
-## 5. Editar `RightSidebar.tsx`
-
-- Aceitar nova prop `onboardingPending?: boolean`
-- Quando `true`, os `navItems` ficam desabilitados (opacity reduzida, pointer-events none)
-- Badge "Configurar" ao lado do nome do projeto no selector
-
-## Arquivos totais
+## Arquivos
 
 | Ação | Arquivo |
 |------|---------|
-| Migration | `supabase/migrations/20260401190000_add_onboarding_completed.sql` |
-| Criar | `src/hooks/useProject.ts` |
-| Criar | `src/components/ProjectOnboarding.tsx` |
-| Editar | `src/pages/Index.tsx` |
-| Editar | `src/components/RightSidebar.tsx` |
+| Editar | `src/pages/Admin.tsx` (linhas 123-128) |
+| Editar | `src/components/RightSidebar.tsx` (linha 185) |
+
