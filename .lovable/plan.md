@@ -1,37 +1,45 @@
 
 
-# Padronizar hover nos menus e corrigir legibilidade do usuário
+# Corrigir Dashboard — `created_by` NULL
 
-## Problema 1 — Admin sidebar com hover diferente
+## Problema raiz
 
-O menu lateral principal (`RightSidebar.tsx`) usa o padrão:
-- Ativo: `bg-primary text-primary-foreground`
-- Hover: `border border-primary/50 text-primary` (linha fina + texto colorido)
+A edge function `generate-creative` **não extrai o usuário autenticado** e insere criativos sem `created_by`. Todos os 29 criativos existentes têm `created_by = NULL`. O dashboard filtra por `created_by = user.id`, logo retorna zero.
 
-Já o Admin (`Admin.tsx` linha 123-128) usa:
-- Ativo: `bg-primary/10 text-primary`
-- Hover: `hover:bg-accent hover:text-foreground` (fundo sólido, sem borda)
+## Correções
 
-**Correção:** Alterar o Admin para usar o mesmo padrão de borda fina + texto primary no hover.
+### 1. Edge function `generate-creative` — adicionar `created_by`
 
-**Arquivo:** `src/pages/Admin.tsx` (linhas 123-128)
-- Adicionar `border border-transparent` no base
-- Ativo: `bg-primary text-primary-foreground` (igual ao sidebar principal)
-- Hover: `hover:border-primary/50 hover:text-primary` (remover `hover:bg-accent hover:text-foreground`)
+**Arquivo:** `supabase/functions/generate-creative/index.ts`
 
-## Problema 2 — Nome do usuário ilegível no hover
+No início do handler (após `req.json()`), extrair o usuário autenticado do header de autorização (mesmo padrão já usado em `generate-dynamic-creative`):
 
-O botão do usuário (`RightSidebar.tsx` linha 185) usa `hover:bg-accent`. Como `accent` é a cor amarela (primary), o texto branco fica ilegível sobre fundo amarelo.
+```typescript
+const authHeader = req.headers.get("Authorization");
+const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
+  global: { headers: { Authorization: authHeader } },
+});
+const { data: { user } } = await anonClient.auth.getUser();
+```
 
-**Correção:** Trocar para `hover:bg-secondary` (cinza escuro) que mantém contraste com o texto claro.
+Na inserção (linha ~647), adicionar `created_by: user?.id ?? null`.
 
-**Arquivo:** `src/components/RightSidebar.tsx` (linha 185)
-- Mudar `hover:bg-accent` → `hover:bg-secondary`
+### 2. Migration — preencher `created_by` nos registros existentes
+
+Criar migration que atualiza os registros NULL com base em algum critério. Como não há como saber quem gerou retroativamente, a abordagem mais segura é associar ao owner/admin. Alternativa: deixar como estão e ajustar o dashboard para também mostrar criativos sem `created_by`.
+
+### 3. Dashboard — mostrar criativos sem `created_by` (solução imediata)
+
+**Arquivo:** `src/hooks/useDashboardStats.ts`
+
+Remover o filtro `.eq('created_by', user!.id)` de todas as queries. Isso faz o dashboard mostrar **todos os criativos visíveis** (RLS já controla acesso). Criativos antigos (sem `created_by`) e novos (com `created_by`) aparecerão.
+
+Alternativamente, usar `.or(\`created_by.eq.${user!.id},created_by.is.null\`)` para incluir ambos.
 
 ## Arquivos
 
 | Ação | Arquivo |
 |------|---------|
-| Editar | `src/pages/Admin.tsx` (linhas 123-128) |
-| Editar | `src/components/RightSidebar.tsx` (linha 185) |
+| Editar | `supabase/functions/generate-creative/index.ts` — extrair user e passar `created_by` |
+| Editar | `src/hooks/useDashboardStats.ts` — remover filtro por `created_by` ou usar `.or()` |
 
