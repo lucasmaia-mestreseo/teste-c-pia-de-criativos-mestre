@@ -1,72 +1,39 @@
 
 
-# Simplificar Login + Área Administrativa Completa
+# Corrigir Perfil, Roles e Renomear Sistema
 
-## 1. Remover OTP do login
-**`src/pages/Auth.tsx`**: Simplificar `handleLogin` para usar apenas `signInWithPassword` e navegar direto para `/`. Remover todo o estado e UI de OTP (step `otp`, `otpCode`, `handleVerifyOtp`, tela de código de 6 dígitos). Remover import do `InputOTP`.
+## Problemas Identificados
 
-## 2. Tornar fabioricotta@agenciamestre.com owner
-Após o primeiro login/cadastro deste email, inserir automaticamente o role `owner` via uma migration que cria um trigger ou, mais simples, via uma edge function de bootstrap. **Abordagem escolhida**: criar um database trigger na tabela `profiles` que, ao inserir um perfil com email `fabioricotta@agenciamestre.com`, automaticamente insere o role `owner` em `user_roles` e marca `approved = true`. Isso é feito via migration SQL.
+1. **Perfil não existe no banco**: A tabela `profiles` está vazia para o usuário `fabioricotta@agenciamestre.com` (user_id: `ec840b7c-dad1-4196-bbd5-0b966ab4cffa`). O signup provavelmente falhou no insert do profile porque o RLS exige `auth.uid() = user_id`, mas durante o signup com confirmação de email, a sessão não está ativa até o email ser confirmado.
 
-## 3. Menu do usuário com iniciais (TopBar)
-**`src/components/TopBar.tsx`**: Substituir o dropdown atual do usuário por um avatar circular com as iniciais do nome. Ao clicar, abrir dropdown com duas opções:
-- **Perfil** → navega para `/profile`
-- **Administração** → navega para `/admin` (visível apenas para owner/admin)
-- **Sair** → signOut
+2. **Trigger nunca disparou**: O trigger `trg_auto_owner_fabioricotta` existe na tabela `profiles`, mas como nenhum profile foi inserido, ele nunca executou → sem role `owner` → sem acesso ao painel admin.
 
-Remover os botões "Gerenciar Usuários" e "Editar Prompts" do dropdown atual (serão movidos para dentro da página de Administração).
+3. **Projeto existe mas não aparece**: O projeto "Workshop IA na Prática" existe, mas o RLS de `projects` exige `is_approved(auth.uid())`, que verifica `profiles.approved` → sem perfil, retorna false.
 
-## 4. Nova página: Perfil (`/profile`)
-**`src/pages/Profile.tsx`** (novo):
-- Campo Nome: editável, com botão salvar (update na tabela `profiles`)
-- Campo Email: exibido como read-only
-- Seção Trocar Senha: campos "Nova senha" e "Confirmar senha", usando `supabase.auth.updateUser({ password })`
+4. **Nome do sistema**: Ainda diz "Clonador Mestre" em vários lugares.
 
-## 5. Nova página: Administração (`/admin`)
-**`src/pages/Admin.tsx`** (novo) — página com abas/tabs:
+## Solução
 
-### Aba "Projetos"
-- Lista todos os projetos com nome, data de criação
-- Para cada projeto: contagem de criativos (`generated_creatives`) e arquivos no swipe file (`swipe_files`) — obtidos via queries com `count`
-- Botões: Adicionar projeto, Desativar (campo `active` — requer nova coluna), Remover (delete)
-- **Migration**: adicionar coluna `active` (boolean, default true) na tabela `projects`
+### 1. Inserir dados do usuário owner via SQL (insert tool)
+- INSERT na tabela `profiles`: user_id `ec840b7c-...`, name "Fabio Ricotta", email "fabioricotta@agenciamestre.com", approved = true
+- INSERT na tabela `user_roles`: user_id `ec840b7c-...`, role "owner"
 
-### Aba "Usuários"
-- Lista todos os profiles com nome, email, role, status de aprovação
-- Botão aprovar/reprovar pendentes
-- Dropdown para alterar role
-- Botão editar: abre modal para trocar nome (update `profiles`) ou resetar senha (via `supabase.auth.admin.updateUserById` — precisa de edge function pois é operação admin)
-- Botão remover usuário
-- Reutiliza lógica do `AdminUsers.tsx` atual
+### 2. Corrigir race condition no signup (`Auth.tsx`)
+O problema raiz: o insert do profile usa o client autenticado, mas durante signup com confirmação de email, o usuário ainda não tem sessão. Solução: mover a criação do profile para o `AuthContext` — ao detectar um login (onAuthStateChange), verificar se o profile existe; se não, criá-lo usando dados do `user.user_metadata` (name, email).
 
-### Aba "Uso do Sistema"
-- Tabela com uso por usuário: nome, total de criativos criados
-- Filtro por período: dia, semana, mês
-- **Requer**: adicionar coluna `created_by` (uuid) na tabela `generated_creatives` para rastrear quem criou cada criativo
-- **Migration**: `ALTER TABLE generated_creatives ADD COLUMN created_by uuid REFERENCES auth.users(id)`
-- Query: `SELECT created_by, count(*) FROM generated_creatives WHERE created_at >= [período] GROUP BY created_by`
+### 3. Criar profile automaticamente no login (`AuthContext.tsx`)
+No `fetchProfile`, se a query retornar 0 rows, fazer um INSERT automático usando `user.user_metadata.name` e `user.email`. Isso garante que mesmo usuários que fizeram signup antes do fix terão profile criado.
 
-### Aba "Prompts" (somente owner)
-- Move o conteúdo atual de `AdminPrompts.tsx` para dentro desta aba
+### 4. Renomear "Clonador Mestre" → "Criativos Mestre"
+Arquivos a alterar:
+- `src/pages/Auth.tsx` (linha 117)
+- `src/components/TopBar.tsx` (título no header)
+- `index.html` (title e meta tags)
 
-## 6. Edge function para admin resetar senha de usuário
-**`supabase/functions/admin-reset-password/index.ts`** (novo):
-- Recebe `{ userId, newPassword }`
-- Valida que o caller tem role owner/admin
-- Usa `supabase.auth.admin.updateUserById(userId, { password })` com service_role key
-- Retorna sucesso/erro
-
-## 7. Rotas
-**`src/App.tsx`**: Adicionar rotas `/profile` e `/admin` (ambas dentro de AuthGuard).
-
-## Migrations necessárias
-1. Coluna `active` em `projects` (boolean, default true)
-2. Coluna `created_by` em `generated_creatives` (uuid, nullable para dados existentes)
-3. Trigger para auto-owner do email `fabioricotta@agenciamestre.com`
-4. RLS update para `profiles` permitir owner/admin atualizar qualquer perfil (para editar nomes de outros usuários)
-
-## Arquivos a criar/modificar
-- **Criar**: `src/pages/Profile.tsx`, `src/pages/Admin.tsx`, `supabase/functions/admin-reset-password/index.ts`
-- **Modificar**: `src/pages/Auth.tsx`, `src/components/TopBar.tsx`, `src/App.tsx`
-- **Possivelmente remover/deprecar**: `src/pages/AdminUsers.tsx`, `src/pages/AdminPrompts.tsx` (conteúdo movido para `Admin.tsx`)
+## Arquivos a modificar
+- **`src/contexts/AuthContext.tsx`** — adicionar auto-criação de profile no fetchProfile
+- **`src/pages/Auth.tsx`** — renomear sistema
+- **`src/components/TopBar.tsx`** — renomear sistema
+- **`index.html`** — renomear título e metas
+- **SQL insert** — dados do owner
 
