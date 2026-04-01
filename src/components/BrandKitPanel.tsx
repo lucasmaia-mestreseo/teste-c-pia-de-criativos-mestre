@@ -60,6 +60,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
       setPhotos(kit.photos ?? []);
       setPeoplePhotos(kit.people_photos ?? []);
       setPersonGridUrl(kit.person_grid_url ?? '');
+      setDesignScreenshotUrl((kit as any).design_screenshot_url ?? '');
     } else {
       setPrimaryColor('');
       setSecondaryColor('');
@@ -70,6 +71,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
       setPhotos([]);
       setPeoplePhotos([]);
       setPersonGridUrl('');
+      setDesignScreenshotUrl('');
     }
   }, [kit]);
 
