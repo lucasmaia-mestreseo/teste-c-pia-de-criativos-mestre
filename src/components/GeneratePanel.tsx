@@ -4,15 +4,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Slider } from '@/components/ui/slider';
 import { useGeneratedCreatives, useDeleteCreative, useToggleFavorite } from '@/hooks/useGeneratedCreatives';
+import { useCreativeFormats } from '@/hooks/useCreativeFormats';
 import { useBrandKit } from '@/hooks/useBrandKit';
 import { useSwipeAnalysis } from '@/hooks/useSwipeAnalysis';
 import SwipeElementsEditor, { type ElementOverrides } from '@/components/SwipeElementsEditor';
 import { supabase } from '@/integrations/supabase/client';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Zap, Download, Trash2, Loader2, Maximize2, Minimize2, Star } from 'lucide-react';
+import { Zap, Download, Trash2, Loader2, Maximize2, Minimize2, Star, Eye } from 'lucide-react';
 import { stripPngMetadata } from '@/lib/stripPngMetadata';
 import { toast } from 'sonner';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
@@ -21,9 +23,8 @@ import type { CreationMode } from '@/components/CreationModeSelector';
 import type { FreePromptData } from '@/components/FreePromptPanel';
 import type { TemplateData } from '@/components/TemplatesPanel';
 
-const FORMATS = ['9:16', '4:5', '1:1', '16:9'] as const;
-
 const EMPTY_OVERRIDES: ElementOverrides = { texts: {}, logos: {}, photos: {} };
+const STORAGE_KEY = 'thumbSize-generate';
 
 interface GeneratePanelProps {
   projectId: string | null;
@@ -41,11 +42,13 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
   const [includePersonPhoto, setIncludePersonPhoto] = useState(false);
   const [selectedPersonPhoto, setSelectedPersonPhoto] = useState<string>('');
   const [personMode, setPersonMode] = useState<'photo' | 'grid'>('photo');
-  const [thumbSize, setThumbSize] = useState(80);
-  const [modalImage, setModalImage] = useState<{ url: string; prompt: string; id: string; projectId: string } | null>(null);
+  const [thumbSize, setThumbSize] = useState(() => Number(localStorage.getItem(STORAGE_KEY)) || 80);
+  const [modalImage, setModalImage] = useState<{ url: string; prompt: string; id: string; projectId: string; favorite: boolean } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; projectId: string } | null>(null);
   const [elementOverrides, setElementOverrides] = useState<ElementOverrides>(EMPTY_OVERRIDES);
   const { data: creatives } = useGeneratedCreatives(projectId);
   const { data: brandKit } = useBrandKit(projectId);
+  const { data: formats } = useCreativeFormats();
   const deleteCreative = useDeleteCreative();
   const toggleFavorite = useToggleFavorite();
   const qc = useQueryClient();
@@ -75,6 +78,14 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
   const personPhotos = brandKit?.people_photos?.filter(Boolean) ?? [];
   const hasPersonPhotos = personPhotos.length > 0;
   const hasGrid = !!(brandKit as any)?.person_grid_url;
+
+  const formatLabels = (formats || []).map((f: any) => f.label as string);
+  const FORMATS = formatLabels.length > 0 ? formatLabels : ['9:16', '4:5', '1:1', '16:9'];
+
+  const handleThumbSizeChange = ([v]: number[]) => {
+    setThumbSize(v);
+    localStorage.setItem(STORAGE_KEY, String(v));
+  };
 
   const getEffectivePrompt = (): string => {
     if (creationMode === 'free') return freePromptData.prompt;
@@ -171,6 +182,14 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
     }
   };
 
+  const confirmDelete = () => {
+    if (deleteTarget) {
+      deleteCreative.mutate(deleteTarget);
+      if (modalImage?.id === deleteTarget.id) setModalImage(null);
+      setDeleteTarget(null);
+    }
+  };
+
   if (!projectId) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -191,7 +210,7 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
                 <Minimize2 className="h-3 w-3 text-muted-foreground" />
                 <Slider
                   value={[thumbSize]}
-                  onValueChange={([v]) => setThumbSize(v)}
+                  onValueChange={handleThumbSizeChange}
                   min={48}
                   max={160}
                   step={8}
@@ -212,33 +231,23 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
             {creatives?.map((c) => (
               <div
                 key={c.id}
-                className="group relative rounded-md overflow-hidden border bg-secondary flex-shrink-0 cursor-pointer"
+                className="group relative rounded-md overflow-hidden border bg-secondary flex-shrink-0"
                 style={{ width: thumbSize, height: thumbSize }}
-                onClick={() => setModalImage({ url: c.image_url, prompt: c.prompt, id: c.id, projectId: c.project_id })}
               >
                 <img src={c.image_url} alt={c.prompt} className="w-full h-full object-cover" />
-                {/* Favorite star */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleFavorite.mutate({ id: c.id, projectId: c.project_id, favorite: !(c as any).favorite });
-                  }}
-                  className="absolute top-1 right-1 p-0.5 rounded-full bg-background/60 hover:bg-background/80 transition-colors"
-                >
-                  <Star className={`h-3.5 w-3.5 ${(c as any).favorite ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`} />
-                </button>
-                <div className="absolute inset-0 bg-background/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleDownload(c.image_url, `creative-${c.id}.png`); }}
-                    className="p-1 rounded-full bg-primary text-primary-foreground hover:bg-primary/80"
-                  >
-                    <Download className="h-3 w-3" />
+                {/* Bottom action bar on hover */}
+                <div className="absolute bottom-0 left-0 right-0 bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 py-1">
+                  <button onClick={() => setModalImage({ url: c.image_url, prompt: c.prompt, id: c.id, projectId: c.project_id, favorite: (c as any).favorite })} className="p-1 rounded-full hover:bg-accent transition-colors" title="Detalhes">
+                    <Eye className="h-3 w-3 text-foreground" />
                   </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); deleteCreative.mutate({ id: c.id, projectId: c.project_id }); }}
-                    className="p-1 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/80"
-                  >
-                    <Trash2 className="h-3 w-3" />
+                  <button onClick={() => toggleFavorite.mutate({ id: c.id, projectId: c.project_id, favorite: !(c as any).favorite })} className="p-1 rounded-full hover:bg-accent transition-colors" title="Favoritar">
+                    <Star className={`h-3 w-3 ${(c as any).favorite ? 'fill-yellow-400 text-yellow-400' : 'text-foreground'}`} />
+                  </button>
+                  <button onClick={() => handleDownload(c.image_url, `creative-${c.id}.png`)} className="p-1 rounded-full hover:bg-accent transition-colors" title="Download">
+                    <Download className="h-3 w-3 text-foreground" />
+                  </button>
+                  <button onClick={() => setDeleteTarget({ id: c.id, projectId: c.project_id })} className="p-1 rounded-full hover:bg-accent transition-colors" title="Excluir">
+                    <Trash2 className="h-3 w-3 text-destructive" />
                   </button>
                 </div>
               </div>
@@ -262,7 +271,18 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
                 <Button size="sm" variant="outline" onClick={() => handleDownload(modalImage.url, `creative-${modalImage.id}.png`)}>
                   <Download className="h-3.5 w-3.5 mr-1" /> Download
                 </Button>
-                <Button size="sm" variant="destructive" onClick={() => { deleteCreative.mutate({ id: modalImage.id, projectId: modalImage.projectId }); setModalImage(null); }}>
+                <Button
+                  size="sm"
+                  variant={modalImage.favorite ? 'default' : 'outline'}
+                  onClick={() => {
+                    toggleFavorite.mutate({ id: modalImage.id, projectId: modalImage.projectId, favorite: !modalImage.favorite });
+                    setModalImage({ ...modalImage, favorite: !modalImage.favorite });
+                  }}
+                >
+                  <Star className={`h-3.5 w-3.5 mr-1 ${modalImage.favorite ? 'fill-primary-foreground' : ''}`} />
+                  {modalImage.favorite ? 'Favoritado' : 'Favoritar'}
+                </Button>
+                <Button size="sm" variant="destructive" onClick={() => setDeleteTarget({ id: modalImage.id, projectId: modalImage.projectId })}>
                   <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir
                 </Button>
                 <p className="text-[10px] text-muted-foreground mt-2 leading-tight">{modalImage.prompt}</p>
@@ -271,6 +291,20 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir criativo</AlertDialogTitle>
+            <AlertDialogDescription>Tem certeza que deseja excluir este criativo? Esta ação não pode ser desfeita.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* === PROMPT + OPTIONS (bottom) === */}
       <div className="px-3 pb-3 pt-2 space-y-2">
