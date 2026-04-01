@@ -128,7 +128,7 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
         format,
         projectId,
         mode: creationMode,
-        brandKit: brandKit ? {
+        brandKit: ignoreBrandKit ? null : (brandKit ? {
           primaryColor: brandKit.primary_color,
           secondaryColor: brandKit.secondary_color,
           backgroundColor: brandKit.background_color,
@@ -137,7 +137,8 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
           logoUrl,
           personPhotoUrl,
           personGridUrl,
-        } : null,
+        } : null),
+        ignoreContext,
       };
 
       if (creationMode === 'swipe') {
