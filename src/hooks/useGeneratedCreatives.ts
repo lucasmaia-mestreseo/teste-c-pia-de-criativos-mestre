@@ -28,3 +28,18 @@ export function useDeleteCreative() {
     onSuccess: (data) => qc.invalidateQueries({ queryKey: ['generated_creatives', data.projectId] }),
   });
 }
+
+export function useToggleFavorite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, projectId, favorite }: { id: string; projectId: string; favorite: boolean }) => {
+      const { error } = await supabase
+        .from('generated_creatives')
+        .update({ favorite } as any)
+        .eq('id', id);
+      if (error) throw error;
+      return { projectId };
+    },
+    onSuccess: (data) => qc.invalidateQueries({ queryKey: ['generated_creatives', data.projectId] }),
+  });
+}
