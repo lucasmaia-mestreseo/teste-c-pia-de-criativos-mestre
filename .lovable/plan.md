@@ -1,39 +1,49 @@
 
 
-# Corrigir Perfil, Roles e Renomear Sistema
+# Corrigir tela travada no loading
 
-## Problemas Identificados
-
-1. **Perfil não existe no banco**: A tabela `profiles` está vazia para o usuário `fabioricotta@agenciamestre.com` (user_id: `ec840b7c-dad1-4196-bbd5-0b966ab4cffa`). O signup provavelmente falhou no insert do profile porque o RLS exige `auth.uid() = user_id`, mas durante o signup com confirmação de email, a sessão não está ativa até o email ser confirmado.
-
-2. **Trigger nunca disparou**: O trigger `trg_auto_owner_fabioricotta` existe na tabela `profiles`, mas como nenhum profile foi inserido, ele nunca executou → sem role `owner` → sem acesso ao painel admin.
-
-3. **Projeto existe mas não aparece**: O projeto "Workshop IA na Prática" existe, mas o RLS de `projects` exige `is_approved(auth.uid())`, que verifica `profiles.approved` → sem perfil, retorna false.
-
-4. **Nome do sistema**: Ainda diz "Clonador Mestre" em vários lugares.
+## Problema
+No `AuthContext.tsx`, tanto o `onAuthStateChange` quanto o `getSession` chamam `fetchProfile` e só executam `setLoading(false)` depois. Se `fetchProfile` lançar um erro (RLS, rede, etc.), o `catch` nunca é tratado e `loading` permanece `true` para sempre, travando a tela no spinner.
 
 ## Solução
 
-### 1. Inserir dados do usuário owner via SQL (insert tool)
-- INSERT na tabela `profiles`: user_id `ec840b7c-...`, name "Fabio Ricotta", email "fabioricotta@agenciamestre.com", approved = true
-- INSERT na tabela `user_roles`: user_id `ec840b7c-...`, role "owner"
+### Modificar: `src/contexts/AuthContext.tsx`
+1. Envolver as chamadas a `fetchProfile` em try-catch tanto no callback do `onAuthStateChange` quanto no `.then()` do `getSession`
+2. Garantir que `setLoading(false)` **sempre** seja executado, mesmo em caso de erro
+3. Adicionar um bloco `finally` ou `catch` que defina `loading = false`
 
-### 2. Corrigir race condition no signup (`Auth.tsx`)
-O problema raiz: o insert do profile usa o client autenticado, mas durante signup com confirmação de email, o usuário ainda não tem sessão. Solução: mover a criação do profile para o `AuthContext` — ao detectar um login (onAuthStateChange), verificar se o profile existe; se não, criá-lo usando dados do `user.user_metadata` (name, email).
+```typescript
+// No onAuthStateChange:
+async (_event, sess) => {
+  setSession(sess);
+  setUser(sess?.user ?? null);
+  if (sess?.user) {
+    try {
+      await fetchProfile(sess.user.id, sess.user.email, sess.user.user_metadata?.name);
+    } catch (e) {
+      console.error('Failed to fetch profile:', e);
+    }
+  } else {
+    setProfile(null);
+    setRole(null);
+  }
+  setLoading(false);  // sempre executa
+}
 
-### 3. Criar profile automaticamente no login (`AuthContext.tsx`)
-No `fetchProfile`, se a query retornar 0 rows, fazer um INSERT automático usando `user.user_metadata.name` e `user.email`. Isso garante que mesmo usuários que fizeram signup antes do fix terão profile criado.
+// No getSession:
+supabase.auth.getSession().then(({ data: { session: s } }) => {
+  setSession(s);
+  setUser(s?.user ?? null);
+  if (s?.user) {
+    fetchProfile(s.user.id, s.user.email, s.user.user_metadata?.name)
+      .catch(e => console.error('Failed to fetch profile:', e))
+      .finally(() => setLoading(false));
+  } else {
+    setLoading(false);
+  }
+}).catch(() => setLoading(false));
+```
 
-### 4. Renomear "Clonador Mestre" → "Criativos Mestre"
-Arquivos a alterar:
-- `src/pages/Auth.tsx` (linha 117)
-- `src/components/TopBar.tsx` (título no header)
-- `index.html` (title e meta tags)
-
-## Arquivos a modificar
-- **`src/contexts/AuthContext.tsx`** — adicionar auto-criação de profile no fetchProfile
-- **`src/pages/Auth.tsx`** — renomear sistema
-- **`src/components/TopBar.tsx`** — renomear sistema
-- **`index.html`** — renomear título e metas
-- **SQL insert** — dados do owner
+## Arquivo a modificar
+- `src/contexts/AuthContext.tsx` — adicionar tratamento de erro nas chamadas a fetchProfile
 
