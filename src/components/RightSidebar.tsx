@@ -23,9 +23,10 @@ interface RightSidebarProps {
   collapsed: boolean;
   onToggle: () => void;
   onboardingPending?: boolean;
+  onGoToDashboard?: () => void;
 }
 
-export default function RightSidebar({ selectedProjectId, onSelectProject, activePanel, onPanelChange, collapsed, onToggle, onboardingPending }: RightSidebarProps) {
+export default function RightSidebar({ selectedProjectId, onSelectProject, activePanel, onPanelChange, collapsed, onToggle, onboardingPending, onGoToDashboard }: RightSidebarProps) {
   const { data: projects } = useProjects();
   const createProject = useCreateProject();
   const { profile, role, signOut } = useAuth();
