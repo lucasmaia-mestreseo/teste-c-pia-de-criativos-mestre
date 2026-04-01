@@ -53,7 +53,6 @@ export function useDashboardStats() {
       const { data: creatives, error: cErr } = await supabase
         .from('generated_creatives')
         .select('project_id, created_at')
-        .eq('created_by', user!.id)
         .order('created_at', { ascending: false });
       if (cErr) throw cErr;
 
