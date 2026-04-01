@@ -215,7 +215,7 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
                   value={[thumbSize]}
                   onValueChange={handleThumbSizeChange}
                   min={48}
-                  max={160}
+                  max={640}
                   step={8}
                   className="w-16"
                 />
