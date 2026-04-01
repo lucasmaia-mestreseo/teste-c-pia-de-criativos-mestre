@@ -1,31 +1,60 @@
 
+# 4 Ajustes: Criativos, Favoritos, Grid Dinâmico, Dimensões
 
-# 4 Ajustes
+## AJUSTE 01 — Nova opção "Criativos" no menu lateral
 
-## AJUSTE 01 — Fix extract-design-system base64 error
+Novo painel que lista todos os criativos do projeto no mesmo grid usado em "Gerar" (thumbnails com slider de tamanho, clique para abrir modal com detalhes).
 
-The Firecrawl screenshot format returns a URL (not base64). The edge function tries to `atob()` it, causing `InvalidCharacterError: Failed to decode base64`.
+**Arquivos:**
+- `src/components/CreativesPanel.tsx` (novo) — grid de criativos com slider de tamanho, modal de detalhes, download, excluir, filtro por favoritos
+- `src/components/RightSidebar.tsx` — adicionar item "Criativos" no `navItems` (com ícone `Image`)
+- `src/pages/Index.tsx` — adicionar tipo `'creatives'` ao `RightPanel`, renderizar `CreativesPanel`
 
-**Fix in `supabase/functions/extract-design-system/index.ts`:**
-- Instead of `atob(base64Data)`, fetch the screenshot URL with `fetch()` and get the bytes via `arrayBuffer()`
-- If it IS base64 (starts with `data:`), keep the current logic; otherwise treat it as a URL
+## AJUSTE 02 — Favoritos
 
-## AJUSTE 02 — Fullscreen expand for Context/Voice fields + manual save
+### Database
+- Migration: adicionar coluna `favorite boolean NOT NULL DEFAULT false` na tabela `generated_creatives`
+- Adicionar UPDATE RLS policy para usuários aprovados
 
-**In `src/components/ContextPanel.tsx`:**
-- Remove auto-save debounce effect
-- Add a "Salvar" button (visible when `dirty`) that triggers `save.mutate()`
-- Add an `Expand` (Maximize2) icon button on each textarea that opens a Dialog/modal with the textarea filling the screen, plus a close button
-- Use state `expandedField: 'context' | 'voice' | null` to control which is fullscreen
+### Hook
+- `src/hooks/useGeneratedCreatives.ts` — adicionar mutation `useToggleFavorite` que faz `UPDATE` no campo `favorite`
 
-## AJUSTE 03 — Reorder sidebar: "Geração Dinâmica" right after "Gerar"
+### UI — Ícone de estrela em todos os grids
+- `src/components/GeneratePanel.tsx` — adicionar estrela no canto superior direito de cada thumbnail (sempre visível, preenchida se favorito)
+- `src/components/DynamicGeneratePanel.tsx` — mesmo ícone de estrela nos resultados
+- `src/components/CreativesPanel.tsx` — estrela + botão de filtro "Apenas favoritos"
 
-**In `src/components/RightSidebar.tsx`:**
-- Move `dynamic` entry to index 1 in `navItems` array (right after `generate`)
+## AJUSTE 03 — Grid de imagens na Geração Dinâmica
 
-## AJUSTE 04 — Hide CreationModeSelector when activePanel is 'dynamic'
+Substituir o layout atual de resultados (cards verticais) pelo mesmo grid de thumbnails usado em "Gerar":
+- Slider de tamanho (Minimize2/Maximize2)
+- Flex wrap com thumbnails
+- Clique para abrir modal com imagem + detalhes do briefing (título, copy, proposta visual, objetivo)
 
-**In `src/pages/Index.tsx`:**
-- Only render the left column (CreationModeSelector + SwipeFile/FreePrompt/Templates) when `activePanel === 'generate'`
-- For other panels (brandkit, context, history, dynamic), render the right panel at full width without the left column
+**Arquivo:** `src/components/DynamicGeneratePanel.tsx`
 
+## AJUSTE 04 — Seletor de dimensões na Geração Dinâmica
+
+Adicionar o mesmo Select de formato (`9:16`, `4:5`, `1:1`, `16:9`) ao painel de configuração, e enviar o `format` no body da edge function.
+
+**Arquivos:**
+- `src/components/DynamicGeneratePanel.tsx` — adicionar Select de formato antes do botão Gerar
+- `supabase/functions/generate-dynamic-creative/index.ts` — receber e usar `format` no body
+
+## Resumo de Migrations
+
+1. `ALTER TABLE generated_creatives ADD COLUMN favorite boolean NOT NULL DEFAULT false;`
+2. RLS policy de UPDATE para approved users (já existe DELETE para project_access, mas não UPDATE)
+
+## Arquivos totais
+
+| Ação | Arquivo |
+|------|---------|
+| Criar | `src/components/CreativesPanel.tsx` |
+| Editar | `src/components/RightSidebar.tsx` |
+| Editar | `src/pages/Index.tsx` |
+| Editar | `src/hooks/useGeneratedCreatives.ts` |
+| Editar | `src/components/GeneratePanel.tsx` |
+| Editar | `src/components/DynamicGeneratePanel.tsx` |
+| Editar | `supabase/functions/generate-dynamic-creative/index.ts` |
+| Migration | favorite column + UPDATE RLS |
