@@ -185,7 +185,7 @@ DO NOT include any text in the image. The image should be purely visual.`;
             project_id: projectId,
             created_by: user.id,
             prompt: `[${type}] ${briefing.titulo || ""}`,
-            format: "1080x1080",
+            format: selectedFormat,
             image_url: imageUrl,
           });
         }
