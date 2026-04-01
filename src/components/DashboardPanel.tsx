@@ -102,7 +102,7 @@ export default function DashboardPanel({ onSelectProject }: DashboardPanelProps)
               <button
                 key={p.id}
                 onClick={() => onSelectProject(p.id)}
-                className="w-full flex items-center justify-between p-3 rounded-lg border border-border bg-secondary hover:bg-accent transition-colors text-left"
+                className="w-full flex items-center justify-between p-3 rounded-lg border border-transparent bg-secondary hover:border-primary/50 hover:text-primary transition-all text-left"
               >
                 <span className="font-medium text-sm">{p.name}</span>
                 <span className="text-xs text-muted-foreground">

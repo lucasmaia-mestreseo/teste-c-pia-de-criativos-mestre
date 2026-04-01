@@ -88,10 +88,10 @@ export default function RightSidebar({ selectedProjectId, onSelectProject, activ
         <>
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-4">
-            <div className="flex items-center gap-2">
+            <button onClick={onGoToDashboard} className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
               <Zap className="h-5 w-5 text-primary fill-primary" />
               <span className="text-lg font-bold tracking-tight whitespace-nowrap">Criativos Mestre</span>
-            </div>
+            </button>
             <button onClick={onToggle} className="p-1.5 rounded-md hover:bg-accent transition-colors" title="Fechar menu">
               <PanelLeftClose className="h-4 w-4" />
             </button>
