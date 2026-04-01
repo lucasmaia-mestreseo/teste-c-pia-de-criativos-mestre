@@ -138,6 +138,7 @@ export default function AdminPage() {
           {activeSection === 'projects' && <ProjectsTab />}
           {activeSection === 'users' && <UsersTab currentUser={user} currentRole={role} />}
           {activeSection === 'usage' && <UsageTab />}
+          {activeSection === 'formats' && <FormatsTab />}
           {activeSection === 'prompts' && role === 'owner' && <PromptsTab userId={user?.id} />}
         </main>
       </div>
