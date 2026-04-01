@@ -182,7 +182,7 @@ export default function RightSidebar({ selectedProjectId, onSelectProject, activ
           <div className="px-4 py-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-accent transition-colors">
+                <button className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-secondary transition-colors">
                   <Avatar className="h-9 w-9">
                     <AvatarFallback className="text-xs font-semibold bg-primary text-primary-foreground">
                       {userInitials}
