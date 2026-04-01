@@ -107,7 +107,7 @@ export default function RightSidebar({ selectedProjectId, onSelectProject, activ
                 <SelectValue placeholder="Selecione um projeto" />
               </SelectTrigger>
               <SelectContent>
-                {projects?.filter((p: any) => p.active !== false).map((p) => (
+                {projects?.filter((p: any) => p.active !== false).sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
                   <SelectItem
                     key={p.id}
                     value={p.id}

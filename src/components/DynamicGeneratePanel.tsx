@@ -135,6 +135,17 @@ export default function DynamicGeneratePanel({ projectId }: DynamicGeneratePanel
         ))}
       </div>
 
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <Checkbox checked={ignoreBrandKit} onCheckedChange={(v) => setIgnoreBrandKit(!!v)} className="h-3.5 w-3.5" />
+          <span className="text-[10px] text-muted-foreground">Ignorar Brand Kit</span>
+        </label>
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <Checkbox checked={ignoreContext} onCheckedChange={(v) => setIgnoreContext(!!v)} className="h-3.5 w-3.5" />
+          <span className="text-[10px] text-muted-foreground">Ignorar Contexto</span>
+        </label>
+      </div>
+
       <div className="flex items-center gap-2">
         <Select value={format} onValueChange={setFormat}>
           <SelectTrigger className="w-[80px] bg-secondary h-8 text-xs"><SelectValue /></SelectTrigger>

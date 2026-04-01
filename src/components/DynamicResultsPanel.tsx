@@ -69,7 +69,7 @@ export default function DynamicResultsPanel({ projectId, generating }: DynamicRe
             value={[thumbSize]}
             onValueChange={handleThumbSizeChange}
             min={48}
-            max={200}
+            max={800}
             step={8}
             className="w-20"
           />

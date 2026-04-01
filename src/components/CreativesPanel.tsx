@@ -84,7 +84,7 @@ export default function CreativesPanel({ projectId }: CreativesPanelProps) {
               value={[thumbSize]}
               onValueChange={handleThumbSizeChange}
               min={48}
-              max={200}
+              max={800}
               step={8}
               className="w-20"
             />
