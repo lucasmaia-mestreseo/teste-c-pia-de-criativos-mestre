@@ -57,6 +57,11 @@ const TEMPLATE_LABELS: Record<string, string> = {
   authority: 'Autoridade',
   demonstration: 'Demonstração',
   'direct-offer': 'Oferta Direta',
+  'context-extraction': 'Extração de Contexto (URL)',
+  'voice-analysis': 'Análise de Tom de Voz',
+  'dynamic-conservative': 'Geração Dinâmica — Conservador',
+  'dynamic-innovative': 'Geração Dinâmica — Inovador',
+  'dynamic-radical': 'Geração Dinâmica — Fora da Caixa',
 };
 
 const ROLE_LABELS: Record<string, string> = {
