@@ -392,6 +392,19 @@ serve(async (req) => {
   try {
     const { prompt, format, swipeFileId, swipeFileUrl, projectId, brandKit, elementOverrides, mode, templateId, templateFields, attachedImages } = await req.json();
 
+    // Extract authenticated user
+    const authHeader = req.headers.get("Authorization");
+    let authenticatedUserId: string | null = null;
+    if (authHeader) {
+      const anonClient = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: authHeader } } }
+      );
+      const { data: { user } } = await anonClient.auth.getUser();
+      authenticatedUserId = user?.id ?? null;
+    }
+
     const creationMode = mode || 'swipe';
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
@@ -650,6 +663,7 @@ CRITICAL RULES:
       image_url: publicUrl,
       prompt: effectivePrompt,
       format,
+      created_by: authenticatedUserId,
     });
     if (dbError) throw dbError;
 
