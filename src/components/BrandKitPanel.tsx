@@ -39,6 +39,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
   const [extracting, setExtracting] = useState(false);
   const [personGridUrl, setPersonGridUrl] = useState('');
   const [generatingGrid, setGeneratingGrid] = useState(false);
+  const [designScreenshotUrl, setDesignScreenshotUrl] = useState('');
 
   const [pendingExtraction, setPendingExtraction] = useState<any>(null);
   const [showConfirm, setShowConfirm] = useState(false);
