@@ -6,6 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Sparkles, ShieldCheck, Lightbulb, Rocket } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { useCreativeFormats } from '@/hooks/useCreativeFormats';
 import { useQueryClient } from '@tanstack/react-query';
