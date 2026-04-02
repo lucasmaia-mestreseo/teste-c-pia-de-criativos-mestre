@@ -1,38 +1,39 @@
 
 
-# Mostrar usuários não confirmados no painel admin
+# Exclusão de usuário com confirmação por nome
 
-## Problema
+## Problema atual
 
-O `UsersTab` em `Admin.tsx` (linha 258) busca apenas da tabela `profiles`. Usuários que se cadastraram mas não confirmaram o email (samara, matheus) não têm perfil criado, então não aparecem. A edge function `admin-list-users` já existe e retorna todos os usuários do auth, mas não está sendo usada neste componente.
+O botão de remover usuário apenas desativa (revoga aprovação e remove roles), usa um simples `confirm()` do browser, e não exclui o usuário de verdade.
 
 ## Solução
 
-Aplicar no `UsersTab` do `Admin.tsx` a mesma lógica que já existe no `AdminUsers.tsx` — cruzar dados do auth com profiles.
+### 1. Dialog de confirmação com digitação do nome — `src/pages/Admin.tsx`
 
-### Alterações em `src/pages/Admin.tsx` — `UsersTab`
+- Substituir o `confirm()` por um `Dialog` customizado
+- Mostrar mensagem: "Esta ação é irreversível. Para confirmar, digite o nome do usuário: **{nome}**"
+- Input para digitar o nome; botão "Excluir" só habilitado quando o texto digitado coincidir exatamente com o nome
+- Ao confirmar, chamar edge function para deletar o usuário do auth (e consequentemente do profiles/roles)
 
-**Interface `UserRow` (linha 23):** Adicionar campos `email_confirmed` e `has_profile`.
+### 2. Nova edge function `supabase/functions/admin-delete-user/index.ts`
 
-**`fetchUsers` (linha 258):**
-1. Chamar `supabase.functions.invoke('admin-list-users')` para obter todos os usuários do auth
-2. Cruzar com profiles e roles (como já faz)
-3. Incluir usuários que existem no auth mas não no profiles, com `email_confirmed: false` e `has_profile: false`
+- Receber `{ userId }` no body
+- Validar que o caller é owner/admin (via JWT + query em user_roles)
+- Impedir exclusão de owners
+- Usar `adminClient.auth.admin.deleteUser(userId)` para remover do auth
+- Deletar registros de `profiles` e `user_roles` para esse user_id
+- Retornar sucesso
 
-**Tabela (linha 424):**
-- Adicionar badge "Email não confirmado" (vermelho) na coluna Status para quem não confirmou
-- Adicionar botão de reenviar email de confirmação (ícone Mail) nas ações, visível para quem não confirmou
-- Ajustar botão de aprovar: só mostrar se `email_confirmed && has_profile`
+### 3. Ajuste no `handleRemoveUser`
 
-**Imports:** Adicionar `Mail, AlertCircle, Loader2` (Mail e AlertCircle já podem estar importados, verificar).
-
-**Estado:** Adicionar `resending` (string | null) para controlar loading do reenvio.
-
-**Handler `handleResendConfirmation`:** Chamar `supabase.functions.invoke('admin-resend-confirmation', { body: { email } })`.
+- Em vez de desativar, abrir o dialog de confirmação
+- Ao confirmar (nome correto), chamar `supabase.functions.invoke('admin-delete-user', { body: { userId } })`
+- Toast de sucesso e refresh da lista
 
 ## Arquivos
 
-| Ação | Arquivo |
+| Acao | Arquivo |
 |------|---------|
-| Editar | `src/pages/Admin.tsx` — UsersTab: buscar auth users, mostrar não confirmados, botão reenviar |
+| Criar | `supabase/functions/admin-delete-user/index.ts` |
+| Editar | `src/pages/Admin.tsx` — dialog de confirmação + handler de exclusão real |
 
