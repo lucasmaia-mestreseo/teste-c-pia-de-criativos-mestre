@@ -12,7 +12,8 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   ArrowLeft, Check, X, Trash2, Loader2, Shield, Plus, Power, PowerOff,
-  Save, Pencil, BarChart3, FileCode, FolderOpen, Users, Upload, ImageIcon
+  Save, Pencil, BarChart3, FileCode, FolderOpen, Users, Upload, ImageIcon,
+  Mail, AlertCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -20,12 +21,21 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 
 // ─── Types ───
 
+interface AuthUser {
+  id: string;
+  email: string;
+  email_confirmed_at: string | null;
+  created_at: string;
+}
+
 interface UserRow {
   user_id: string;
   name: string;
   email: string;
   approved: boolean;
   role: AppRole | null;
+  email_confirmed: boolean;
+  has_profile: boolean;
 }
 
 interface ProjectRow {
@@ -254,8 +264,13 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviting, setInviting] = useState(false);
   const [invitations, setInvitations] = useState<any[]>([]);
+  const [resending, setResending] = useState<string | null>(null);
 
   const fetchUsers = async () => {
+    // Fetch auth users via edge function
+    const { data: authData, error: authError } = await supabase.functions.invoke('admin-list-users');
+    const authUsers: AuthUser[] = authError ? [] : (authData || []);
+
     const { data: profiles } = await supabase.from('profiles').select('*');
     const { data: roles } = await supabase.from('user_roles').select('*');
 
@@ -268,15 +283,43 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
       }
     });
 
-    setUsers(
-      (profiles || []).map((p: any) => ({
-        user_id: p.user_id,
-        name: p.name,
-        email: p.email,
-        approved: p.approved,
-        role: roleMap.get(p.user_id) || null,
-      }))
-    );
+    const profileMap = new Map<string, any>();
+    (profiles || []).forEach((p: any) => profileMap.set(p.user_id, p));
+
+    const mergedIds = new Set<string>();
+    const merged: UserRow[] = [];
+
+    // All auth users first
+    authUsers.forEach((au) => {
+      mergedIds.add(au.id);
+      const profile = profileMap.get(au.id);
+      merged.push({
+        user_id: au.id,
+        name: profile?.name || au.email?.split('@')[0] || 'Sem nome',
+        email: au.email || profile?.email || '',
+        approved: profile?.approved || false,
+        role: roleMap.get(au.id) || null,
+        email_confirmed: !!au.email_confirmed_at,
+        has_profile: !!profile,
+      });
+    });
+
+    // Profiles not in auth (edge case)
+    (profiles || []).forEach((p: any) => {
+      if (!mergedIds.has(p.user_id)) {
+        merged.push({
+          user_id: p.user_id,
+          name: p.name,
+          email: p.email,
+          approved: p.approved,
+          role: roleMap.get(p.user_id) || null,
+          email_confirmed: true,
+          has_profile: true,
+        });
+      }
+    });
+
+    setUsers(merged);
     setLoading(false);
   };
 
