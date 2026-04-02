@@ -1,44 +1,58 @@
 
 
-# Sugestões de Criativos com IA no Prompt Livre
+# Usuários não confirmados no painel admin + reenvio de email
 
-## Conceito
+## Problema
 
-Adicionar uma seção abaixo do campo de prompt e anexos no `FreePromptPanel` com 3 cards de sugestões (Conservador, Inovador, Fora da Caixa). Um botão "Sugerir Criativos com IA" chama uma edge function que gera os 3 briefings. Ao clicar em um card, o prompt é preenchido com a sugestão. Se já houver texto no prompt, um diálogo de confirmação é exibido.
+Quando alguém se cadastra mas **não confirma o email**, o `data.user` retornado pelo `signUp` pode ser `null` ou o insert no `profiles` pode falhar silenciosamente. Resultado: o usuário existe no auth mas não aparece no painel administrativo (que lista apenas `profiles`).
 
-## Frontend — `src/components/FreePromptPanel.tsx`
+## Solução
 
-- Adicionar estados: `suggestions` (array de 3 objetos com `type`, `titulo`, `copy`, `proposta_imagem`, `objetivo`), `selectedSuggestion` (index ou null), `suggesting` (boolean), `confirmIndex` (para AlertDialog)
-- Adicionar botão "Sugerir Criativos com IA" (ícone Sparkles, desabilitado se `suggesting`)
-- Ao clicar, chamar `supabase.functions.invoke('suggest-creatives', { body: { projectId } })`
-- Renderizar 3 cards com ícones ShieldCheck/Lightbulb/Rocket (mesmo padrão visual da Geração Dinâmica)
-- Cada card mostra: tipo (tag), título, copy resumida
-- Ao clicar num card:
-  - Se `data.prompt` está vazio → preenche direto e marca como selecionado
-  - Se `data.prompt` tem conteúdo → abre AlertDialog perguntando se deseja substituir
-  - Se confirmado → substitui o prompt, marca selecionado
-- Card selecionado tem borda `border-primary`
-- Ao clicar no card já selecionado → desmarca (não limpa prompt)
-- Ao clicar em outro card com prompt preenchido → mesmo fluxo de confirmação
-- O texto inserido no prompt é formatado como: `Título: {titulo}\nCopy: {copy}\nImagem: {proposta_imagem}\nObjetivo: {objetivo}`
+### 1. Garantir criação do perfil mesmo sem confirmação de email
 
-- Precisa receber `projectId` (já recebe)
+**`src/pages/Auth.tsx`:**
+- O `signUp` do Supabase retorna `data.user` mesmo quando email não está confirmado (com `identities` vazio). Verificar se o insert está funcionando corretamente.
+- Adicionar tratamento para caso o insert falhe (ex: conflito), usando `.upsert()` ou ignorando erro de duplicata.
 
-## Edge Function — `supabase/functions/suggest-creatives/index.ts`
+### 2. Mostrar status de confirmação de email no painel admin
 
-- Nova edge function
-- Recebe `{ projectId }`
-- Busca contexto do projeto (`context`, `voice_guide`, `name`) via service client autenticado
-- Chama Lovable AI (`google/gemini-3-flash-preview`) com tool calling para retornar 3 sugestões estruturadas
-- System prompt: "Gere 3 sugestões de criativos para redes sociais: uma conservadora, uma inovadora e uma fora da caixa"
-- User prompt inclui contexto e tom de voz do projeto
-- Tool: `suggest_creatives` com array de 3 objetos `{ type, titulo, copy, proposta_imagem, objetivo_estrategico }`
-- Retorna o array de sugestões
+**Nova edge function `supabase/functions/admin-list-users/index.ts`:**
+- Usar `adminClient.auth.admin.listUsers()` para obter todos os usuários do auth
+- Retornar `id`, `email`, `email_confirmed_at`, `created_at` para cada usuário
+- Verificação de permissão: apenas owner/admin
+
+**`src/pages/AdminUsers.tsx`:**
+- Chamar a nova edge function para obter dados de confirmação de email
+- Cruzar com os dados de `profiles` para mostrar:
+  - Badge "Email não confirmado" (vermelho) para quem não confirmou
+  - Badge "Aprovado" / "Pendente" como já existe
+- Para usuários que existem no auth mas não no profiles, criar uma linha com status especial
+- Mostrar mensagem orientando que o usuário precisa confirmar o email
+
+### 3. Botão "Reenviar email de confirmação" no admin
+
+**Nova edge function `supabase/functions/admin-resend-confirmation/index.ts`:**
+- Receber `{ userId }` no body
+- Verificar permissão admin/owner
+- Usar `adminClient.auth.admin.generateLink({ type: 'signup', email })` para gerar novo link de confirmação
+- Alternativamente, usar `adminClient.auth.resend({ type: 'signup', email })` com service role
+
+**`src/pages/AdminUsers.tsx`:**
+- Adicionar botão "Reenviar confirmação" (ícone Mail) visível apenas para usuários com email não confirmado
+- Ao clicar, chamar a edge function e mostrar toast de sucesso
+
+### 4. Mensagem na tela de login para verificar email
+
+**`src/pages/Auth.tsx`:**
+- Ao receber erro `email_not_confirmed` no login, mostrar mensagem clara: "Verifique seu email e clique no link de confirmação para ativar sua conta"
+- Adicionar botão "Reenviar email de confirmação" que chama `supabase.auth.resend({ type: 'signup', email })`
 
 ## Arquivos
 
 | Ação | Arquivo |
 |------|---------|
-| Criar | `supabase/functions/suggest-creatives/index.ts` |
-| Editar | `src/components/FreePromptPanel.tsx` — botão, cards, seleção, confirmação |
+| Criar | `supabase/functions/admin-list-users/index.ts` — listar usuários com status de confirmação |
+| Criar | `supabase/functions/admin-resend-confirmation/index.ts` — reenviar email de confirmação |
+| Editar | `src/pages/AdminUsers.tsx` — mostrar status de confirmação + botão reenviar |
+| Editar | `src/pages/Auth.tsx` — mensagem e botão de reenvio no erro de email não confirmado |
 
