@@ -504,7 +504,7 @@ CRITICAL RULES:
       const instructionBlock = buildInstructionBlock(
         effectivePrompt, format, brandKit, hasLogo,
         hasPersonPhoto || hasPersonGrid, photoMode, logoAnalysis,
-        elementOverrides || null,
+        elementOverrides || null, !!ignoreBrandKit,
       );
       userContent.push(
         { type: "text", text: "📎 IMAGEM DE REFERÊNCIA (use como base de layout e estrutura visual):" },
