@@ -2,45 +2,31 @@
 
 # Ajustes 01, 02 e 03
 
-## AJUSTE 01 — Caixa de prompt customizado na Geração Dinâmica
+## AJUSTE 01 — Exclusão não funciona no Dashboard
 
-**`src/components/DynamicGeneratePanel.tsx`:**
-- Adicionar estado `customPrompt` (string vazia)
-- Renderizar um `Textarea` com placeholder "Instruções adicionais para a geração..." entre os checkboxes e o botão de gerar
-- Enviar `customPrompt` no body para a edge function
+**Causa raiz:** O hook `useDeleteCreative` invalida a query `['generated_creatives', projectId]`, mas o Dashboard usa queries com keys diferentes (`['dashboard-recent', userId]`, `['dashboard-total', userId]`, etc.). Após deletar, o cache do dashboard não é atualizado.
 
-**`supabase/functions/generate-dynamic-creative/index.ts`:**
-- Ler `customPrompt` do body
-- Inserir o conteúdo do `customPrompt` no prompt do briefing, após as instruções padrão (ex: "Instruções adicionais do usuário: {customPrompt}")
+**Correção em `src/hooks/useGeneratedCreatives.ts`:**
+- No `onSuccess` do `useDeleteCreative`, além de invalidar `['generated_creatives', projectId]`, também invalidar as queries do dashboard: `['dashboard-recent']`, `['dashboard-total']`, `['dashboard-7days']`, `['dashboard-projects']`.
 
-## AJUSTE 02 — Fidelidade tipográfica e posicional no Swipe File
+## AJUSTE 02 — Referência deve limpar prompt e imagens existentes
 
-**`supabase/functions/generate-creative/index.ts`:**
-- Na `buildInstructionBlock`, na **Seção 2 (Regras de Texto)**, adicionar regra explícita:
-  - "TODOS os textos DEVEM ser posicionados nos MESMOS locais da imagem de referência, com os MESMOS tamanhos relativos e a MESMA hierarquia visual."
-  - "Se 'Ignorar Brand Kit' estiver ativo, use a MESMA tipografia (fonte, peso, estilo) visível na imagem de referência. NÃO substitua por outra fonte."
-- Receber flag `ignoreBrandKit` (boolean) no body (já existe implicitamente via `brandKit: null`)
-- Adicionar nova flag `ignoreBrandKit` explicitamente no body para que a edge function saiba diferenciar "sem brand kit definido" de "ignorar brand kit intencionalmente"
-- Quando `ignoreBrandKit === true` e há swipe reference, adicionar seção: "Como o Brand Kit foi ignorado, COPIE EXATAMENTE a tipografia, cores e estilos visuais da imagem de referência."
+**Correção em `src/pages/Index.tsx`:**
+- No `handleUseAsReference`, ao invés de preservar `prev`, resetar o `freePromptData` com prompt vazio e apenas a nova imagem:
+```
+setFreePromptData({ prompt: '', attachedImages: [imageUrl] });
+```
 
-**`src/components/GeneratePanel.tsx`:**
-- Enviar `ignoreBrandKit: true` no body (além de enviar `brandKit: null`)
+## AJUSTE 03 — Cursor pointer no menu do usuário
 
-## AJUSTE 03 — Não limpar prompt/referências/checkboxes após geração
-
-**`src/components/GeneratePanel.tsx` (linha 165):**
-- Remover `setPrompt('')` após geração bem-sucedida — manter o prompt do swipe mode intacto
-- Os estados `freePromptData`, `templateData`, `ignoreBrandKit`, `ignoreContext`, `includeLogo`, `includePersonPhoto`, `selectedPersonPhoto`, `attachedImages` já são preservados naturalmente (não são resetados)
-
-**`src/components/DynamicGeneratePanel.tsx`:**
-- Verificar que nenhum estado é limpo após `handleGenerate` — atualmente não limpa nada, OK
+**Correção em `src/components/RightSidebar.tsx`:**
+- Adicionar `className="cursor-pointer"` nos três `DropdownMenuItem` (Perfil, Administração, Sair).
 
 ## Arquivos
 
 | Ação | Arquivo |
 |------|---------|
-| Editar | `src/components/DynamicGeneratePanel.tsx` — adicionar Textarea de customPrompt |
-| Editar | `supabase/functions/generate-dynamic-creative/index.ts` — ler e usar customPrompt |
-| Editar | `src/components/GeneratePanel.tsx` — enviar `ignoreBrandKit` flag + remover `setPrompt('')` |
-| Editar | `supabase/functions/generate-creative/index.ts` — regras de fidelidade tipográfica/posicional + lógica ignoreBrandKit |
+| Editar | `src/hooks/useGeneratedCreatives.ts` — invalidar queries do dashboard no delete |
+| Editar | `src/pages/Index.tsx` — resetar freePromptData na referência |
+| Editar | `src/components/RightSidebar.tsx` — cursor-pointer nos menu items |
 
