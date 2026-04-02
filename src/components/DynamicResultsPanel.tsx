@@ -4,13 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Slider } from '@/components/ui/slider';
-import { Download, Trash2, Star, Minimize2, Maximize2, Eye, Loader2 } from 'lucide-react';
+import { Download, Trash2, Star, Minimize2, Maximize2, Eye, Loader2, ImagePlus } from 'lucide-react';
 import { stripPngMetadata } from '@/lib/stripPngMetadata';
 import { toast } from 'sonner';
 
 interface DynamicResultsPanelProps {
   projectId: string | null;
   generating?: boolean;
+  onUseAsReference?: (imageUrl: string, projectId?: string) => void;
 }
 
 const STORAGE_KEY = 'thumbSize-dynamic';
