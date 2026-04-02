@@ -25,7 +25,13 @@ export function useDeleteCreative() {
       if (error) throw error;
       return { projectId };
     },
-    onSuccess: (data) => qc.invalidateQueries({ queryKey: ['generated_creatives', data.projectId] }),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['generated_creatives', data.projectId] });
+      qc.invalidateQueries({ queryKey: ['dashboard-recent'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-total'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-7days'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-projects'] });
+    },
   });
 }
 

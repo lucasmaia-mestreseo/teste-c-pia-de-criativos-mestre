@@ -48,12 +48,7 @@ const Index = () => {
       setProjectId(refProjectId);
     }
     setCreationMode('free');
-    setFreePromptData(prev => ({
-      ...prev,
-      attachedImages: prev.attachedImages.includes(imageUrl)
-        ? prev.attachedImages
-        : [...prev.attachedImages, imageUrl],
-    }));
+    setFreePromptData({ prompt: '', attachedImages: [imageUrl] });
     setActivePanel('generate');
     toast.success('Imagem adicionada como referência');
   }, [projectId]);

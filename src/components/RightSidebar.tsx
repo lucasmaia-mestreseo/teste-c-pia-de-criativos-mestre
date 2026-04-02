@@ -196,16 +196,16 @@ export default function RightSidebar({ selectedProjectId, onSelectProject, activ
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" side="top" className="w-56">
-                <DropdownMenuItem onClick={() => navigate('/profile')}>
+                <DropdownMenuItem className="cursor-pointer" onClick={() => navigate('/profile')}>
                   <User className="h-4 w-4 mr-2" /> Perfil
                 </DropdownMenuItem>
                 {canAdmin && (
-                  <DropdownMenuItem onClick={() => navigate('/admin')}>
+                  <DropdownMenuItem className="cursor-pointer" onClick={() => navigate('/admin')}>
                     <Shield className="h-4 w-4 mr-2" /> Administração
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={signOut}>
+                <DropdownMenuItem className="cursor-pointer" onClick={signOut}>
                   <LogOut className="h-4 w-4 mr-2" /> Sair
                 </DropdownMenuItem>
               </DropdownMenuContent>
