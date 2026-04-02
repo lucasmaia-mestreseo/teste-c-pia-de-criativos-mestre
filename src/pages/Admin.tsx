@@ -613,10 +613,41 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) { setDeleteTarget(null); setDeleteConfirmName(''); } }}>
+        <DialogContent className="bg-card">
+          <DialogHeader><DialogTitle>Excluir Usuário</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Esta ação é <strong className="text-destructive">irreversível</strong>. O usuário será permanentemente removido do sistema.
+            </p>
+            <p className="text-sm">
+              Para confirmar, digite o nome do usuário: <strong>{deleteTarget?.name}</strong>
+            </p>
+            <Input
+              value={deleteConfirmName}
+              onChange={(e) => setDeleteConfirmName(e.target.value)}
+              placeholder="Digite o nome exato do usuário"
+              className="bg-secondary"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
+              <Button
+                variant="destructive"
+                onClick={handleConfirmDelete}
+                disabled={deleting || deleteConfirmName !== deleteTarget?.name}
+              >
+                {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
+                Excluir Permanentemente
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
-
 // ─── Usage Tab ───
 
 function UsageTab() {
