@@ -294,6 +294,11 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
                 <Button size="sm" variant="destructive" onClick={() => setDeleteTarget({ id: modalImage.id, projectId: modalImage.projectId })}>
                   <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir
                 </Button>
+                {onUseAsReference && (
+                  <Button size="sm" variant="outline" onClick={() => { onUseAsReference(modalImage.url, modalImage.projectId); setModalImage(null); }}>
+                    <ImagePlus className="h-3.5 w-3.5 mr-1" /> Referência
+                  </Button>
+                )}
                 <p className="text-[10px] text-muted-foreground mt-2 leading-tight">{modalImage.prompt}</p>
               </div>
             </div>
