@@ -265,6 +265,9 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
   const [inviting, setInviting] = useState(false);
   const [invitations, setInvitations] = useState<any[]>([]);
   const [resending, setResending] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   const fetchUsers = async () => {
     // Fetch auth users via edge function
