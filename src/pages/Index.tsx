@@ -43,6 +43,21 @@ const Index = () => {
     setActivePanel('generate');
   };
 
+  const handleUseAsReference = useCallback((imageUrl: string, refProjectId?: string) => {
+    if (refProjectId && refProjectId !== projectId) {
+      setProjectId(refProjectId);
+    }
+    setCreationMode('free');
+    setFreePromptData(prev => ({
+      ...prev,
+      attachedImages: prev.attachedImages.includes(imageUrl)
+        ? prev.attachedImages
+        : [...prev.attachedImages, imageUrl],
+    }));
+    setActivePanel('generate');
+    toast.success('Imagem adicionada como referência');
+  }, [projectId]);
+
   const showDashboard = !projectId;
 
   return (
