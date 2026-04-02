@@ -78,7 +78,7 @@ const Index = () => {
       <div className="flex flex-1 overflow-hidden">
         {showDashboard ? (
           <div className="flex-1 overflow-hidden">
-            <DashboardPanel onSelectProject={handleProjectChange} />
+            <DashboardPanel onSelectProject={handleProjectChange} onUseAsReference={handleUseAsReference} />
           </div>
         ) : onboardingPending ? (
           <ProjectOnboarding projectId={projectId!} onComplete={handleOnboardingComplete} />
