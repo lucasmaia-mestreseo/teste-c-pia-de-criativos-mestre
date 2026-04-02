@@ -1,59 +1,46 @@
 
 
-# Ajustes 01 e 02 — Referência e Ações no Dashboard
+# Ajustes 01, 02 e 03
 
-## AJUSTE 01 — Botão "Usar Como Referência" nos grids e modais
+## AJUSTE 01 — Caixa de prompt customizado na Geração Dinâmica
 
-### Conceito
-Ao clicar em "Referência" no hover de um criativo (ou no modal de detalhe), a `image_url` é adicionada ao array `freePromptData.attachedImages`, o modo muda para `free`, e o painel ativo vai para `generate`. O usuário é levado diretamente ao Prompt Livre com a imagem anexada.
+**`src/components/DynamicGeneratePanel.tsx`:**
+- Adicionar estado `customPrompt` (string vazia)
+- Renderizar um `Textarea` com placeholder "Instruções adicionais para a geração..." entre os checkboxes e o botão de gerar
+- Enviar `customPrompt` no body para a edge function
 
-### Implementação
+**`supabase/functions/generate-dynamic-creative/index.ts`:**
+- Ler `customPrompt` do body
+- Inserir o conteúdo do `customPrompt` no prompt do briefing, após as instruções padrão (ex: "Instruções adicionais do usuário: {customPrompt}")
 
-**`src/pages/Index.tsx`:**
-- Criar callback `handleUseAsReference(imageUrl: string, projectId: string)` que:
-  1. Seta `projectId` se necessário
-  2. Seta `creationMode('free')`
-  3. Adiciona a URL em `freePromptData.attachedImages` (sem duplicar)
-  4. Seta `activePanel('generate')`
-  5. Toast de confirmação
-- Passar `onUseAsReference` para `GeneratePanel`, `DynamicResultsPanel`, `CreativesPanel`, e `DashboardPanel`
+## AJUSTE 02 — Fidelidade tipográfica e posicional no Swipe File
 
-**Grids (4 arquivos):** Em cada hover bar, adicionar um novo botão com ícone `ImagePlus` (lucide) com título "Referência", que chama `onUseAsReference(c.image_url)`.
+**`supabase/functions/generate-creative/index.ts`:**
+- Na `buildInstructionBlock`, na **Seção 2 (Regras de Texto)**, adicionar regra explícita:
+  - "TODOS os textos DEVEM ser posicionados nos MESMOS locais da imagem de referência, com os MESMOS tamanhos relativos e a MESMA hierarquia visual."
+  - "Se 'Ignorar Brand Kit' estiver ativo, use a MESMA tipografia (fonte, peso, estilo) visível na imagem de referência. NÃO substitua por outra fonte."
+- Receber flag `ignoreBrandKit` (boolean) no body (já existe implicitamente via `brandKit: null`)
+- Adicionar nova flag `ignoreBrandKit` explicitamente no body para que a edge function saiba diferenciar "sem brand kit definido" de "ignorar brand kit intencionalmente"
+- Quando `ignoreBrandKit === true` e há swipe reference, adicionar seção: "Como o Brand Kit foi ignorado, COPIE EXATAMENTE a tipografia, cores e estilos visuais da imagem de referência."
 
-**Modais (4 arquivos):** Adicionar botão "Usar Como Referência" com ícone `ImagePlus` na sidebar do modal de detalhe.
+**`src/components/GeneratePanel.tsx`:**
+- Enviar `ignoreBrandKit: true` no body (além de enviar `brandKit: null`)
 
-Arquivos afetados:
-- `src/pages/Index.tsx` — callback + passar prop
-- `src/components/GeneratePanel.tsx` — receber prop, botão no grid e modal
-- `src/components/DynamicResultsPanel.tsx` — receber prop, botão no grid e modal
-- `src/components/CreativesPanel.tsx` — receber prop, botão no grid e modal
-- `src/components/DashboardPanel.tsx` — receber prop, botão no grid e modal (ver Ajuste 02)
+## AJUSTE 03 — Não limpar prompt/referências/checkboxes após geração
 
-## AJUSTE 02 — Ações completas no grid do Dashboard
+**`src/components/GeneratePanel.tsx` (linha 165):**
+- Remover `setPrompt('')` após geração bem-sucedida — manter o prompt do swipe mode intacto
+- Os estados `freePromptData`, `templateData`, `ignoreBrandKit`, `ignoreContext`, `includeLogo`, `includePersonPhoto`, `selectedPersonPhoto`, `attachedImages` já são preservados naturalmente (não são resetados)
 
-### Problema
-O grid de imagens do Dashboard só mostra formato e data no hover. Faltam os botões padrão (Eye, Star, Download, Trash, Referência).
-
-### Implementação
-
-**`src/components/DashboardPanel.tsx`:**
-- Importar hooks `useDeleteCreative`, `useToggleFavorite`, `useGeneratedCreatives` (não — os dados já vêm de `useDashboardStats` sem `favorite`/`prompt`)
-- Alternativa: expandir `useDashboardStats` para incluir `favorite`, `prompt`, `project_id` nos `recentCreatives`
-- Adicionar estados para `modalCreative`, `deleteTarget`, `thumbSize` com slider
-- Replicar o mesmo padrão de hover bar e modal dos outros grids
-- Incluir o botão de Referência
-
-**`src/hooks/useDashboardStats.ts`:**
-- Na query `recentCreatives`, adicionar campos `favorite`, `prompt`, `project_id` ao select (linha 42)
+**`src/components/DynamicGeneratePanel.tsx`:**
+- Verificar que nenhum estado é limpo após `handleGenerate` — atualmente não limpa nada, OK
 
 ## Arquivos
 
 | Ação | Arquivo |
 |------|---------|
-| Editar | `src/pages/Index.tsx` — callback `handleUseAsReference` + props |
-| Editar | `src/components/GeneratePanel.tsx` — prop + botão referência no grid e modal |
-| Editar | `src/components/DynamicResultsPanel.tsx` — prop + botão referência no grid e modal |
-| Editar | `src/components/CreativesPanel.tsx` — prop + botão referência no grid e modal |
-| Editar | `src/components/DashboardPanel.tsx` — hover bar completa + modal + referência |
-| Editar | `src/hooks/useDashboardStats.ts` — campos extras no select |
+| Editar | `src/components/DynamicGeneratePanel.tsx` — adicionar Textarea de customPrompt |
+| Editar | `supabase/functions/generate-dynamic-creative/index.ts` — ler e usar customPrompt |
+| Editar | `src/components/GeneratePanel.tsx` — enviar `ignoreBrandKit` flag + remover `setPrompt('')` |
+| Editar | `supabase/functions/generate-creative/index.ts` — regras de fidelidade tipográfica/posicional + lógica ignoreBrandKit |
 
