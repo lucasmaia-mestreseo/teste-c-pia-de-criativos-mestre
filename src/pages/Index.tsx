@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import RightSidebar from '@/components/RightSidebar';
 import SwipeFilePanel from '@/components/SwipeFilePanel';
 import GeneratePanel from '@/components/GeneratePanel';
