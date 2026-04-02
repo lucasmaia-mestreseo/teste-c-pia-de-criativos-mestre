@@ -81,7 +81,7 @@ Gere um criativo completo com:
 2. **Copy persuasiva**: entre 2 a 4 linhas (máx 300 caracteres), focada em conversão
 3. **Proposta de imagem**: sugestão visual que complemente a copy
 4. **Objetivo estratégico**: (ex: gerar cliques, despertar curiosidade, estimular ação imediata)
-
+${customPrompt ? `\nInstruções adicionais do usuário:\n${customPrompt}\n` : ""}
 Seja criativo, preciso e comercialmente estratégico. Foque sempre em conversão.
 Retorne em formato JSON com as chaves: titulo, copy, proposta_imagem, objetivo_estrategico`,
               },
