@@ -265,6 +265,9 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
   const [inviting, setInviting] = useState(false);
   const [invitations, setInvitations] = useState<any[]>([]);
   const [resending, setResending] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   const fetchUsers = async () => {
     // Fetch auth users via edge function
@@ -399,15 +402,31 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
     fetchUsers();
   };
 
-  const handleRemoveUser = async (userId: string) => {
+  const handleRemoveUser = (userId: string) => {
     const target = users.find((u) => u.user_id === userId);
     if (target?.role === 'owner') { toast.error('Não é possível remover um owner'); return; }
     if (userId === currentUser?.id) { toast.error('Você não pode remover a si mesmo'); return; }
-    if (!confirm('Tem certeza?')) return;
-    await supabase.from('profiles').update({ approved: false }).eq('user_id', userId);
-    await supabase.from('user_roles').delete().eq('user_id', userId);
-    toast.success('Usuário desativado');
-    fetchUsers();
+    setDeleteTarget(target || null);
+    setDeleteConfirmName('');
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-delete-user', {
+        body: { userId: deleteTarget.user_id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success('Usuário excluído permanentemente');
+      setDeleteTarget(null);
+      fetchUsers();
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao excluir usuário');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const openEdit = (u: UserRow) => {
@@ -594,10 +613,41 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) { setDeleteTarget(null); setDeleteConfirmName(''); } }}>
+        <DialogContent className="bg-card">
+          <DialogHeader><DialogTitle>Excluir Usuário</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Esta ação é <strong className="text-destructive">irreversível</strong>. O usuário será permanentemente removido do sistema.
+            </p>
+            <p className="text-sm">
+              Para confirmar, digite o nome do usuário: <strong>{deleteTarget?.name}</strong>
+            </p>
+            <Input
+              value={deleteConfirmName}
+              onChange={(e) => setDeleteConfirmName(e.target.value)}
+              placeholder="Digite o nome exato do usuário"
+              className="bg-secondary"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
+              <Button
+                variant="destructive"
+                onClick={handleConfirmDelete}
+                disabled={deleting || deleteConfirmName !== deleteTarget?.name}
+              >
+                {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
+                Excluir Permanentemente
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
-
 // ─── Usage Tab ───
 
 function UsageTab() {
