@@ -11,7 +11,8 @@ export function useDashboardStats() {
     queryFn: async () => {
       const { count, error } = await supabase
         .from('generated_creatives')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .eq('created_by', user!.id);
       if (error) throw error;
       return count ?? 0;
     },
@@ -26,6 +27,7 @@ export function useDashboardStats() {
       const { count, error } = await supabase
         .from('generated_creatives')
         .select('*', { count: 'exact', head: true })
+        .eq('created_by', user!.id)
         .gte('created_at', sevenDaysAgo.toISOString());
       if (error) throw error;
       return count ?? 0;
@@ -39,6 +41,7 @@ export function useDashboardStats() {
       const { data, error } = await supabase
         .from('generated_creatives')
         .select('id, image_url, project_id, created_at, format, favorite, prompt')
+        .eq('created_by', user!.id)
         .order('created_at', { ascending: false })
         .limit(10);
       if (error) throw error;
@@ -53,6 +56,7 @@ export function useDashboardStats() {
       const { data: creatives, error: cErr } = await supabase
         .from('generated_creatives')
         .select('project_id, created_at')
+        .eq('created_by', user!.id)
         .order('created_at', { ascending: false });
       if (cErr) throw cErr;
 

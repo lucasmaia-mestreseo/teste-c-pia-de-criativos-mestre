@@ -241,22 +241,22 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
               >
                 <img src={c.image_url} alt={c.prompt} className="w-full h-full object-cover" />
                 {/* Bottom action bar on hover */}
-                <div className="absolute bottom-0 left-0 right-0 bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 py-1">
-                  <button onClick={() => setModalImage({ url: c.image_url, prompt: c.prompt, id: c.id, projectId: c.project_id, favorite: (c as any).favorite })} className="p-1 rounded-full hover:bg-accent transition-colors" title="Detalhes">
-                    <Eye className="h-3 w-3 text-foreground" />
+                <div className="absolute bottom-0 left-0 right-0 bg-background/90 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-0.5 py-1">
+                  <button onClick={() => setModalImage({ url: c.image_url, prompt: c.prompt, id: c.id, projectId: c.project_id, favorite: (c as any).favorite })} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Detalhes">
+                    <Eye className="h-3 w-3 text-muted-foreground" />
                   </button>
-                  <button onClick={() => toggleFavorite.mutate({ id: c.id, projectId: c.project_id, favorite: !(c as any).favorite })} className="p-1 rounded-full hover:bg-accent transition-colors" title="Favoritar">
-                    <Star className={`h-3 w-3 ${(c as any).favorite ? 'fill-yellow-400 text-yellow-400' : 'text-foreground'}`} />
+                  <button onClick={() => toggleFavorite.mutate({ id: c.id, projectId: c.project_id, favorite: !(c as any).favorite })} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Favoritar">
+                    <Star className={`h-3 w-3 ${(c as any).favorite ? 'fill-primary text-primary' : 'text-muted-foreground'}`} />
                   </button>
-                  <button onClick={() => handleDownload(c.image_url, `creative-${c.id}.png`)} className="p-1 rounded-full hover:bg-accent transition-colors" title="Download">
-                    <Download className="h-3 w-3 text-foreground" />
+                  <button onClick={() => handleDownload(c.image_url, `creative-${c.id}.png`)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Download">
+                    <Download className="h-3 w-3 text-muted-foreground" />
                   </button>
-                  <button onClick={() => setDeleteTarget({ id: c.id, projectId: c.project_id })} className="p-1 rounded-full hover:bg-accent transition-colors" title="Excluir">
-                    <Trash2 className="h-3 w-3 text-destructive" />
+                  <button onClick={() => setDeleteTarget({ id: c.id, projectId: c.project_id })} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Excluir">
+                    <Trash2 className="h-3 w-3 text-muted-foreground" />
                   </button>
                   {onUseAsReference && (
-                    <button onClick={() => onUseAsReference(c.image_url, c.project_id)} className="p-1 rounded-full hover:bg-accent transition-colors" title="Usar como referência">
-                      <ImagePlus className="h-3 w-3 text-foreground" />
+                    <button onClick={() => onUseAsReference(c.image_url, c.project_id)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Usar como referência">
+                      <ImagePlus className="h-3 w-3 text-muted-foreground" />
                     </button>
                   )}
                 </div>
