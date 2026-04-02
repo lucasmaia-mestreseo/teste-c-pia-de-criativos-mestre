@@ -38,7 +38,7 @@ export function useDashboardStats() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('generated_creatives')
-        .select('id, image_url, project_id, created_at, format')
+        .select('id, image_url, project_id, created_at, format, favorite, prompt')
         .order('created_at', { ascending: false })
         .limit(10);
       if (error) throw error;

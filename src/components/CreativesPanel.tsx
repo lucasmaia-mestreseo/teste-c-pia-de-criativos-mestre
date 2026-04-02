@@ -4,17 +4,18 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Slider } from '@/components/ui/slider';
-import { Download, Trash2, Star, Minimize2, Maximize2, Eye } from 'lucide-react';
+import { Download, Trash2, Star, Minimize2, Maximize2, Eye, ImagePlus } from 'lucide-react';
 import { stripPngMetadata } from '@/lib/stripPngMetadata';
 import { toast } from 'sonner';
 
 interface CreativesPanelProps {
   projectId: string | null;
+  onUseAsReference?: (imageUrl: string, projectId?: string) => void;
 }
 
 const STORAGE_KEY = 'thumbSize-creatives';
 
-export default function CreativesPanel({ projectId }: CreativesPanelProps) {
+export default function CreativesPanel({ projectId, onUseAsReference }: CreativesPanelProps) {
   const [thumbSize, setThumbSize] = useState(() => Number(localStorage.getItem(STORAGE_KEY)) || 200);
   const [onlyFavorites, setOnlyFavorites] = useState(false);
   const [modalCreative, setModalCreative] = useState<any | null>(null);
@@ -136,6 +137,15 @@ export default function CreativesPanel({ projectId }: CreativesPanelProps) {
               >
                 <Trash2 className="h-3 w-3 text-destructive" />
               </button>
+              {onUseAsReference && (
+                <button
+                  onClick={() => onUseAsReference(c.image_url, c.project_id)}
+                  className="p-1 rounded-full hover:bg-accent transition-colors"
+                  title="Usar como referência"
+                >
+                  <ImagePlus className="h-3 w-3 text-foreground" />
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -169,6 +179,11 @@ export default function CreativesPanel({ projectId }: CreativesPanelProps) {
                 <Button size="sm" variant="destructive" onClick={() => setDeleteTarget({ id: modalCreative.id, projectId: modalCreative.project_id })}>
                   <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir
                 </Button>
+                {onUseAsReference && (
+                  <Button size="sm" variant="outline" onClick={() => { onUseAsReference(modalCreative.image_url, modalCreative.project_id); setModalCreative(null); }}>
+                    <ImagePlus className="h-3.5 w-3.5 mr-1" /> Referência
+                  </Button>
+                )}
                 <p className="text-[10px] text-muted-foreground mt-2 leading-tight">{modalCreative.prompt}</p>
                 <p className="text-[10px] text-muted-foreground"><strong>Formato:</strong> {modalCreative.format}</p>
               </div>

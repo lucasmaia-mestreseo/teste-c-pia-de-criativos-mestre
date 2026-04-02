@@ -14,7 +14,7 @@ import SwipeElementsEditor, { type ElementOverrides } from '@/components/SwipeEl
 import { supabase } from '@/integrations/supabase/client';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Zap, Download, Trash2, Loader2, Maximize2, Minimize2, Star, Eye } from 'lucide-react';
+import { Zap, Download, Trash2, Loader2, Maximize2, Minimize2, Star, Eye, ImagePlus } from 'lucide-react';
 import { stripPngMetadata } from '@/lib/stripPngMetadata';
 import { toast } from 'sonner';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
@@ -32,9 +32,10 @@ interface GeneratePanelProps {
   creationMode: CreationMode;
   freePromptData: FreePromptData;
   templateData: TemplateData;
+  onUseAsReference?: (imageUrl: string, projectId?: string) => void;
 }
 
-export default function GeneratePanel({ projectId, selectedSwipe, creationMode, freePromptData, templateData }: GeneratePanelProps) {
+export default function GeneratePanel({ projectId, selectedSwipe, creationMode, freePromptData, templateData, onUseAsReference }: GeneratePanelProps) {
   const [prompt, setPrompt] = useState('');
   const [format, setFormat] = useState<string>('1:1');
   const [generating, setGenerating] = useState(false);
@@ -252,6 +253,11 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
                   <button onClick={() => setDeleteTarget({ id: c.id, projectId: c.project_id })} className="p-1 rounded-full hover:bg-accent transition-colors" title="Excluir">
                     <Trash2 className="h-3 w-3 text-destructive" />
                   </button>
+                  {onUseAsReference && (
+                    <button onClick={() => onUseAsReference(c.image_url, c.project_id)} className="p-1 rounded-full hover:bg-accent transition-colors" title="Usar como referência">
+                      <ImagePlus className="h-3 w-3 text-foreground" />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -288,6 +294,11 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
                 <Button size="sm" variant="destructive" onClick={() => setDeleteTarget({ id: modalImage.id, projectId: modalImage.projectId })}>
                   <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir
                 </Button>
+                {onUseAsReference && (
+                  <Button size="sm" variant="outline" onClick={() => { onUseAsReference(modalImage.url, modalImage.projectId); setModalImage(null); }}>
+                    <ImagePlus className="h-3.5 w-3.5 mr-1" /> Referência
+                  </Button>
+                )}
                 <p className="text-[10px] text-muted-foreground mt-2 leading-tight">{modalImage.prompt}</p>
               </div>
             </div>

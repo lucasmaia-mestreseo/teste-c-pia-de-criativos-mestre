@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import RightSidebar from '@/components/RightSidebar';
 import SwipeFilePanel from '@/components/SwipeFilePanel';
 import GeneratePanel from '@/components/GeneratePanel';
@@ -14,6 +14,7 @@ import DynamicResultsPanel from '@/components/DynamicResultsPanel';
 import CreativesPanel from '@/components/CreativesPanel';
 import ProjectOnboarding from '@/components/ProjectOnboarding';
 import { useProject } from '@/hooks/useProject';
+import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
 type RightPanel = 'generate' | 'brandkit' | 'context' | 'history' | 'dynamic' | 'creatives';
@@ -42,6 +43,21 @@ const Index = () => {
     setActivePanel('generate');
   };
 
+  const handleUseAsReference = useCallback((imageUrl: string, refProjectId?: string) => {
+    if (refProjectId && refProjectId !== projectId) {
+      setProjectId(refProjectId);
+    }
+    setCreationMode('free');
+    setFreePromptData(prev => ({
+      ...prev,
+      attachedImages: prev.attachedImages.includes(imageUrl)
+        ? prev.attachedImages
+        : [...prev.attachedImages, imageUrl],
+    }));
+    setActivePanel('generate');
+    toast.success('Imagem adicionada como referência');
+  }, [projectId]);
+
   const showDashboard = !projectId;
 
   return (
@@ -62,7 +78,7 @@ const Index = () => {
       <div className="flex flex-1 overflow-hidden">
         {showDashboard ? (
           <div className="flex-1 overflow-hidden">
-            <DashboardPanel onSelectProject={handleProjectChange} />
+            <DashboardPanel onSelectProject={handleProjectChange} onUseAsReference={handleUseAsReference} />
           </div>
         ) : onboardingPending ? (
           <ProjectOnboarding projectId={projectId!} onComplete={handleOnboardingComplete} />
@@ -114,6 +130,7 @@ const Index = () => {
                   creationMode={creationMode}
                   freePromptData={freePromptData}
                   templateData={templateData}
+                  onUseAsReference={handleUseAsReference}
                 />
               )}
               {activePanel === 'brandkit' && (
@@ -126,10 +143,10 @@ const Index = () => {
                 <HistoryPanel projectId={projectId} />
               )}
               {activePanel === 'dynamic' && (
-                <DynamicResultsPanel projectId={projectId} />
+                <DynamicResultsPanel projectId={projectId} onUseAsReference={handleUseAsReference} />
               )}
               {activePanel === 'creatives' && (
-                <CreativesPanel projectId={projectId} />
+                <CreativesPanel projectId={projectId} onUseAsReference={handleUseAsReference} />
               )}
             </div>
           </>
