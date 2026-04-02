@@ -1,58 +1,38 @@
 
 
-# Usuários não confirmados no painel admin + reenvio de email
+# Mostrar usuários não confirmados no painel admin
 
 ## Problema
 
-Quando alguém se cadastra mas **não confirma o email**, o `data.user` retornado pelo `signUp` pode ser `null` ou o insert no `profiles` pode falhar silenciosamente. Resultado: o usuário existe no auth mas não aparece no painel administrativo (que lista apenas `profiles`).
+O `UsersTab` em `Admin.tsx` (linha 258) busca apenas da tabela `profiles`. Usuários que se cadastraram mas não confirmaram o email (samara, matheus) não têm perfil criado, então não aparecem. A edge function `admin-list-users` já existe e retorna todos os usuários do auth, mas não está sendo usada neste componente.
 
 ## Solução
 
-### 1. Garantir criação do perfil mesmo sem confirmação de email
+Aplicar no `UsersTab` do `Admin.tsx` a mesma lógica que já existe no `AdminUsers.tsx` — cruzar dados do auth com profiles.
 
-**`src/pages/Auth.tsx`:**
-- O `signUp` do Supabase retorna `data.user` mesmo quando email não está confirmado (com `identities` vazio). Verificar se o insert está funcionando corretamente.
-- Adicionar tratamento para caso o insert falhe (ex: conflito), usando `.upsert()` ou ignorando erro de duplicata.
+### Alterações em `src/pages/Admin.tsx` — `UsersTab`
 
-### 2. Mostrar status de confirmação de email no painel admin
+**Interface `UserRow` (linha 23):** Adicionar campos `email_confirmed` e `has_profile`.
 
-**Nova edge function `supabase/functions/admin-list-users/index.ts`:**
-- Usar `adminClient.auth.admin.listUsers()` para obter todos os usuários do auth
-- Retornar `id`, `email`, `email_confirmed_at`, `created_at` para cada usuário
-- Verificação de permissão: apenas owner/admin
+**`fetchUsers` (linha 258):**
+1. Chamar `supabase.functions.invoke('admin-list-users')` para obter todos os usuários do auth
+2. Cruzar com profiles e roles (como já faz)
+3. Incluir usuários que existem no auth mas não no profiles, com `email_confirmed: false` e `has_profile: false`
 
-**`src/pages/AdminUsers.tsx`:**
-- Chamar a nova edge function para obter dados de confirmação de email
-- Cruzar com os dados de `profiles` para mostrar:
-  - Badge "Email não confirmado" (vermelho) para quem não confirmou
-  - Badge "Aprovado" / "Pendente" como já existe
-- Para usuários que existem no auth mas não no profiles, criar uma linha com status especial
-- Mostrar mensagem orientando que o usuário precisa confirmar o email
+**Tabela (linha 424):**
+- Adicionar badge "Email não confirmado" (vermelho) na coluna Status para quem não confirmou
+- Adicionar botão de reenviar email de confirmação (ícone Mail) nas ações, visível para quem não confirmou
+- Ajustar botão de aprovar: só mostrar se `email_confirmed && has_profile`
 
-### 3. Botão "Reenviar email de confirmação" no admin
+**Imports:** Adicionar `Mail, AlertCircle, Loader2` (Mail e AlertCircle já podem estar importados, verificar).
 
-**Nova edge function `supabase/functions/admin-resend-confirmation/index.ts`:**
-- Receber `{ userId }` no body
-- Verificar permissão admin/owner
-- Usar `adminClient.auth.admin.generateLink({ type: 'signup', email })` para gerar novo link de confirmação
-- Alternativamente, usar `adminClient.auth.resend({ type: 'signup', email })` com service role
+**Estado:** Adicionar `resending` (string | null) para controlar loading do reenvio.
 
-**`src/pages/AdminUsers.tsx`:**
-- Adicionar botão "Reenviar confirmação" (ícone Mail) visível apenas para usuários com email não confirmado
-- Ao clicar, chamar a edge function e mostrar toast de sucesso
-
-### 4. Mensagem na tela de login para verificar email
-
-**`src/pages/Auth.tsx`:**
-- Ao receber erro `email_not_confirmed` no login, mostrar mensagem clara: "Verifique seu email e clique no link de confirmação para ativar sua conta"
-- Adicionar botão "Reenviar email de confirmação" que chama `supabase.auth.resend({ type: 'signup', email })`
+**Handler `handleResendConfirmation`:** Chamar `supabase.functions.invoke('admin-resend-confirmation', { body: { email } })`.
 
 ## Arquivos
 
 | Ação | Arquivo |
 |------|---------|
-| Criar | `supabase/functions/admin-list-users/index.ts` — listar usuários com status de confirmação |
-| Criar | `supabase/functions/admin-resend-confirmation/index.ts` — reenviar email de confirmação |
-| Editar | `src/pages/AdminUsers.tsx` — mostrar status de confirmação + botão reenviar |
-| Editar | `src/pages/Auth.tsx` — mensagem e botão de reenvio no erro de email não confirmado |
+| Editar | `src/pages/Admin.tsx` — UsersTab: buscar auth users, mostrar não confirmados, botão reenviar |
 
