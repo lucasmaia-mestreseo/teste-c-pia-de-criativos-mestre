@@ -130,6 +130,7 @@ const Index = () => {
                   creationMode={creationMode}
                   freePromptData={freePromptData}
                   templateData={templateData}
+                  onUseAsReference={handleUseAsReference}
                 />
               )}
               {activePanel === 'brandkit' && (
