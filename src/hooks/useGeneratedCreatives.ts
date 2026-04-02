@@ -32,6 +32,9 @@ export function useDeleteCreative() {
       qc.invalidateQueries({ queryKey: ['dashboard-7days'] });
       qc.invalidateQueries({ queryKey: ['dashboard-projects'] });
     },
+    onError: (error: any) => {
+      console.error('Delete creative error:', error);
+    },
   });
 }
 
