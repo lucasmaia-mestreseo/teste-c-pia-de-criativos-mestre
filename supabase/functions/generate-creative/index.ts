@@ -135,6 +135,7 @@ function buildInstructionBlock(
   photoMode: "replace" | "swap",
   logoAnalysis: string | null = null,
   elementOverrides: ElementOverride | null = null,
+  ignoreBrandKit: boolean = false,
 ): string {
   const sections: string[] = [];
 
