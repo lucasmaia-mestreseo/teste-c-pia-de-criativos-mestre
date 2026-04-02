@@ -12,7 +12,8 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   ArrowLeft, Check, X, Trash2, Loader2, Shield, Plus, Power, PowerOff,
-  Save, Pencil, BarChart3, FileCode, FolderOpen, Users, Upload, ImageIcon
+  Save, Pencil, BarChart3, FileCode, FolderOpen, Users, Upload, ImageIcon,
+  Mail, AlertCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -20,12 +21,21 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 
 // ─── Types ───
 
+interface AuthUser {
+  id: string;
+  email: string;
+  email_confirmed_at: string | null;
+  created_at: string;
+}
+
 interface UserRow {
   user_id: string;
   name: string;
   email: string;
   approved: boolean;
   role: AppRole | null;
+  email_confirmed: boolean;
+  has_profile: boolean;
 }
 
 interface ProjectRow {
@@ -254,8 +264,13 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviting, setInviting] = useState(false);
   const [invitations, setInvitations] = useState<any[]>([]);
+  const [resending, setResending] = useState<string | null>(null);
 
   const fetchUsers = async () => {
+    // Fetch auth users via edge function
+    const { data: authData, error: authError } = await supabase.functions.invoke('admin-list-users');
+    const authUsers: AuthUser[] = authError ? [] : (authData || []);
+
     const { data: profiles } = await supabase.from('profiles').select('*');
     const { data: roles } = await supabase.from('user_roles').select('*');
 
@@ -268,15 +283,43 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
       }
     });
 
-    setUsers(
-      (profiles || []).map((p: any) => ({
-        user_id: p.user_id,
-        name: p.name,
-        email: p.email,
-        approved: p.approved,
-        role: roleMap.get(p.user_id) || null,
-      }))
-    );
+    const profileMap = new Map<string, any>();
+    (profiles || []).forEach((p: any) => profileMap.set(p.user_id, p));
+
+    const mergedIds = new Set<string>();
+    const merged: UserRow[] = [];
+
+    // All auth users first
+    authUsers.forEach((au) => {
+      mergedIds.add(au.id);
+      const profile = profileMap.get(au.id);
+      merged.push({
+        user_id: au.id,
+        name: profile?.name || au.email?.split('@')[0] || 'Sem nome',
+        email: au.email || profile?.email || '',
+        approved: profile?.approved || false,
+        role: roleMap.get(au.id) || null,
+        email_confirmed: !!au.email_confirmed_at,
+        has_profile: !!profile,
+      });
+    });
+
+    // Profiles not in auth (edge case)
+    (profiles || []).forEach((p: any) => {
+      if (!mergedIds.has(p.user_id)) {
+        merged.push({
+          user_id: p.user_id,
+          name: p.name,
+          email: p.email,
+          approved: p.approved,
+          role: roleMap.get(p.user_id) || null,
+          email_confirmed: true,
+          has_profile: true,
+        });
+      }
+    });
+
+    setUsers(merged);
     setLoading(false);
   };
 
@@ -310,15 +353,34 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
   };
 
   const handleApprove = async (userId: string, approved: boolean) => {
+    const target = users.find((u) => u.user_id === userId);
+    if (!target?.has_profile) {
+      toast.error('Usuário precisa confirmar o email antes de ser aprovado');
+      return;
+    }
     await supabase.from('profiles').update({ approved }).eq('user_id', userId);
     if (approved) {
-      const existing = users.find((u) => u.user_id === userId);
-      if (!existing?.role) {
+      if (!target?.role) {
         await supabase.from('user_roles').insert({ user_id: userId, role: 'analyst' as any });
       }
     }
     toast.success(approved ? 'Usuário aprovado!' : 'Aprovação removida');
     fetchUsers();
+  };
+
+  const handleResendConfirmation = async (email: string, userId: string) => {
+    setResending(userId);
+    try {
+      const { error } = await supabase.functions.invoke('admin-resend-confirmation', {
+        body: { email },
+      });
+      if (error) throw error;
+      toast.success('Email de confirmação reenviado!');
+    } catch {
+      toast.error('Erro ao reenviar email');
+    } finally {
+      setResending(null);
+    }
   };
 
   const handleRoleChange = async (userId: string, newRole: AppRole) => {
@@ -445,6 +507,12 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
                   </Badge>
                 </TableCell>
                 <TableCell>
+                  {!u.email_confirmed && (
+                    <Badge className="bg-red-500/20 text-red-400 border-red-500/30 border text-xs mr-1">
+                      <AlertCircle className="h-3 w-3 mr-1" />
+                      Email não confirmado
+                    </Badge>
+                  )}
                   <Badge variant={u.approved ? 'default' : 'secondary'} className="text-xs">
                     {u.approved ? 'Aprovado' : 'Pendente'}
                   </Badge>
@@ -463,7 +531,22 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
-                    {!u.approved && (
+                    {!u.email_confirmed && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => handleResendConfirmation(u.email, u.user_id)}
+                        disabled={resending === u.user_id}
+                        title="Reenviar email de confirmação"
+                      >
+                        {resending === u.user_id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Mail className="h-4 w-4 text-red-400" />
+                        )}
+                      </Button>
+                    )}
+                    {!u.approved && u.email_confirmed && u.has_profile && (
                       <Button size="icon" variant="ghost" onClick={() => handleApprove(u.user_id, true)} title="Aprovar">
                         <Check className="h-4 w-4 text-green-400" />
                       </Button>
