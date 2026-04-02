@@ -1,32 +1,44 @@
 
 
-# Ajustes 01, 02 e 03
+# Sugestões de Criativos com IA no Prompt Livre
 
-## AJUSTE 01 — Exclusão não funciona no Dashboard
+## Conceito
 
-**Causa raiz:** O hook `useDeleteCreative` invalida a query `['generated_creatives', projectId]`, mas o Dashboard usa queries com keys diferentes (`['dashboard-recent', userId]`, `['dashboard-total', userId]`, etc.). Após deletar, o cache do dashboard não é atualizado.
+Adicionar uma seção abaixo do campo de prompt e anexos no `FreePromptPanel` com 3 cards de sugestões (Conservador, Inovador, Fora da Caixa). Um botão "Sugerir Criativos com IA" chama uma edge function que gera os 3 briefings. Ao clicar em um card, o prompt é preenchido com a sugestão. Se já houver texto no prompt, um diálogo de confirmação é exibido.
 
-**Correção em `src/hooks/useGeneratedCreatives.ts`:**
-- No `onSuccess` do `useDeleteCreative`, além de invalidar `['generated_creatives', projectId]`, também invalidar as queries do dashboard: `['dashboard-recent']`, `['dashboard-total']`, `['dashboard-7days']`, `['dashboard-projects']`.
+## Frontend — `src/components/FreePromptPanel.tsx`
 
-## AJUSTE 02 — Referência deve limpar prompt e imagens existentes
+- Adicionar estados: `suggestions` (array de 3 objetos com `type`, `titulo`, `copy`, `proposta_imagem`, `objetivo`), `selectedSuggestion` (index ou null), `suggesting` (boolean), `confirmIndex` (para AlertDialog)
+- Adicionar botão "Sugerir Criativos com IA" (ícone Sparkles, desabilitado se `suggesting`)
+- Ao clicar, chamar `supabase.functions.invoke('suggest-creatives', { body: { projectId } })`
+- Renderizar 3 cards com ícones ShieldCheck/Lightbulb/Rocket (mesmo padrão visual da Geração Dinâmica)
+- Cada card mostra: tipo (tag), título, copy resumida
+- Ao clicar num card:
+  - Se `data.prompt` está vazio → preenche direto e marca como selecionado
+  - Se `data.prompt` tem conteúdo → abre AlertDialog perguntando se deseja substituir
+  - Se confirmado → substitui o prompt, marca selecionado
+- Card selecionado tem borda `border-primary`
+- Ao clicar no card já selecionado → desmarca (não limpa prompt)
+- Ao clicar em outro card com prompt preenchido → mesmo fluxo de confirmação
+- O texto inserido no prompt é formatado como: `Título: {titulo}\nCopy: {copy}\nImagem: {proposta_imagem}\nObjetivo: {objetivo}`
 
-**Correção em `src/pages/Index.tsx`:**
-- No `handleUseAsReference`, ao invés de preservar `prev`, resetar o `freePromptData` com prompt vazio e apenas a nova imagem:
-```
-setFreePromptData({ prompt: '', attachedImages: [imageUrl] });
-```
+- Precisa receber `projectId` (já recebe)
 
-## AJUSTE 03 — Cursor pointer no menu do usuário
+## Edge Function — `supabase/functions/suggest-creatives/index.ts`
 
-**Correção em `src/components/RightSidebar.tsx`:**
-- Adicionar `className="cursor-pointer"` nos três `DropdownMenuItem` (Perfil, Administração, Sair).
+- Nova edge function
+- Recebe `{ projectId }`
+- Busca contexto do projeto (`context`, `voice_guide`, `name`) via service client autenticado
+- Chama Lovable AI (`google/gemini-3-flash-preview`) com tool calling para retornar 3 sugestões estruturadas
+- System prompt: "Gere 3 sugestões de criativos para redes sociais: uma conservadora, uma inovadora e uma fora da caixa"
+- User prompt inclui contexto e tom de voz do projeto
+- Tool: `suggest_creatives` com array de 3 objetos `{ type, titulo, copy, proposta_imagem, objetivo_estrategico }`
+- Retorna o array de sugestões
 
 ## Arquivos
 
 | Ação | Arquivo |
 |------|---------|
-| Editar | `src/hooks/useGeneratedCreatives.ts` — invalidar queries do dashboard no delete |
-| Editar | `src/pages/Index.tsx` — resetar freePromptData na referência |
-| Editar | `src/components/RightSidebar.tsx` — cursor-pointer nos menu items |
+| Criar | `supabase/functions/suggest-creatives/index.ts` |
+| Editar | `src/components/FreePromptPanel.tsx` — botão, cards, seleção, confirmação |
 
