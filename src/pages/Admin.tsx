@@ -353,15 +353,34 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
   };
 
   const handleApprove = async (userId: string, approved: boolean) => {
+    const target = users.find((u) => u.user_id === userId);
+    if (!target?.has_profile) {
+      toast.error('Usuário precisa confirmar o email antes de ser aprovado');
+      return;
+    }
     await supabase.from('profiles').update({ approved }).eq('user_id', userId);
     if (approved) {
-      const existing = users.find((u) => u.user_id === userId);
-      if (!existing?.role) {
+      if (!target?.role) {
         await supabase.from('user_roles').insert({ user_id: userId, role: 'analyst' as any });
       }
     }
     toast.success(approved ? 'Usuário aprovado!' : 'Aprovação removida');
     fetchUsers();
+  };
+
+  const handleResendConfirmation = async (email: string, userId: string) => {
+    setResending(userId);
+    try {
+      const { error } = await supabase.functions.invoke('admin-resend-confirmation', {
+        body: { email },
+      });
+      if (error) throw error;
+      toast.success('Email de confirmação reenviado!');
+    } catch {
+      toast.error('Erro ao reenviar email');
+    } finally {
+      setResending(null);
+    }
   };
 
   const handleRoleChange = async (userId: string, newRole: AppRole) => {
@@ -488,6 +507,12 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
                   </Badge>
                 </TableCell>
                 <TableCell>
+                  {!u.email_confirmed && (
+                    <Badge className="bg-red-500/20 text-red-400 border-red-500/30 border text-xs mr-1">
+                      <AlertCircle className="h-3 w-3 mr-1" />
+                      Email não confirmado
+                    </Badge>
+                  )}
                   <Badge variant={u.approved ? 'default' : 'secondary'} className="text-xs">
                     {u.approved ? 'Aprovado' : 'Pendente'}
                   </Badge>
@@ -506,7 +531,22 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
-                    {!u.approved && (
+                    {!u.email_confirmed && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => handleResendConfirmation(u.email, u.user_id)}
+                        disabled={resending === u.user_id}
+                        title="Reenviar email de confirmação"
+                      >
+                        {resending === u.user_id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Mail className="h-4 w-4 text-red-400" />
+                        )}
+                      </Button>
+                    )}
+                    {!u.approved && u.email_confirmed && u.has_profile && (
                       <Button size="icon" variant="ghost" onClick={() => handleApprove(u.user_id, true)} title="Aprovar">
                         <Check className="h-4 w-4 text-green-400" />
                       </Button>
