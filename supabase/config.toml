@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.suggest-texts]
 verify_jwt = false
+
+[functions.suggest-creatives]
+verify_jwt = false
