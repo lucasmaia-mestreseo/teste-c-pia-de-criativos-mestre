@@ -1,58 +1,59 @@
 
 
-# Ajustes 01, 02 e 03
+# Ajustes 01 e 02 — Referência e Ações no Dashboard
 
-## AJUSTE 01 — Opções para ignorar Brand Kit e Contexto
+## AJUSTE 01 — Botão "Usar Como Referência" nos grids e modais
 
-### Frontend
+### Conceito
+Ao clicar em "Referência" no hover de um criativo (ou no modal de detalhe), a `image_url` é adicionada ao array `freePromptData.attachedImages`, o modo muda para `free`, e o painel ativo vai para `generate`. O usuário é levado diretamente ao Prompt Livre com a imagem anexada.
 
-**`src/components/GeneratePanel.tsx`:**
-- Adicionar dois estados: `ignoreBrandKit` e `ignoreContext` (default `false`)
-- Renderizar dois checkboxes na área de controles (perto do formato): "Ignorar Brand Kit" e "Ignorar Contexto"
-- No `handleGenerate`: se `ignoreBrandKit`, enviar `brandKit: null` no body; se `ignoreContext`, adicionar `ignoreContext: true` no body
+### Implementação
 
-**`src/components/DynamicGeneratePanel.tsx`:**
-- Mesmo padrão: dois estados + dois checkboxes antes do botão de gerar
-- Enviar `ignoreBrandKit: true` e `ignoreContext: true` no body quando marcados
+**`src/pages/Index.tsx`:**
+- Criar callback `handleUseAsReference(imageUrl: string, projectId: string)` que:
+  1. Seta `projectId` se necessário
+  2. Seta `creationMode('free')`
+  3. Adiciona a URL em `freePromptData.attachedImages` (sem duplicar)
+  4. Seta `activePanel('generate')`
+  5. Toast de confirmação
+- Passar `onUseAsReference` para `GeneratePanel`, `DynamicResultsPanel`, `CreativesPanel`, e `DashboardPanel`
 
-### Edge Functions
+**Grids (4 arquivos):** Em cada hover bar, adicionar um novo botão com ícone `ImagePlus` (lucide) com título "Referência", que chama `onUseAsReference(c.image_url)`.
 
-**`supabase/functions/generate-creative/index.ts`:**
-- Ler `ignoreContext` do body. Se `true`, não incluir `project.context` e `project.voice_guide` no prompt de geração
-- O brandKit já é controlado pelo frontend (envia `null`)
+**Modais (4 arquivos):** Adicionar botão "Usar Como Referência" com ícone `ImagePlus` na sidebar do modal de detalhe.
 
-**`supabase/functions/generate-dynamic-creative/index.ts`:**
-- Ler `ignoreBrandKit` e `ignoreContext` do body
-- Se `ignoreBrandKit`: setar `brandInfo` como string vazia e não usar cores do brandKit no image prompt
-- Se `ignoreContext`: não incluir context e voice_guide no prompt do briefing
+Arquivos afetados:
+- `src/pages/Index.tsx` — callback + passar prop
+- `src/components/GeneratePanel.tsx` — receber prop, botão no grid e modal
+- `src/components/DynamicResultsPanel.tsx` — receber prop, botão no grid e modal
+- `src/components/CreativesPanel.tsx` — receber prop, botão no grid e modal
+- `src/components/DashboardPanel.tsx` — receber prop, botão no grid e modal (ver Ajuste 02)
 
-## AJUSTE 02 — Tamanho dos thumbnails
+## AJUSTE 02 — Ações completas no grid do Dashboard
 
-Três arquivos com sliders de thumb size:
+### Problema
+O grid de imagens do Dashboard só mostra formato e data no hover. Faltam os botões padrão (Eye, Star, Download, Trash, Referência).
 
-| Arquivo | Default atual | Max atual | Novo default | Novo max |
-|---------|--------------|-----------|-------------|---------|
-| `GeneratePanel.tsx` | 80 | 160 | 160 | 640 |
-| `DynamicResultsPanel.tsx` | 100 | 200 | 200 | 800 |
-| `CreativesPanel.tsx` | 100 | 200 | 200 | 800 |
+### Implementação
 
-- Alterar o valor default no `useState` (manter leitura do localStorage para valores já salvos)
-- Alterar o `max` do `<Slider>`
+**`src/components/DashboardPanel.tsx`:**
+- Importar hooks `useDeleteCreative`, `useToggleFavorite`, `useGeneratedCreatives` (não — os dados já vêm de `useDashboardStats` sem `favorite`/`prompt`)
+- Alternativa: expandir `useDashboardStats` para incluir `favorite`, `prompt`, `project_id` nos `recentCreatives`
+- Adicionar estados para `modalCreative`, `deleteTarget`, `thumbSize` com slider
+- Replicar o mesmo padrão de hover bar e modal dos outros grids
+- Incluir o botão de Referência
 
-## AJUSTE 03 — Projetos em ordem alfabética
-
-**`src/components/RightSidebar.tsx` (linha 110):**
-- Adicionar `.sort((a, b) => a.name.localeCompare(b.name))` antes do `.map()`
+**`src/hooks/useDashboardStats.ts`:**
+- Na query `recentCreatives`, adicionar campos `favorite`, `prompt`, `project_id` ao select (linha 42)
 
 ## Arquivos
 
 | Ação | Arquivo |
 |------|---------|
-| Editar | `src/components/GeneratePanel.tsx` — checkboxes + lógica |
-| Editar | `src/components/DynamicGeneratePanel.tsx` — checkboxes + envio |
-| Editar | `supabase/functions/generate-creative/index.ts` — respeitar ignoreContext |
-| Editar | `supabase/functions/generate-dynamic-creative/index.ts` — respeitar flags |
-| Editar | `src/components/DynamicResultsPanel.tsx` — default e max do slider |
-| Editar | `src/components/CreativesPanel.tsx` — default e max do slider |
-| Editar | `src/components/RightSidebar.tsx` — sort alfabético |
+| Editar | `src/pages/Index.tsx` — callback `handleUseAsReference` + props |
+| Editar | `src/components/GeneratePanel.tsx` — prop + botão referência no grid e modal |
+| Editar | `src/components/DynamicResultsPanel.tsx` — prop + botão referência no grid e modal |
+| Editar | `src/components/CreativesPanel.tsx` — prop + botão referência no grid e modal |
+| Editar | `src/components/DashboardPanel.tsx` — hover bar completa + modal + referência |
+| Editar | `src/hooks/useDashboardStats.ts` — campos extras no select |
 
