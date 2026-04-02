@@ -129,6 +129,7 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
         format,
         projectId,
         mode: creationMode,
+        ignoreBrandKit,
         brandKit: ignoreBrandKit ? null : (brandKit ? {
           primaryColor: brandKit.primary_color,
           secondaryColor: brandKit.secondary_color,
