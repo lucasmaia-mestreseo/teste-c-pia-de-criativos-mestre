@@ -143,10 +143,10 @@ const Index = () => {
                 <HistoryPanel projectId={projectId} />
               )}
               {activePanel === 'dynamic' && (
-                <DynamicResultsPanel projectId={projectId} />
+                <DynamicResultsPanel projectId={projectId} onUseAsReference={handleUseAsReference} />
               )}
               {activePanel === 'creatives' && (
-                <CreativesPanel projectId={projectId} />
+                <CreativesPanel projectId={projectId} onUseAsReference={handleUseAsReference} />
               )}
             </div>
           </>
