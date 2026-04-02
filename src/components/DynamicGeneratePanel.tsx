@@ -137,6 +137,16 @@ export default function DynamicGeneratePanel({ projectId }: DynamicGeneratePanel
         ))}
       </div>
 
+      <div className="space-y-2">
+        <Textarea
+          value={customPrompt}
+          onChange={(e) => setCustomPrompt(e.target.value)}
+          placeholder="Instruções adicionais para a geração... (opcional)"
+          className="min-h-[60px] text-xs bg-secondary resize-none"
+          rows={3}
+        />
+      </div>
+
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-1.5 cursor-pointer">
           <Checkbox checked={ignoreBrandKit} onCheckedChange={(v) => setIgnoreBrandKit(!!v)} className="h-3.5 w-3.5" />
