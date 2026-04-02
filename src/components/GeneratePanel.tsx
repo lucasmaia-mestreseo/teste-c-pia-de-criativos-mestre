@@ -253,6 +253,11 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
                   <button onClick={() => setDeleteTarget({ id: c.id, projectId: c.project_id })} className="p-1 rounded-full hover:bg-accent transition-colors" title="Excluir">
                     <Trash2 className="h-3 w-3 text-destructive" />
                   </button>
+                  {onUseAsReference && (
+                    <button onClick={() => onUseAsReference(c.image_url, c.project_id)} className="p-1 rounded-full hover:bg-accent transition-colors" title="Usar como referência">
+                      <ImagePlus className="h-3 w-3 text-foreground" />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
