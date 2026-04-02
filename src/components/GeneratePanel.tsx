@@ -129,6 +129,7 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
         format,
         projectId,
         mode: creationMode,
+        ignoreBrandKit,
         brandKit: ignoreBrandKit ? null : (brandKit ? {
           primaryColor: brandKit.primary_color,
           secondaryColor: brandKit.secondary_color,
@@ -162,7 +163,7 @@ export default function GeneratePanel({ projectId, selectedSwipe, creationMode, 
       if (data?.error) throw new Error(data.error);
       toast.success('Criativo gerado com sucesso!');
       qc.invalidateQueries({ queryKey: ['generated_creatives', projectId] });
-      setPrompt('');
+      // Keep prompt, references, and checkboxes intact after generation
     } catch (e: any) {
       toast.error(e.message || 'Erro ao gerar criativo');
     } finally {

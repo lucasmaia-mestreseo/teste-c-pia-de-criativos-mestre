@@ -135,6 +135,7 @@ function buildInstructionBlock(
   photoMode: "replace" | "swap",
   logoAnalysis: string | null = null,
   elementOverrides: ElementOverride | null = null,
+  ignoreBrandKit: boolean = false,
 ): string {
   const sections: string[] = [];
 
@@ -147,12 +148,26 @@ Instrução do usuário:
 IMPORTANTE: Tudo que o usuário escreveu acima é uma ORDEM OBRIGATÓRIA. Cada palavra, cada pedido, cada detalhe DEVE ser executado na imagem final. Não ignore nenhuma parte desta instrução.`);
 
   /* --- 2. TEXTO OBRIGATÓRIO --- */
-  sections.push(`═══ SEÇÃO 2: REGRAS DE TEXTO ═══
+  const textRules: string[] = [];
+  textRules.push(`═══ SEÇÃO 2: REGRAS DE TEXTO ═══
 - Se o usuário especificou qualquer texto (headline, CTA, subtítulo, copy, frase), esse texto DEVE aparecer EXATAMENTE como escrito na imagem final.
 - Se o usuário pediu para "trocar", "substituir", "alterar" ou "mudar" qualquer texto da referência, o texto original DEVE ser completamente removido e substituído pelo novo texto solicitado.
 - NUNCA invente, modifique ou parafraseie textos que o usuário especificou. Use as palavras EXATAS fornecidas.
 - Se o usuário pediu para "manter a estrutura visual" ou "manter o layout", mantenha o posicionamento dos elementos mas aplique os textos e cores solicitados.
-- Textos da imagem de referência que NÃO foram mencionados pelo usuário podem ser mantidos, mas devem seguir as regras de cor e tipografia do Brand Kit.`);
+- Textos da imagem de referência que NÃO foram mencionados pelo usuário podem ser mantidos, mas devem seguir as regras de cor e tipografia do Brand Kit.
+- TODOS os textos DEVEM ser posicionados nos MESMOS locais da imagem de referência, com os MESMOS tamanhos relativos e a MESMA hierarquia visual.
+- Mantenha o MESMO espaçamento, alinhamento e proporção entre os textos da referência.`);
+
+  if (ignoreBrandKit) {
+    textRules.push(`
+⚠️ BRAND KIT IGNORADO — REGRAS DE FIDELIDADE TIPOGRÁFICA:
+- Como o Brand Kit foi intencionalmente ignorado, COPIE EXATAMENTE a tipografia (fonte, peso, estilo) visível na imagem de referência.
+- NÃO substitua por outra fonte. Use a MESMA fonte que aparece na referência.
+- COPIE EXATAMENTE as cores e estilos visuais da imagem de referência.
+- O objetivo é replicar o visual da referência o mais fielmente possível.`);
+  }
+
+  sections.push(textRules.join("\n"));
 
   /* --- 3. CORES E TIPOGRAFIA --- */
   if (brandKit) {
@@ -390,7 +405,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, format, swipeFileId, swipeFileUrl, projectId, brandKit, elementOverrides, mode, templateId, templateFields, attachedImages, ignoreContext } = await req.json();
+    const { prompt, format, swipeFileId, swipeFileUrl, projectId, brandKit, elementOverrides, mode, templateId, templateFields, attachedImages, ignoreContext, ignoreBrandKit } = await req.json();
 
     // Extract authenticated user
     const authHeader = req.headers.get("Authorization");
@@ -489,7 +504,7 @@ CRITICAL RULES:
       const instructionBlock = buildInstructionBlock(
         effectivePrompt, format, brandKit, hasLogo,
         hasPersonPhoto || hasPersonGrid, photoMode, logoAnalysis,
-        elementOverrides || null,
+        elementOverrides || null, !!ignoreBrandKit,
       );
       userContent.push(
         { type: "text", text: "📎 IMAGEM DE REFERÊNCIA (use como base de layout e estrutura visual):" },
@@ -499,7 +514,7 @@ CRITICAL RULES:
     } else {
       const instructionBlock = buildInstructionBlock(
         effectivePrompt, format, brandKit, hasLogo,
-        hasPersonPhoto || hasPersonGrid, photoMode, logoAnalysis, null,
+        hasPersonPhoto || hasPersonGrid, photoMode, logoAnalysis, null, !!ignoreBrandKit,
       );
       userContent.push({ type: "text", text: instructionBlock });
 

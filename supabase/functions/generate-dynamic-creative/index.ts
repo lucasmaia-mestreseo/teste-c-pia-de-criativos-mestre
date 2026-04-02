@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     const { data: { user } } = await anonClient.auth.getUser();
     if (!user) throw new Error("Não autenticado");
 
-    const { projectId, types, format, ignoreBrandKit, ignoreContext } = await req.json();
+    const { projectId, types, format, ignoreBrandKit, ignoreContext, customPrompt } = await req.json();
     // types: Array<{ type: 'conservative' | 'innovative' | 'radical', count: number }>
     if (!projectId || !types?.length) throw new Error("projectId e types são obrigatórios");
     const selectedFormat = format || "1:1";
@@ -81,7 +81,7 @@ Gere um criativo completo com:
 2. **Copy persuasiva**: entre 2 a 4 linhas (máx 300 caracteres), focada em conversão
 3. **Proposta de imagem**: sugestão visual que complemente a copy
 4. **Objetivo estratégico**: (ex: gerar cliques, despertar curiosidade, estimular ação imediata)
-
+${customPrompt ? `\nInstruções adicionais do usuário:\n${customPrompt}\n` : ""}
 Seja criativo, preciso e comercialmente estratégico. Foque sempre em conversão.
 Retorne em formato JSON com as chaves: titulo, copy, proposta_imagem, objetivo_estrategico`,
               },

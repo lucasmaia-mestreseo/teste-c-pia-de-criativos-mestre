@@ -6,6 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Sparkles, ShieldCheck, Lightbulb, Rocket } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { useCreativeFormats } from '@/hooks/useCreativeFormats';
 import { useQueryClient } from '@tanstack/react-query';
@@ -48,6 +49,7 @@ export default function DynamicGeneratePanel({ projectId }: DynamicGeneratePanel
   const [format, setFormat] = useState<string>('1:1');
   const [ignoreBrandKit, setIgnoreBrandKit] = useState(false);
   const [ignoreContext, setIgnoreContext] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState('');
   const [generating, setGenerating] = useState(false);
 
   const { data: formats } = useCreativeFormats();
@@ -72,7 +74,7 @@ export default function DynamicGeneratePanel({ projectId }: DynamicGeneratePanel
 
     try {
       const { data, error } = await supabase.functions.invoke('generate-dynamic-creative', {
-        body: { projectId, types, format, ignoreBrandKit, ignoreContext },
+        body: { projectId, types, format, ignoreBrandKit, ignoreContext, customPrompt: customPrompt.trim() || undefined },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -133,6 +135,16 @@ export default function DynamicGeneratePanel({ projectId }: DynamicGeneratePanel
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="space-y-2">
+        <Textarea
+          value={customPrompt}
+          onChange={(e) => setCustomPrompt(e.target.value)}
+          placeholder="Instruções adicionais para a geração... (opcional)"
+          className="min-h-[60px] text-xs bg-secondary resize-none"
+          rows={3}
+        />
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
