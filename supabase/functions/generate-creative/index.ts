@@ -405,7 +405,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, format, swipeFileId, swipeFileUrl, projectId, brandKit, elementOverrides, mode, templateId, templateFields, attachedImages, ignoreContext } = await req.json();
+    const { prompt, format, swipeFileId, swipeFileUrl, projectId, brandKit, elementOverrides, mode, templateId, templateFields, attachedImages, ignoreContext, ignoreBrandKit } = await req.json();
 
     // Extract authenticated user
     const authHeader = req.headers.get("Authorization");
