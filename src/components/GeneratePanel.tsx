@@ -32,9 +32,10 @@ interface GeneratePanelProps {
   creationMode: CreationMode;
   freePromptData: FreePromptData;
   templateData: TemplateData;
+  onUseAsReference?: (imageUrl: string, projectId?: string) => void;
 }
 
-export default function GeneratePanel({ projectId, selectedSwipe, creationMode, freePromptData, templateData }: GeneratePanelProps) {
+export default function GeneratePanel({ projectId, selectedSwipe, creationMode, freePromptData, templateData, onUseAsReference }: GeneratePanelProps) {
   const [prompt, setPrompt] = useState('');
   const [format, setFormat] = useState<string>('1:1');
   const [generating, setGenerating] = useState(false);
