@@ -514,7 +514,7 @@ CRITICAL RULES:
     } else {
       const instructionBlock = buildInstructionBlock(
         effectivePrompt, format, brandKit, hasLogo,
-        hasPersonPhoto || hasPersonGrid, photoMode, logoAnalysis, null,
+        hasPersonPhoto || hasPersonGrid, photoMode, logoAnalysis, null, !!ignoreBrandKit,
       );
       userContent.push({ type: "text", text: instructionBlock });
 
