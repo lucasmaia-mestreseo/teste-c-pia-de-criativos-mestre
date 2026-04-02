@@ -49,6 +49,7 @@ export default function DynamicGeneratePanel({ projectId }: DynamicGeneratePanel
   const [format, setFormat] = useState<string>('1:1');
   const [ignoreBrandKit, setIgnoreBrandKit] = useState(false);
   const [ignoreContext, setIgnoreContext] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState('');
   const [generating, setGenerating] = useState(false);
 
   const { data: formats } = useCreativeFormats();
