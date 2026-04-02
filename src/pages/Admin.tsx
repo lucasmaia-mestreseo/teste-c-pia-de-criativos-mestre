@@ -402,15 +402,31 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
     fetchUsers();
   };
 
-  const handleRemoveUser = async (userId: string) => {
+  const handleRemoveUser = (userId: string) => {
     const target = users.find((u) => u.user_id === userId);
     if (target?.role === 'owner') { toast.error('Não é possível remover um owner'); return; }
     if (userId === currentUser?.id) { toast.error('Você não pode remover a si mesmo'); return; }
-    if (!confirm('Tem certeza?')) return;
-    await supabase.from('profiles').update({ approved: false }).eq('user_id', userId);
-    await supabase.from('user_roles').delete().eq('user_id', userId);
-    toast.success('Usuário desativado');
-    fetchUsers();
+    setDeleteTarget(target || null);
+    setDeleteConfirmName('');
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-delete-user', {
+        body: { userId: deleteTarget.user_id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success('Usuário excluído permanentemente');
+      setDeleteTarget(null);
+      fetchUsers();
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao excluir usuário');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const openEdit = (u: UserRow) => {
