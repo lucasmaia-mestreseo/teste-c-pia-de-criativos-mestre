@@ -30,7 +30,7 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
     localStorage.setItem(STORAGE_KEY, String(v));
   };
 
-  const handleDownload = async (url: string, name: string) => {
+  const handleDownload = async (url: string, name: string, creativeId?: string) => {
     try {
       const res = await fetch(url);
       const buf = await res.arrayBuffer();
@@ -41,6 +41,13 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
       a.download = name;
       a.click();
       URL.revokeObjectURL(a.href);
+      // Track download
+      if (creativeId) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('user_downloads' as any).insert({ user_id: user.id, creative_id: creativeId });
+        }
+      }
     } catch {
       toast.error('Erro no download');
     }
