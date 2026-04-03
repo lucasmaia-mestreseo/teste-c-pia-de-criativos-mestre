@@ -26,7 +26,7 @@ const Index = () => {
   const [creationMode, setCreationMode] = useState<CreationMode>('free');
   const [freePromptData, setFreePromptData] = useState<FreePromptData>({ prompt: '', attachedImages: [] });
   const [templateData, setTemplateData] = useState<TemplateData>({ templateId: null, fields: {}, prompt: '', attachedImages: [] });
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
   const [generating, setGenerating] = useState(false);
 
   const project = useProject(projectId);
