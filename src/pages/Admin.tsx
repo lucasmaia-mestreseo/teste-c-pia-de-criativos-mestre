@@ -756,7 +756,7 @@ function PromptsTab({ userId }: { userId?: string }) {
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
-    supabase.from('template_prompts').select('id, prompt, base_image_url').then(({ data }) => {
+    supabase.from('template_prompts').select('id, prompt, style_prompt, base_image_url').then(({ data }) => {
       setPrompts((data as any) || []);
       setLoading(false);
     });
