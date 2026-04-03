@@ -397,7 +397,11 @@ ${personPosition ? `📍 POSIÇÃO SOLICITADA PELO USUÁRIO: ${personPosition.re
   }
   
   if (hasLogo) {
-    checklistItems.push("□ O logo tem o MESMO tamanho relativo que o logo na referência (não está ampliado)?");
+    if (logoSize) {
+      checklistItems.push(`□ O logo está no tamanho solicitado pelo usuário (${logoSize === 'small' ? 'PEQUENO 3-5%' : logoSize === 'large' ? 'GRANDE 12-18%' : 'MODERADO 6-8%'} da área)?`);
+    } else {
+      checklistItems.push("□ O logo tem o MESMO tamanho relativo que o logo na referência (não está ampliado)?");
+    }
     checklistItems.push("□ O logo está no MESMO local/canto que o logo na referência?");
     checklistItems.push("□ O logo está 100% visível com margem de segurança, sem NENHUM pixel cortado?");
     checklistItems.push("□ As cores internas do logo estão inalteradas?");
