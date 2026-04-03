@@ -257,7 +257,7 @@ export default function GenerationControls({
 
         {/* Advanced Settings — tight spacing, no gap */}
         <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
-          <CollapsibleTrigger className="flex items-center gap-1.5 w-full px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors border-t">
+          <CollapsibleTrigger className="flex items-center gap-1.5 w-full px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
             <Settings2 className="h-3.5 w-3.5" />
             Configurações Avançadas
             <ChevronDown className={cn('h-3 w-3 ml-auto transition-transform', advancedOpen && 'rotate-180')} />
