@@ -520,6 +520,7 @@ CRITICAL RULES:
         effectivePrompt, format, brandKit, hasLogo,
         hasPersonPhoto || hasPersonGrid, photoMode, logoAnalysis,
         elementOverrides || null, !!ignoreBrandKit,
+        logoPosition || null, logoSize || null, personPosition || null,
       );
       userContent.push(
         { type: "text", text: "📎 IMAGEM DE REFERÊNCIA (use como base de layout e estrutura visual):" },
