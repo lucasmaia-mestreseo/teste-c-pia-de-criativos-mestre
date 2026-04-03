@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import {
   ArrowLeft, Check, X, Trash2, Loader2, Shield, Plus, Power, PowerOff,
   Save, Pencil, BarChart3, FileCode, FolderOpen, Users, Upload, ImageIcon,
-  Mail, AlertCircle
+  Mail, AlertCircle, Search, Star, Download, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -52,6 +52,8 @@ interface UsageRow {
   name: string;
   email: string;
   count: number;
+  downloads: number;
+  favorites: number;
 }
 
 interface PromptRow {
@@ -165,6 +167,10 @@ function ProjectsTab() {
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
 
   const fetchProjects = async () => {
     const { data: projs } = await supabase.from('projects').select('id, name, active, created_at').order('created_at', { ascending: false });
@@ -185,6 +191,22 @@ function ProjectsTab() {
   };
 
   useEffect(() => { fetchProjects(); }, []);
+
+  const filtered = useMemo(() => {
+    let list = projects;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((p) => p.name.toLowerCase().includes(q));
+    }
+    if (statusFilter === 'active') list = list.filter((p) => p.active);
+    if (statusFilter === 'inactive') list = list.filter((p) => !p.active);
+    return list;
+  }, [projects, search, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+  const paginated = filtered.slice((page - 1) * perPage, page * perPage);
+
+  useEffect(() => { setPage(1); }, [search, statusFilter, perPage]);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -219,13 +241,43 @@ function ProjectsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
-        <Input placeholder="Nome do novo projeto" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleCreate()} className="bg-secondary max-w-xs" />
-        <Button onClick={handleCreate} disabled={creating}><Plus className="h-4 w-4 mr-1" /> Criar</Button>
+      {/* Create project - separate row */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase">Projetos ({filtered.length})</h3>
+        <div className="flex gap-2">
+          <Input placeholder="Nome do novo projeto" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleCreate()} className="bg-secondary max-w-xs" />
+          <Button onClick={handleCreate} disabled={creating}><Plus className="h-4 w-4 mr-1" /> Criar</Button>
+        </div>
       </div>
 
+      {/* Filters row */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Buscar projeto..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-secondary" />
+        </div>
+        <div className="flex gap-1">
+          {(['all', 'active', 'inactive'] as const).map((s) => (
+            <Button key={s} size="sm" variant={statusFilter === s ? 'default' : 'outline'} onClick={() => setStatusFilter(s)}>
+              {s === 'all' ? 'Todos' : s === 'active' ? 'Ativos' : 'Inativos'}
+            </Button>
+          ))}
+        </div>
+        <Select value={String(perPage)} onValueChange={(v) => setPerPage(Number(v))}>
+          <SelectTrigger className="w-24 bg-secondary">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {[25, 50, 100, 250].map((n) => (
+              <SelectItem key={n} value={String(n)}>{n} / pág</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Project list */}
       <div className="space-y-2">
-        {projects.map((p) => (
+        {paginated.map((p) => (
           <div key={p.id} className={`flex items-center gap-4 p-4 rounded-lg border bg-card ${!p.active ? 'opacity-50' : ''}`}>
             <div className="flex-1 min-w-0">
               <p className="font-medium truncate">{p.name}</p>
@@ -249,6 +301,21 @@ function ProjectsTab() {
           </div>
         ))}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-xs text-muted-foreground">Página {page} de {totalPages}</p>
+          <div className="flex gap-1">
+            <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+              <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
+            </Button>
+            <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
+              Próximo <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -655,6 +722,7 @@ function UsageTab() {
   const [period, setPeriod] = useState<'day' | 'week' | 'month'>('month');
   const [usage, setUsage] = useState<UsageRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
 
   const fetchUsage = async () => {
     setLoading(true);
@@ -670,35 +738,59 @@ function UsageTab() {
       since.setMonth(since.getMonth() - 1);
     }
 
-    const { data: creatives } = await supabase
-      .from('generated_creatives')
-      .select('created_by, created_at')
-      .gte('created_at', since.toISOString());
+    const sinceISO = since.toISOString();
 
-    const { data: profiles } = await supabase.from('profiles').select('user_id, name, email');
+    // Fetch creatives, downloads, favorites and profiles in parallel
+    const [creativesRes, downloadsRes, favoritesRes, profilesRes] = await Promise.all([
+      supabase.from('generated_creatives').select('created_by, created_at').gte('created_at', sinceISO),
+      supabase.from('user_downloads' as any).select('user_id, created_at').gte('created_at', sinceISO),
+      supabase.from('generated_creatives').select('created_by').eq('favorite', true),
+      supabase.from('profiles').select('user_id, name, email'),
+    ]);
+
+    const creatives = creativesRes.data || [];
+    const downloads = (downloadsRes.data || []) as any[];
+    const favorites = favoritesRes.data || [];
+    const profiles = profilesRes.data || [];
 
     const countMap = new Map<string, number>();
-    (creatives || []).forEach((c: any) => {
-      if (c.created_by) {
-        countMap.set(c.created_by, (countMap.get(c.created_by) || 0) + 1);
-      }
+    (creatives as any[]).forEach((c) => {
+      if (c.created_by) countMap.set(c.created_by, (countMap.get(c.created_by) || 0) + 1);
+    });
+
+    const downloadMap = new Map<string, number>();
+    downloads.forEach((d: any) => {
+      if (d.user_id) downloadMap.set(d.user_id, (downloadMap.get(d.user_id) || 0) + 1);
+    });
+
+    const favMap = new Map<string, number>();
+    (favorites as any[]).forEach((f) => {
+      if (f.created_by) favMap.set(f.created_by, (favMap.get(f.created_by) || 0) + 1);
     });
 
     const profileMap = new Map<string, { name: string; email: string }>();
-    (profiles || []).forEach((p: any) => profileMap.set(p.user_id, { name: p.name, email: p.email }));
+    (profiles as any[]).forEach((p) => profileMap.set(p.user_id, { name: p.name, email: p.email }));
+
+    const allUserIds = new Set<string>();
+    countMap.forEach((_, k) => allUserIds.add(k));
+    downloadMap.forEach((_, k) => allUserIds.add(k));
+    (profiles as any[]).forEach((p) => allUserIds.add(p.user_id));
 
     const rows: UsageRow[] = [];
-    countMap.forEach((count, userId) => {
+    allUserIds.forEach((userId) => {
       const p = profileMap.get(userId);
-      rows.push({ user_id: userId, name: p?.name || 'Desconhecido', email: p?.email || '', count });
+      rows.push({
+        user_id: userId,
+        name: p?.name || 'Desconhecido',
+        email: p?.email || '',
+        count: countMap.get(userId) || 0,
+        downloads: downloadMap.get(userId) || 0,
+        favorites: favMap.get(userId) || 0,
+      });
     });
-    rows.sort((a, b) => b.count - a.count);
 
-    (profiles || []).forEach((p: any) => {
-      if (!countMap.has(p.user_id)) {
-        rows.push({ user_id: p.user_id, name: p.name, email: p.email, count: 0 });
-      }
-    });
+    // Sort alphabetically by name
+    rows.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 
     setUsage(rows);
     setLoading(false);
@@ -708,34 +800,56 @@ function UsageTab() {
 
   const periodLabel = { day: 'Hoje', week: 'Últimos 7 dias', month: 'Último mês' };
 
+  const filtered = useMemo(() => {
+    if (!search.trim()) return usage;
+    const q = search.toLowerCase();
+    return usage.filter((u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+  }, [usage, search]);
+
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
+      <div className="flex items-center gap-3">
         {(['day', 'week', 'month'] as const).map((p) => (
           <Button key={p} size="sm" variant={period === p ? 'default' : 'outline'} onClick={() => setPeriod(p)}>
             {periodLabel[p]}
           </Button>
         ))}
+        <div className="relative flex-1 max-w-xs ml-auto">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Buscar usuário..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-secondary" />
+        </div>
       </div>
 
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
       ) : (
         <div className="space-y-2">
-          {usage.map((u) => (
+          {filtered.map((u) => (
             <div key={u.user_id} className="flex items-center gap-4 p-4 rounded-lg border bg-card">
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate">{u.name}</p>
                 <p className="text-xs text-muted-foreground truncate">{u.email}</p>
               </div>
-              <div className="flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-semibold">{u.count}</span>
-                <span className="text-xs text-muted-foreground">criativos</span>
+              <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-1.5" title="Criativos gerados">
+                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-semibold">{u.count}</span>
+                  <span className="text-xs text-muted-foreground">criativos</span>
+                </div>
+                <div className="flex items-center gap-1.5" title="Downloads">
+                  <Download className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-semibold">{u.downloads}</span>
+                  <span className="text-xs text-muted-foreground">downloads</span>
+                </div>
+                <div className="flex items-center gap-1.5" title="Favoritos">
+                  <Star className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-semibold">{u.favorites}</span>
+                  <span className="text-xs text-muted-foreground">favoritos</span>
+                </div>
               </div>
             </div>
           ))}
-          {usage.length === 0 && (
+          {filtered.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-8">Nenhum dado para o período selecionado.</p>
           )}
         </div>

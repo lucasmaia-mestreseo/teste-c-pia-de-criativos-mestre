@@ -7,6 +7,7 @@ import { Slider } from '@/components/ui/slider';
 import { Download, Trash2, Star, Minimize2, Maximize2, Eye, ImagePlus } from 'lucide-react';
 import { stripPngMetadata } from '@/lib/stripPngMetadata';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CreativesPanelProps {
   projectId: string | null;
@@ -29,7 +30,7 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
     localStorage.setItem(STORAGE_KEY, String(v));
   };
 
-  const handleDownload = async (url: string, name: string) => {
+  const handleDownload = async (url: string, name: string, creativeId?: string) => {
     try {
       const res = await fetch(url);
       const buf = await res.arrayBuffer();
@@ -40,6 +41,13 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
       a.download = name;
       a.click();
       URL.revokeObjectURL(a.href);
+      // Track download
+      if (creativeId) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('user_downloads' as any).insert({ user_id: user.id, creative_id: creativeId });
+        }
+      }
     } catch {
       toast.error('Erro no download');
     }
@@ -115,7 +123,7 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
               <button onClick={() => toggleFavorite.mutate({ id: c.id, projectId: c.project_id, favorite: !c.favorite })} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Favoritar">
                 <Star className={`h-3 w-3 ${c.favorite ? 'fill-primary text-primary' : 'text-muted-foreground'}`} />
               </button>
-              <button onClick={() => handleDownload(c.image_url, `creative-${c.id}.png`)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Download">
+              <button onClick={() => handleDownload(c.image_url, `creative-${c.id}.png`, c.id)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Download">
                 <Download className="h-3 w-3 text-muted-foreground" />
               </button>
               <button onClick={() => setDeleteTarget({ id: c.id, projectId: c.project_id })} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Excluir">
@@ -142,7 +150,7 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
                 className="max-h-[80vh] max-w-[70vw] object-contain rounded-md"
               />
               <div className="flex flex-col gap-2 min-w-[120px] pt-8">
-                <Button size="sm" variant="outline" onClick={() => handleDownload(modalCreative.image_url, `creative-${modalCreative.id}.png`)}>
+                <Button size="sm" variant="outline" onClick={() => handleDownload(modalCreative.image_url, `creative-${modalCreative.id}.png`, modalCreative.id)}>
                   <Download className="h-3.5 w-3.5 mr-1" /> Download
                 </Button>
                 <Button
