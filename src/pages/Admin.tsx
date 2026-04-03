@@ -964,107 +964,114 @@ function PromptsTab({ userId }: { userId?: string }) {
     setSaving(null);
   };
 
+  const filteredPrompts = prompts.filter((p) =>
+    category === 'internal' ? INTERNAL_PROMPT_IDS.includes(p.id) : !INTERNAL_PROMPT_IDS.includes(p.id)
+  );
+
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
   return (
     <div className="space-y-6">
-      {prompts.map((p) => (
-        <div key={p.id} className="space-y-3 p-4 rounded-lg border bg-card">
-          <h3 className="text-sm font-semibold text-primary">{TEMPLATE_LABELS[p.id] || p.id}</h3>
+      {/* Category toggle */}
+      <div className="flex gap-2">
+        <Button size="sm" variant={category === 'style' ? 'default' : 'outline'} onClick={() => setCategory('style')}>
+          Prompts de Estilo
+        </Button>
+        <Button size="sm" variant={category === 'internal' ? 'default' : 'outline'} onClick={() => setCategory('internal')}>
+          Comandos Internos
+        </Button>
+      </div>
 
-          {/* Prompt de Composição */}
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">Prompt de Composição (layout/estrutura)</label>
-            <Textarea
-              value={edits[p.id] ?? p.prompt}
-              onChange={(e) => setEdits((prev) => ({ ...prev, [p.id]: e.target.value }))}
-              className="bg-secondary min-h-[120px] text-sm font-mono"
-            />
-            {edits[p.id] !== undefined && edits[p.id] !== p.prompt && (
-              <div className="flex justify-end mt-2">
-                <Button size="sm" onClick={() => handleSave(p.id)} disabled={saving === p.id}>
-                  {saving === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
-                  Salvar Composição
-                </Button>
-              </div>
-            )}
-          </div>
+      {filteredPrompts.map((p) => {
+        const isInternal = INTERNAL_PROMPT_IDS.includes(p.id);
+        return (
+          <div key={p.id} className="space-y-3 p-4 rounded-lg border bg-card">
+            <h3 className="text-sm font-semibold text-primary">{TEMPLATE_LABELS[p.id] || p.id}</h3>
 
-          {/* Prompt de Estilo Visual */}
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">Prompt de Estilo Visual (estética)</label>
-            <Textarea
-              value={styleEdits[p.id] ?? p.style_prompt}
-              onChange={(e) => setStyleEdits((prev) => ({ ...prev, [p.id]: e.target.value }))}
-              className="bg-secondary min-h-[120px] text-sm font-mono"
-            />
-            {styleEdits[p.id] !== undefined && styleEdits[p.id] !== p.style_prompt && (
-              <div className="flex justify-end mt-2">
-                <Button size="sm" onClick={() => handleSaveStyle(p.id)} disabled={saving === p.id + '-style'}>
-                  {saving === p.id + '-style' ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
-                  Salvar Estilo Visual
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* Base Image */}
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">Imagem base de referência</label>
-            {p.base_image_url ? (
-              <div className="flex items-start gap-3">
-                <img
-                  src={p.base_image_url}
-                  alt="Imagem base"
-                  className="w-32 h-32 object-cover rounded-lg border"
-                />
-                <div className="flex flex-col gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => fileInputRefs.current[p.id]?.click()}
-                    disabled={uploading === p.id}
-                  >
-                    {uploading === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Upload className="h-3.5 w-3.5 mr-1" />}
-                    Trocar
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-destructive"
-                    onClick={() => handleRemoveImage(p.id)}
-                    disabled={saving === p.id}
-                  >
-                    <Trash2 className="h-3.5 w-3.5 mr-1" />
-                    Remover
+            {/* Prompt principal */}
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                {isInternal ? 'Prompt' : 'Prompt de Composição (layout/estrutura)'}
+              </label>
+              <Textarea
+                value={edits[p.id] ?? p.prompt}
+                onChange={(e) => setEdits((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                className="bg-secondary min-h-[120px] text-sm font-mono"
+              />
+              {edits[p.id] !== undefined && edits[p.id] !== p.prompt && (
+                <div className="flex justify-end mt-2">
+                  <Button size="sm" onClick={() => handleSave(p.id)} disabled={saving === p.id}>
+                    {saving === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                    {isInternal ? 'Salvar' : 'Salvar Composição'}
                   </Button>
                 </div>
-              </div>
-            ) : (
-              <button
-                onClick={() => fileInputRefs.current[p.id]?.click()}
-                disabled={uploading === p.id}
-                className="flex items-center gap-2 px-4 py-3 rounded-lg border border-dashed bg-secondary/50 hover:bg-secondary transition-colors text-sm text-muted-foreground"
-              >
-                {uploading === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
-                Fazer upload de imagem base
-              </button>
-            )}
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              ref={(el) => { fileInputRefs.current[p.id] = el; }}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleImageUpload(p.id, file);
-                e.target.value = '';
-              }}
-            />
-          </div>
+              )}
+            </div>
 
-        </div>
-      ))}
+            {/* Prompt de Estilo Visual — only for style prompts */}
+            {!isInternal && (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Prompt de Estilo Visual (estética)</label>
+                <Textarea
+                  value={styleEdits[p.id] ?? p.style_prompt}
+                  onChange={(e) => setStyleEdits((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                  className="bg-secondary min-h-[120px] text-sm font-mono"
+                />
+                {styleEdits[p.id] !== undefined && styleEdits[p.id] !== p.style_prompt && (
+                  <div className="flex justify-end mt-2">
+                    <Button size="sm" onClick={() => handleSaveStyle(p.id)} disabled={saving === p.id + '-style'}>
+                      {saving === p.id + '-style' ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                      Salvar Estilo Visual
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Base Image — only for style prompts */}
+            {!isInternal && (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Imagem base de referência</label>
+                {p.base_image_url ? (
+                  <div className="flex items-start gap-3">
+                    <img src={p.base_image_url} alt="Imagem base" className="w-32 h-32 object-cover rounded-lg border" />
+                    <div className="flex flex-col gap-2">
+                      <Button size="sm" variant="outline" onClick={() => fileInputRefs.current[p.id]?.click()} disabled={uploading === p.id}>
+                        {uploading === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Upload className="h-3.5 w-3.5 mr-1" />}
+                        Trocar
+                      </Button>
+                      <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleRemoveImage(p.id)} disabled={saving === p.id}>
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />
+                        Remover
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => fileInputRefs.current[p.id]?.click()}
+                    disabled={uploading === p.id}
+                    className="flex items-center gap-2 px-4 py-3 rounded-lg border border-dashed bg-secondary/50 hover:bg-secondary transition-colors text-sm text-muted-foreground"
+                  >
+                    {uploading === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
+                    Fazer upload de imagem base
+                  </button>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  ref={(el) => { fileInputRefs.current[p.id] = el; }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageUpload(p.id, file);
+                    e.target.value = '';
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
