@@ -304,44 +304,50 @@ export default function GenerationControls({
 
             {/* Person toggle */}
             {hasPersonPhotos && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <TogglePill active={includePersonPhoto} onClick={() => { setIncludePersonPhoto(!includePersonPhoto); if (includePersonPhoto) setSelectedPersonPhoto(''); }}>
-                    Incluir Pessoa
-                  </TogglePill>
-                  {includePersonPhoto && personPhotos.map((url, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setSelectedPersonPhoto(url)}
-                      className={cn(
-                        'w-8 h-8 rounded-full overflow-hidden border-2 transition-colors',
-                        selectedPersonPhoto === url ? 'border-primary' : 'border-transparent hover:border-primary/50'
-                      )}
-                    >
-                      <img src={url} alt={`Pessoa ${i + 1}`} className="w-full h-full object-cover" />
-                    </button>
-                  ))}
-                  {hasGrid && includePersonPhoto && (
-                    <RadioGroup
-                      value={personMode}
-                      onValueChange={(v) => setPersonMode(v as 'photo' | 'grid')}
-                      className="flex items-center gap-2 ml-1"
-                    >
-                      <div className="flex items-center gap-1">
-                        <RadioGroupItem value="photo" id="ctrl-mode-photo" className="h-3 w-3" />
-                        <Label htmlFor="ctrl-mode-photo" className="text-[10px] text-muted-foreground cursor-pointer">Foto</Label>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <RadioGroupItem value="grid" id="ctrl-mode-grid" className="h-3 w-3" />
-                        <Label htmlFor="ctrl-mode-grid" className="text-[10px] text-muted-foreground cursor-pointer">Grid</Label>
-                      </div>
-                    </RadioGroup>
-                  )}
-                </div>
+              <div className="space-y-3">
+                <TogglePill active={includePersonPhoto} onClick={() => { setIncludePersonPhoto(!includePersonPhoto); if (includePersonPhoto) setSelectedPersonPhoto(''); }}>
+                  Incluir Pessoa
+                </TogglePill>
+
                 {includePersonPhoto && (
-                  <div className="pl-1">
+                  <>
+                    {/* Photo thumbnails */}
+                    <div className="flex flex-wrap gap-2">
+                      {personPhotos.map((url, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setSelectedPersonPhoto(url)}
+                          className={cn(
+                            'w-10 h-10 rounded-md overflow-hidden border-2 transition-colors',
+                            selectedPersonPhoto === url ? 'border-primary' : 'border-transparent hover:border-primary/50'
+                          )}
+                        >
+                          <img src={url} alt={`Pessoa ${i + 1}`} className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Photo/Grid mode */}
+                    {hasGrid && (
+                      <RadioGroup
+                        value={personMode}
+                        onValueChange={(v) => setPersonMode(v as 'photo' | 'grid')}
+                        className="flex items-center gap-3"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <RadioGroupItem value="photo" id="ctrl-mode-photo" className="h-3.5 w-3.5" />
+                          <Label htmlFor="ctrl-mode-photo" className="text-xs text-muted-foreground cursor-pointer">Foto</Label>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <RadioGroupItem value="grid" id="ctrl-mode-grid" className="h-3.5 w-3.5" />
+                          <Label htmlFor="ctrl-mode-grid" className="text-xs text-muted-foreground cursor-pointer">Grid</Label>
+                        </div>
+                      </RadioGroup>
+                    )}
+
+                    {/* Position grid */}
                     <PositionGrid value={personPosition} onChange={setPersonPosition} label="Posição da pessoa" />
-                  </div>
+                  </>
                 )}
               </div>
             )}
