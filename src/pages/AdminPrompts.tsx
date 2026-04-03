@@ -38,6 +38,7 @@ export default function AdminPrompts() {
   const [saving, setSaving] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [styleEdits, setStyleEdits] = useState<Record<string, string>>({});
+  const [category, setCategory] = useState<'style' | 'internal'>('style');
 
   useEffect(() => {
     if (!authLoading && role === 'owner') {
@@ -94,6 +95,10 @@ export default function AdminPrompts() {
     setSaving(null);
   };
 
+  const filteredPrompts = prompts.filter((p) =>
+    category === 'internal' ? INTERNAL_PROMPT_IDS.includes(p.id) : !INTERNAL_PROMPT_IDS.includes(p.id)
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <header className="flex items-center gap-3 px-5 py-3 border-b bg-card">
@@ -105,47 +110,66 @@ export default function AdminPrompts() {
       </header>
 
       <div className="max-w-3xl mx-auto p-6 space-y-6">
+        {/* Category toggle */}
+        <div className="flex gap-2">
+          <Button size="sm" variant={category === 'style' ? 'default' : 'outline'} onClick={() => setCategory('style')}>
+            Prompts de Estilo
+          </Button>
+          <Button size="sm" variant={category === 'internal' ? 'default' : 'outline'} onClick={() => setCategory('internal')}>
+            Comandos Internos
+          </Button>
+        </div>
+
         {loading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         ) : (
-          prompts.map((p) => (
-            <div key={p.id} className="space-y-2 p-4 rounded-lg border bg-card">
-              <h3 className="text-sm font-semibold text-primary">
-                {TEMPLATE_LABELS[p.id] || p.id}
-              </h3>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Prompt de Composição (layout/estrutura)</label>
-              <Textarea
-                value={edits[p.id] ?? p.prompt}
-                onChange={(e) => setEdits((prev) => ({ ...prev, [p.id]: e.target.value }))}
-                className="bg-secondary min-h-[120px] text-sm font-mono"
-              />
-              {edits[p.id] !== undefined && edits[p.id] !== p.prompt && (
-                <div className="flex justify-end mt-2">
-                  <Button size="sm" onClick={() => handleSave(p.id)} disabled={saving === p.id}>
-                    {saving === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
-                    Salvar Composição
-                  </Button>
-                </div>
-              )}
+          filteredPrompts.map((p) => {
+            const isInternal = INTERNAL_PROMPT_IDS.includes(p.id);
+            return (
+              <div key={p.id} className="space-y-2 p-4 rounded-lg border bg-card">
+                <h3 className="text-sm font-semibold text-primary">
+                  {TEMPLATE_LABELS[p.id] || p.id}
+                </h3>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                  {isInternal ? 'Prompt' : 'Prompt de Composição (layout/estrutura)'}
+                </label>
+                <Textarea
+                  value={edits[p.id] ?? p.prompt}
+                  onChange={(e) => setEdits((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                  className="bg-secondary min-h-[120px] text-sm font-mono"
+                />
+                {edits[p.id] !== undefined && edits[p.id] !== p.prompt && (
+                  <div className="flex justify-end mt-2">
+                    <Button size="sm" onClick={() => handleSave(p.id)} disabled={saving === p.id}>
+                      {saving === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                      {isInternal ? 'Salvar' : 'Salvar Composição'}
+                    </Button>
+                  </div>
+                )}
 
-              <label className="text-xs font-medium text-muted-foreground mb-1 block mt-4">Prompt de Estilo Visual (estética)</label>
-              <Textarea
-                value={styleEdits[p.id] ?? p.style_prompt}
-                onChange={(e) => setStyleEdits((prev) => ({ ...prev, [p.id]: e.target.value }))}
-                className="bg-secondary min-h-[120px] text-sm font-mono"
-              />
-              {styleEdits[p.id] !== undefined && styleEdits[p.id] !== p.style_prompt && (
-                <div className="flex justify-end mt-2">
-                  <Button size="sm" onClick={() => handleSaveStyle(p.id)} disabled={saving === p.id + '-style'}>
-                    {saving === p.id + '-style' ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
-                    Salvar Estilo Visual
-                  </Button>
-                </div>
-              )}
-            </div>
-          ))
+                {!isInternal && (
+                  <>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block mt-4">Prompt de Estilo Visual (estética)</label>
+                    <Textarea
+                      value={styleEdits[p.id] ?? p.style_prompt}
+                      onChange={(e) => setStyleEdits((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                      className="bg-secondary min-h-[120px] text-sm font-mono"
+                    />
+                    {styleEdits[p.id] !== undefined && styleEdits[p.id] !== p.style_prompt && (
+                      <div className="flex justify-end mt-2">
+                        <Button size="sm" onClick={() => handleSaveStyle(p.id)} disabled={saving === p.id + '-style'}>
+                          {saving === p.id + '-style' ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                          Salvar Estilo Visual
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
     </div>
