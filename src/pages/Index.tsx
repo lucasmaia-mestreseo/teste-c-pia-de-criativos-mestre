@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import TopBar from '@/components/TopBar';
 import GeneratePanel from '@/components/GeneratePanel';
 import GenerationControls from '@/components/GenerationControls';
@@ -19,18 +20,40 @@ import type { Tables } from '@/integrations/supabase/types';
 
 type RightPanel = 'generate' | 'brandkit' | 'context' | 'history' | 'dynamic' | 'creatives';
 
+const VALID_PANELS: RightPanel[] = ['generate', 'brandkit', 'context', 'history', 'dynamic', 'creatives'];
+
 const Index = () => {
-  const [projectId, setProjectId] = useState<string | null>(null);
-  const [activePanel, setActivePanel] = useState<RightPanel>('generate');
+  const { projectId: urlProjectId, panel: urlPanel } = useParams<{ projectId?: string; panel?: string }>();
+  const navigate = useNavigate();
+
+  const [projectId, setProjectId] = useState<string | null>(urlProjectId ?? null);
+  const [activePanel, setActivePanel] = useState<RightPanel>(
+    VALID_PANELS.includes(urlPanel as RightPanel) ? (urlPanel as RightPanel) : 'generate'
+  );
   const [selectedSwipe, setSelectedSwipe] = useState<Tables<'swipe_files'> | null>(null);
   const [creationMode, setCreationMode] = useState<CreationMode>('free');
   const [freePromptData, setFreePromptData] = useState<FreePromptData>({ prompt: '', attachedImages: [] });
   const [templateData, setTemplateData] = useState<TemplateData>({ templateId: null, fields: {}, prompt: '', attachedImages: [] });
-  
   const [generating, setGenerating] = useState(false);
 
   const project = useProject(projectId);
   const onboardingPending = !!(projectId && project.data && !(project.data as any).onboarding_completed);
+
+  // Sync URL → state when URL params change
+  useEffect(() => {
+    if (urlProjectId && urlProjectId !== projectId) {
+      setProjectId(urlProjectId);
+      setSelectedSwipe(null);
+      setFreePromptData({ prompt: '', attachedImages: [] });
+      setTemplateData({ templateId: null, fields: {}, prompt: '', attachedImages: [] });
+    }
+    if (urlPanel && VALID_PANELS.includes(urlPanel as RightPanel) && urlPanel !== activePanel) {
+      setActivePanel(urlPanel as RightPanel);
+    }
+    if (!urlProjectId && projectId) {
+      // We're on / but have a projectId — clear it
+    }
+  }, [urlProjectId, urlPanel]);
 
   const handleProjectChange = (id: string) => {
     setProjectId(id);
@@ -38,6 +61,14 @@ const Index = () => {
     setFreePromptData({ prompt: '', attachedImages: [] });
     setTemplateData({ templateId: null, fields: {}, prompt: '', attachedImages: [] });
     setActivePanel('generate');
+    navigate(`/project/${id}/generate`);
+  };
+
+  const handlePanelChange = (panel: RightPanel) => {
+    setActivePanel(panel);
+    if (projectId) {
+      navigate(`/project/${projectId}/${panel}`);
+    }
   };
 
   const handleOnboardingComplete = () => {
@@ -45,14 +76,23 @@ const Index = () => {
   };
 
   const handleUseAsReference = useCallback((imageUrl: string, refProjectId?: string) => {
+    const targetProject = refProjectId || projectId;
     if (refProjectId && refProjectId !== projectId) {
       setProjectId(refProjectId);
     }
     setCreationMode('free');
     setFreePromptData({ prompt: '', attachedImages: [imageUrl] });
     setActivePanel('generate');
+    if (targetProject) {
+      navigate(`/project/${targetProject}/generate`);
+    }
     toast.success('Imagem adicionada como referência');
-  }, [projectId]);
+  }, [projectId, navigate]);
+
+  const handleGoToDashboard = () => {
+    setProjectId(null);
+    navigate('/');
+  };
 
   const showDashboard = !projectId;
 
@@ -62,9 +102,9 @@ const Index = () => {
         selectedProjectId={projectId}
         onSelectProject={handleProjectChange}
         activePanel={activePanel}
-        onPanelChange={setActivePanel}
+        onPanelChange={handlePanelChange}
         onboardingPending={onboardingPending}
-        onGoToDashboard={() => setProjectId(null)}
+        onGoToDashboard={handleGoToDashboard}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -76,7 +116,6 @@ const Index = () => {
           <ProjectOnboarding projectId={projectId!} onComplete={handleOnboardingComplete} />
         ) : (
           <>
-            {/* Left column — generation controls */}
             {activePanel === 'generate' && (
               <div className="w-[35%] border-r bg-card flex-shrink-0 flex flex-col">
                 <GenerationControls
@@ -100,7 +139,6 @@ const Index = () => {
               </div>
             )}
 
-            {/* Right column */}
             <div className="flex-1 bg-background overflow-hidden">
               {activePanel === 'generate' && (
                 <GeneratePanel
