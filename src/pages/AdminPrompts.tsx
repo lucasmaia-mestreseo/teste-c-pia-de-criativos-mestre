@@ -30,12 +30,13 @@ export default function AdminPrompts() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, string>>({});
+  const [styleEdits, setStyleEdits] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!authLoading && role === 'owner') {
       supabase
         .from('template_prompts')
-        .select('id, prompt')
+        .select('id, prompt, style_prompt')
         .then(({ data }) => {
           setPrompts(data || []);
           setLoading(false);
