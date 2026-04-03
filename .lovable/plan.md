@@ -1,41 +1,29 @@
 
 
-# Ajustes visuais no painel de geração
+# Corrigir o ajuste de tamanho do logo
 
-## Problemas identificados
+## Problema
 
-1. **Espaço entre "Sugerir Criativos" e "Configurações Avançadas"**: O `FreePromptPanel` usa `flex-1` no container de conteúdo, fazendo o espaço expandir. O conteúdo precisa fluir naturalmente sem forçar expansão.
+O `logoSize` é passado apenas como instrução textual no prompt para o modelo de IA (ex: "Pequeno (~3-5% da área)"). Porém, na mesma seção existe uma regra conflitante que diz "O novo logo DEVE ter o MESMO tamanho relativo que o logo da referência". Quando ambas estão presentes, o modelo ignora o tamanho solicitado e segue a referência.
 
-2. **Estilo dos botões inconsistente**: Os toggle pills (Logo, Pessoa, Brand Kit, Contexto) usam `rounded-full` e bordas finas, enquanto os botões principais (Sugerir, Gerar) usam `rounded-md` com estilo `outline`/`default`. Precisa unificar — os toggles devem usar `rounded-md` com o mesmo estilo visual.
+Além disso, quando não há imagem de referência (modo `free`), a instrução genérica de "5-8% da área" compete com o tamanho escolhido pelo usuário.
 
-3. **Logo muito pequeno**: Atualmente `h-6 w-6` — aumentar para `h-10 w-10`.
+## Solução
 
-4. **Layout caótico nas opções de pessoa**: Fotos, radio Foto/Grid e grid de posição ficam misturados. Reorganizar com separação clara: primeiro o toggle + fotos em linha, depois Foto/Grid, depois o grid de posição — com espaçamento uniforme.
+Editar `supabase/functions/generate-creative/index.ts`, na função `buildInstructionBlock`, seção 4 (REGRAS DO LOGO):
 
-## Alterações
+1. **Quando `logoSize` é especificado pelo usuário**: remover/sobrescrever a regra genérica de escala e substituir por uma instrução enfática e única baseada no tamanho escolhido:
+   - `small`: "O logo deve ser DISCRETO e PEQUENO, ocupando no máximo 3-5% da área total"
+   - `normal`: "O logo deve ter tamanho MODERADO, ocupando ~6-8% da área total"
+   - `large`: "O logo deve ser BEM VISÍVEL e PROEMINENTE, ocupando ~12-18% da área total"
 
-### `src/components/FreePromptPanel.tsx`
-- Remover `flex flex-col h-full` e `flex-1` do container — usar apenas `div` com overflow, sem forçar altura
-- O conteúdo flui naturalmente e "Configurações Avançadas" fica colado logo abaixo
+2. **Priorizar a instrução de tamanho** sobre a regra de "copiar o tamanho da referência" — quando `logoSize` está definido, remover o parágrafo que diz para copiar o tamanho da referência.
 
-### `src/components/GenerationControls.tsx`
-- **TogglePill**: trocar `rounded-full` por `rounded-md` e ajustar padding/borda para coincidir com o estilo dos outros botões (`border` consistente)
-- **Logo preview**: de `h-6 w-6` para `h-10 w-10`
-- **Seção Logo expandida**: manter `flex items-start gap-6` mas com labels mais claros
-- **Seção Pessoa expandida**: reorganizar em blocos verticais separados:
-  1. Toggle + thumbnails de fotos (em grid wrap, não inline caótico)
-  2. Radio Foto/Grid (se disponível)
-  3. Grid de posição
-- **Brand Kit / Contexto**: mesmos ajustes de estilo no TogglePill
-- Remover `border-t` do CollapsibleTrigger para eliminar a linha separadora que cria distância visual
+3. **Reforçar no checklist final** (seção 7): adicionar item "O logo está no tamanho solicitado (small/normal/large)?"
 
-### `src/components/PositionGrid.tsx`
-- Sem alterações (já está em w-7 h-7)
-
-## Arquivos
+## Arquivo
 
 | Ação | Arquivo |
 |------|---------|
-| Editar | `src/components/FreePromptPanel.tsx` — remover flex-1/h-full para colar conteúdo |
-| Editar | `src/components/GenerationControls.tsx` — unificar estilo botões, logo maior, layout pessoa |
+| Editar | `supabase/functions/generate-creative/index.ts` — priorizar logoSize sobre regra de referência |
 
