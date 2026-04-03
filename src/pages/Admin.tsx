@@ -52,6 +52,8 @@ interface UsageRow {
   name: string;
   email: string;
   count: number;
+  downloads: number;
+  favorites: number;
 }
 
 interface PromptRow {
