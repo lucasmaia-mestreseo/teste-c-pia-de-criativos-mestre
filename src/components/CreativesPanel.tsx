@@ -150,7 +150,7 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
                 className="max-h-[80vh] max-w-[70vw] object-contain rounded-md"
               />
               <div className="flex flex-col gap-2 min-w-[120px] pt-8">
-                <Button size="sm" variant="outline" onClick={() => handleDownload(modalCreative.image_url, `creative-${modalCreative.id}.png`)}>
+                <Button size="sm" variant="outline" onClick={() => handleDownload(modalCreative.image_url, `creative-${modalCreative.id}.png`, modalCreative.id)}>
                   <Download className="h-3.5 w-3.5 mr-1" /> Download
                 </Button>
                 <Button
