@@ -321,6 +321,9 @@ Uma foto de PESSOA será fornecida separadamente. Regras OBRIGATÓRIAS:
 ✓ NÃO altere a pose, roupa ou cenário da referência
 ✓ Se NÃO houver uma pessoa na referência original, posicione a pessoa fornecida de forma natural e harmônica
 
+${personPosition ? `📍 POSIÇÃO SOLICITADA PELO USUÁRIO: ${personPosition.replace('-', ' ')} da imagem.
+- Se o usuário especificar algo diferente no prompt, prevalece o prompt.` : ''}
+
 ⚠️ COEXISTÊNCIA: Se um LOGO também foi fornecido, AMBOS devem aparecer. A pessoa NÃO substitui o logo. O logo NÃO substitui a pessoa.`);
     }
   }
