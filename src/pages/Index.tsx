@@ -1,13 +1,13 @@
 import { useState, useCallback } from 'react';
 import RightSidebar from '@/components/RightSidebar';
-import SwipeFilePanel from '@/components/SwipeFilePanel';
 import GeneratePanel from '@/components/GeneratePanel';
+import GenerationControls from '@/components/GenerationControls';
 import BrandKitPanel from '@/components/BrandKitPanel';
 import ContextPanel from '@/components/ContextPanel';
 import HistoryPanel from '@/components/HistoryPanel';
-import FreePromptPanel, { type FreePromptData } from '@/components/FreePromptPanel';
-import TemplatesPanel, { type TemplateData } from '@/components/TemplatesPanel';
-import CreationModeSelector, { type CreationMode } from '@/components/CreationModeSelector';
+import type { FreePromptData } from '@/components/FreePromptPanel';
+import type { TemplateData } from '@/components/TemplatesPanel';
+import type { CreationMode } from '@/components/CreationModeSelector';
 import DashboardPanel from '@/components/DashboardPanel';
 import DynamicGeneratePanel from '@/components/DynamicGeneratePanel';
 import DynamicResultsPanel from '@/components/DynamicResultsPanel';
@@ -27,6 +27,7 @@ const Index = () => {
   const [freePromptData, setFreePromptData] = useState<FreePromptData>({ prompt: '', attachedImages: [] });
   const [templateData, setTemplateData] = useState<TemplateData>({ templateId: null, fields: {}, prompt: '', attachedImages: [] });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   const project = useProject(projectId);
   const onboardingPending = !!(projectId && project.data && !(project.data as any).onboarding_completed);
@@ -57,7 +58,6 @@ const Index = () => {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Left Sidebar */}
       <RightSidebar
         selectedProjectId={projectId}
         onSelectProject={handleProjectChange}
@@ -69,7 +69,6 @@ const Index = () => {
         onGoToDashboard={() => setProjectId(null)}
       />
 
-      {/* Main content area */}
       <div className="flex flex-1 overflow-hidden">
         {showDashboard ? (
           <div className="flex-1 overflow-hidden">
@@ -79,70 +78,44 @@ const Index = () => {
           <ProjectOnboarding projectId={projectId!} onComplete={handleOnboardingComplete} />
         ) : (
           <>
-            {/* Left column - only when generating */}
+            {/* Left column — generation controls */}
             {activePanel === 'generate' && (
               <div className="w-[35%] border-r bg-card flex-shrink-0 flex flex-col">
-                <CreationModeSelector mode={creationMode} onChange={setCreationMode} />
-                <div className="flex-1 min-h-0">
-                  {creationMode === 'swipe' && (
-                    <SwipeFilePanel
-                      projectId={projectId}
-                      selectedSwipe={selectedSwipe}
-                      onSelectSwipe={setSelectedSwipe}
-                    />
-                  )}
-                  {creationMode === 'free' && (
-                    <FreePromptPanel
-                      projectId={projectId}
-                      data={freePromptData}
-                      onChange={setFreePromptData}
-                    />
-                  )}
-                  {creationMode === 'templates' && (
-                    <TemplatesPanel
-                      projectId={projectId}
-                      data={templateData}
-                      onChange={setTemplateData}
-                    />
-                  )}
-                </div>
+                <GenerationControls
+                  projectId={projectId!}
+                  creationMode={creationMode}
+                  onCreationModeChange={setCreationMode}
+                  selectedSwipe={selectedSwipe}
+                  onSelectSwipe={setSelectedSwipe}
+                  freePromptData={freePromptData}
+                  onFreePromptDataChange={setFreePromptData}
+                  templateData={templateData}
+                  onTemplateDataChange={setTemplateData}
+                  onGeneratingChange={setGenerating}
+                />
               </div>
             )}
 
-            {/* Left column for dynamic - controls */}
             {activePanel === 'dynamic' && (
               <div className="w-[35%] border-r bg-card flex-shrink-0 flex flex-col">
                 <DynamicGeneratePanel projectId={projectId} />
               </div>
             )}
 
-            {/* Right column - Dynamic panel */}
+            {/* Right column */}
             <div className="flex-1 bg-background overflow-hidden">
               {activePanel === 'generate' && (
                 <GeneratePanel
                   projectId={projectId}
-                  selectedSwipe={selectedSwipe}
-                  creationMode={creationMode}
-                  freePromptData={freePromptData}
-                  templateData={templateData}
+                  generating={generating}
                   onUseAsReference={handleUseAsReference}
                 />
               )}
-              {activePanel === 'brandkit' && (
-                <BrandKitPanel projectId={projectId} />
-              )}
-              {activePanel === 'context' && (
-                <ContextPanel projectId={projectId} />
-              )}
-              {activePanel === 'history' && (
-                <HistoryPanel projectId={projectId} />
-              )}
-              {activePanel === 'dynamic' && (
-                <DynamicResultsPanel projectId={projectId} onUseAsReference={handleUseAsReference} />
-              )}
-              {activePanel === 'creatives' && (
-                <CreativesPanel projectId={projectId} onUseAsReference={handleUseAsReference} />
-              )}
+              {activePanel === 'brandkit' && <BrandKitPanel projectId={projectId} />}
+              {activePanel === 'context' && <ContextPanel projectId={projectId} />}
+              {activePanel === 'history' && <HistoryPanel projectId={projectId} />}
+              {activePanel === 'dynamic' && <DynamicResultsPanel projectId={projectId} onUseAsReference={handleUseAsReference} />}
+              {activePanel === 'creatives' && <CreativesPanel projectId={projectId} onUseAsReference={handleUseAsReference} />}
             </div>
           </>
         )}
