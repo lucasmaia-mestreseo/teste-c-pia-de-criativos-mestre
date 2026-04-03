@@ -1,61 +1,69 @@
 
 
-# Separar prompts em Composição e Estilo Visual
+# Ajustes na área administrativa: Projetos e Uso do Sistema
 
-## Resumo
+## AJUSTE 01 — Projetos
 
-Cada template de anúncio passará a ter dois campos de prompt: **Prompt de Composição** (guia o layout/estrutura) e **Prompt de Estilo Visual** (define a estética). Ambos serão combinados com o prompt do usuário e variáveis para compor o prompt final.
+### Filtros e paginação
+- Adicionar campo de busca por nome de projeto (Input com ícone de lupa)
+- Adicionar filtro por status: Todos / Ativos / Inativos (botões toggle ou Select)
+- Implementar paginação client-side com estado `page` e `perPage`
+- Dropdown para selecionar linhas por página: 25, 50, 100, 250
+- Componente de paginação (Anterior/Próximo + indicador de página)
 
-## Alterações
+### Layout
+- Separar o botão "Criar novo projeto" do filtro — colocá-lo acima ou ao lado direito, com os filtros em uma linha abaixo
 
-### 1. Migração de banco de dados
+### Lógica
+- Filtrar `projects` localmente com `useMemo` baseado em busca + status
+- Paginar o resultado filtrado com `slice()`
 
-Adicionar coluna `style_prompt` (text, nullable, default vazio) à tabela `template_prompts`. O campo `prompt` existente passa a ser o "Prompt de Composição".
+## AJUSTE 02 — Uso do Sistema
+
+### Ordenação e filtro
+- Ordenar por nome do usuário (alfabeticamente) em vez de por contagem
+- Adicionar campo de busca para filtrar por nome/email do usuário
+
+### Downloads
+- Criar tabela `user_downloads` no banco com colunas: `id`, `user_id`, `creative_id`, `created_at`
+- Adicionar RLS: usuários autenticados podem inserir seus próprios downloads; admins podem ver todos
+- No frontend, registrar um INSERT nessa tabela toda vez que um download ocorrer (identificar onde o download acontece no código — provavelmente em `CreativesPanel` ou similar)
+- No `UsageTab`, buscar contagem de downloads por usuário no período e exibir na listagem
+
+### Favoritos
+- No `UsageTab`, buscar contagem de `generated_creatives` com `favorite = true` por `created_by` e exibir na listagem
+
+### Período
+- Manter os filtros Hoje / Últimos 7 dias / Último mês (já existem)
+
+## Migração de banco
 
 ```sql
-ALTER TABLE public.template_prompts ADD COLUMN style_prompt text NOT NULL DEFAULT '';
+CREATE TABLE public.user_downloads (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  creative_id uuid NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.user_downloads ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can insert own downloads"
+  ON public.user_downloads FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Admins can view all downloads"
+  ON public.user_downloads FOR SELECT TO authenticated
+  USING (has_any_admin_role(auth.uid()));
 ```
-
-### 2. Admin — UI com dois campos (`src/pages/Admin.tsx`)
-
-Na `PromptsTab`, para cada template exibir dois textareas:
-- **Prompt de Composição** (campo `prompt` existente)
-- **Prompt de Estilo Visual** (campo `style_prompt` novo)
-
-Cada um com botão de salvar independente. Atualizar o `select` para incluir `style_prompt` e os handlers de save.
-
-### 3. Admin Prompts standalone (`src/pages/AdminPrompts.tsx`)
-
-Mesmo ajuste: buscar e exibir ambos os campos, permitir edição independente.
-
-### 4. Edge Function — combinar os dois prompts (`supabase/functions/generate-creative/index.ts`)
-
-No bloco de templates (linha ~487), buscar `style_prompt` junto com `prompt` e `base_image_url`. Compor o prompt efetivo assim:
-
-```
-COMPOSIÇÃO E LAYOUT:
-{prompt}
-
-ESTILO VISUAL E ESTÉTICA:
-{style_prompt}
-
-Elementos do anúncio:
-{fieldLines}
-
-Instruções adicionais: {userPrompt}
-```
-
-### 5. Edge Function dinâmica (`supabase/functions/generate-dynamic-creative/index.ts`)
-
-Buscar `style_prompt` junto com `prompt`. Incorporar no briefing/geração quando disponível.
 
 ## Arquivos
 
 | Ação | Arquivo |
 |------|---------|
-| Migração | `template_prompts` — adicionar coluna `style_prompt` |
-| Editar | `src/pages/Admin.tsx` — dois textareas por template |
-| Editar | `src/pages/AdminPrompts.tsx` — dois textareas por template |
-| Editar | `supabase/functions/generate-creative/index.ts` — combinar composition + style |
-| Editar | `supabase/functions/generate-dynamic-creative/index.ts` — usar style_prompt |
+| Migração | Criar tabela `user_downloads` com RLS |
+| Editar | `src/pages/Admin.tsx` — `ProjectsTab`: filtros, paginação, separar botão criar |
+| Editar | `src/pages/Admin.tsx` — `UsageTab`: ordenar por nome, filtro busca, exibir downloads e favoritos |
+| Editar | Componentes de download (identificar e adicionar INSERT em `user_downloads`) |
+| Editar | `src/integrations/supabase/types.ts` — será atualizado automaticamente |
 
