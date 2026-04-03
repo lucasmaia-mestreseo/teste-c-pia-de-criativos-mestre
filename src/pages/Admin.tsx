@@ -751,6 +751,7 @@ function PromptsTab({ userId }: { userId?: string }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, string>>({});
+  const [styleEdits, setStyleEdits] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState<string | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
