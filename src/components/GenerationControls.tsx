@@ -1,0 +1,376 @@
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { Zap, Loader2, ChevronDown, Settings2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import CreationModeSelector, { type CreationMode } from '@/components/CreationModeSelector';
+import FreePromptPanel, { type FreePromptData } from '@/components/FreePromptPanel';
+import TemplatesPanel, { type TemplateData } from '@/components/TemplatesPanel';
+import SwipeFilePanel from '@/components/SwipeFilePanel';
+import SwipeElementsEditor, { type ElementOverrides } from '@/components/SwipeElementsEditor';
+import PositionGrid, { type Position } from '@/components/PositionGrid';
+import { useBrandKit } from '@/hooks/useBrandKit';
+import { useCreativeFormats } from '@/hooks/useCreativeFormats';
+import { useSwipeAnalysis } from '@/hooks/useSwipeAnalysis';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { Textarea } from '@/components/ui/textarea';
+import type { Tables } from '@/integrations/supabase/types';
+
+const EMPTY_OVERRIDES: ElementOverrides = { texts: {}, logos: {}, photos: {} };
+
+type LogoSize = 'small' | 'normal' | 'large';
+
+interface GenerationControlsProps {
+  projectId: string;
+  creationMode: CreationMode;
+  onCreationModeChange: (mode: CreationMode) => void;
+  selectedSwipe: Tables<'swipe_files'> | null;
+  onSelectSwipe: (s: Tables<'swipe_files'> | null) => void;
+  freePromptData: FreePromptData;
+  onFreePromptDataChange: (d: FreePromptData) => void;
+  templateData: TemplateData;
+  onTemplateDataChange: (d: TemplateData) => void;
+  onGeneratingChange: (g: boolean) => void;
+}
+
+export default function GenerationControls({
+  projectId,
+  creationMode,
+  onCreationModeChange,
+  selectedSwipe,
+  onSelectSwipe,
+  freePromptData,
+  onFreePromptDataChange,
+  templateData,
+  onTemplateDataChange,
+  onGeneratingChange,
+}: GenerationControlsProps) {
+  const [format, setFormat] = useState('1:1');
+  const [generating, setGenerating] = useState(false);
+  const [includeLogo, setIncludeLogo] = useState(false);
+  const [logoPosition, setLogoPosition] = useState<Position | null>(null);
+  const [logoSize, setLogoSize] = useState<LogoSize | null>(null);
+  const [includePersonPhoto, setIncludePersonPhoto] = useState(false);
+  const [selectedPersonPhoto, setSelectedPersonPhoto] = useState('');
+  const [personMode, setPersonMode] = useState<'photo' | 'grid'>('photo');
+  const [personPosition, setPersonPosition] = useState<Position | null>(null);
+  const [useBrandKitFlag, setUseBrandKitFlag] = useState(true);
+  const [useContext, setUseContext] = useState(true);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [swipePrompt, setSwipePrompt] = useState('');
+  const [elementOverrides, setElementOverrides] = useState<ElementOverrides>(EMPTY_OVERRIDES);
+
+  const { data: brandKit } = useBrandKit(projectId);
+  const { data: formats } = useCreativeFormats();
+  const { analysis, isPending } = useSwipeAnalysis(selectedSwipe as any);
+  const qc = useQueryClient();
+
+  const { data: projectData } = useQuery({
+    queryKey: ['project-context', projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('projects').select('context').eq('id', projectId).single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!projectId,
+  });
+  const projectContext = projectData?.context ?? '';
+
+  useEffect(() => { setElementOverrides(EMPTY_OVERRIDES); }, [selectedSwipe?.id]);
+
+  const hasLogo = !!brandKit?.logo_url;
+  const personPhotos = brandKit?.people_photos?.filter(Boolean) ?? [];
+  const hasPersonPhotos = personPhotos.length > 0;
+  const hasGrid = !!(brandKit as any)?.person_grid_url;
+
+  const formatLabels = (formats || []).map((f: any) => f.label as string);
+  const FORMATS = formatLabels.length > 0 ? formatLabels : ['9:16', '4:5', '1:1', '16:9'];
+
+  const getEffectivePrompt = (): string => {
+    if (creationMode === 'free') return freePromptData.prompt;
+    if (creationMode === 'templates') return templateData.prompt || '';
+    return swipePrompt;
+  };
+
+  const canGenerate = (): boolean => {
+    if (!projectId) return false;
+    if (creationMode === 'free') return freePromptData.prompt.trim().length > 0;
+    if (creationMode === 'templates') return !!templateData.templateId;
+    return !!selectedSwipe && swipePrompt.trim().length > 0;
+  };
+
+  const handleGenerate = async () => {
+    if (!projectId || !canGenerate()) {
+      toast.error('Preencha os campos necessários para gerar');
+      return;
+    }
+    setGenerating(true);
+    onGeneratingChange(true);
+    try {
+      const anyLogoReplace = Object.values(elementOverrides.logos).some(l => l.action === 'replace');
+      const anyPhotoReplace = Object.values(elementOverrides.photos).some(p => p.action === 'replace');
+
+      const logoUrl = (includeLogo || anyLogoReplace) && hasLogo ? brandKit?.logo_url : null;
+      const useGrid = personMode === 'grid' && hasGrid;
+      const personPhotoUrl = useGrid
+        ? null
+        : ((includePersonPhoto && selectedPersonPhoto)
+          ? selectedPersonPhoto
+          : (anyPhotoReplace && personPhotos.length > 0 ? (selectedPersonPhoto || personPhotos[0]) : null));
+      const personGridUrl = useGrid && (includePersonPhoto || anyPhotoReplace)
+        ? (brandKit as any).person_grid_url
+        : null;
+
+      const ignoreBrandKit = !useBrandKitFlag;
+      const ignoreContext = !useContext;
+
+      const body: Record<string, any> = {
+        format,
+        projectId,
+        mode: creationMode,
+        ignoreBrandKit,
+        brandKit: ignoreBrandKit ? null : (brandKit ? {
+          primaryColor: brandKit.primary_color,
+          secondaryColor: brandKit.secondary_color,
+          backgroundColor: brandKit.background_color,
+          auxColors: brandKit.aux_colors,
+          typography: brandKit.typography,
+          logoUrl,
+          personPhotoUrl,
+          personGridUrl,
+        } : null),
+        ignoreContext,
+        logoPosition: includeLogo ? logoPosition : null,
+        logoSize: includeLogo ? logoSize : null,
+        personPosition: includePersonPhoto ? personPosition : null,
+      };
+
+      if (creationMode === 'swipe') {
+        body.prompt = swipePrompt.trim();
+        body.swipeFileId = selectedSwipe!.id;
+        body.swipeFileUrl = selectedSwipe!.image_url;
+        body.elementOverrides = analysis ? elementOverrides : null;
+      } else if (creationMode === 'free') {
+        body.prompt = freePromptData.prompt.trim();
+        body.attachedImages = freePromptData.attachedImages;
+      } else if (creationMode === 'templates') {
+        body.prompt = templateData.prompt?.trim() || '';
+        body.templateId = templateData.templateId;
+        body.templateFields = templateData.fields;
+        body.attachedImages = templateData.attachedImages;
+      }
+
+      const { data, error } = await supabase.functions.invoke('generate-creative', { body });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success('Criativo gerado com sucesso!');
+      qc.invalidateQueries({ queryKey: ['generated_creatives', projectId] });
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao gerar criativo');
+    } finally {
+      setGenerating(false);
+      onGeneratingChange(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Mode tabs */}
+      <CreationModeSelector mode={creationMode} onChange={onCreationModeChange} />
+
+      {/* Scrollable content */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        {/* Mode-specific content */}
+        {creationMode === 'swipe' && (
+          <>
+            <SwipeFilePanel
+              projectId={projectId}
+              selectedSwipe={selectedSwipe}
+              onSelectSwipe={onSelectSwipe}
+            />
+            {selectedSwipe && (
+              <div className="px-4 py-3 space-y-2 border-t">
+                <SwipeElementsEditor
+                  analysis={analysis}
+                  isPending={isPending}
+                  overrides={elementOverrides}
+                  onChange={setElementOverrides}
+                  hasLogo={hasLogo}
+                  hasPersonPhotos={hasPersonPhotos}
+                  projectContext={projectContext}
+                />
+                <div className="flex gap-2 items-start">
+                  <div className="w-10 h-10 rounded-md overflow-hidden border bg-secondary flex-shrink-0">
+                    <img src={selectedSwipe.image_url} alt="" className="w-full h-full object-cover" />
+                  </div>
+                  <Textarea
+                    placeholder="Descreva as modificações..."
+                    value={swipePrompt}
+                    onChange={(e) => setSwipePrompt(e.target.value)}
+                    className="bg-secondary resize-none min-h-[60px] text-sm flex-1"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(); }
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </>
+        )}
+        {creationMode === 'free' && (
+          <FreePromptPanel
+            projectId={projectId}
+            data={freePromptData}
+            onChange={onFreePromptDataChange}
+          />
+        )}
+        {creationMode === 'templates' && (
+          <TemplatesPanel
+            projectId={projectId}
+            data={templateData}
+            onChange={onTemplateDataChange}
+          />
+        )}
+
+        {/* Advanced Settings */}
+        <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+          <CollapsibleTrigger className="flex items-center gap-1.5 w-full px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors border-t">
+            <Settings2 className="h-3.5 w-3.5" />
+            Configurações Avançadas
+            <ChevronDown className={cn('h-3 w-3 ml-auto transition-transform', advancedOpen && 'rotate-180')} />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="px-4 pb-3 space-y-3">
+            {/* Logo */}
+            {hasLogo && (
+              <div className="space-y-2">
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <Checkbox checked={includeLogo} onCheckedChange={(v) => setIncludeLogo(!!v)} className="h-3.5 w-3.5" />
+                  <img src={brandKit!.logo_url!} alt="Logo" className="h-5 w-5 object-contain rounded" />
+                  <span className="text-xs text-foreground">Incluir Logo</span>
+                </label>
+                {includeLogo && (
+                  <div className="flex items-start gap-4 pl-5">
+                    <PositionGrid value={logoPosition} onChange={setLogoPosition} label="Posição" />
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-muted-foreground">Tamanho</span>
+                      <div className="flex gap-1">
+                        {(['small', 'normal', 'large'] as LogoSize[]).map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => setLogoSize(logoSize === s ? null : s)}
+                            className={cn(
+                              'px-2 py-1 text-[10px] rounded border transition-colors',
+                              logoSize === s
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-secondary border-border text-muted-foreground hover:border-primary/50'
+                            )}
+                          >
+                            {s === 'small' ? 'P' : s === 'normal' ? 'N' : 'G'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Person */}
+            {hasPersonPhotos && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <Checkbox checked={includePersonPhoto} onCheckedChange={(v) => { setIncludePersonPhoto(!!v); if (!v) setSelectedPersonPhoto(''); }} className="h-3.5 w-3.5" />
+                  <span className="text-xs text-foreground">Incluir Pessoa</span>
+                  {personPhotos.map((url, i) => (
+                    <button
+                      key={i}
+                      onClick={() => { setIncludePersonPhoto(true); setSelectedPersonPhoto(url); }}
+                      className={cn(
+                        'w-6 h-6 rounded-full overflow-hidden border-2 transition-colors',
+                        selectedPersonPhoto === url && includePersonPhoto ? 'border-primary' : 'border-transparent'
+                      )}
+                    >
+                      <img src={url} alt={`Pessoa ${i + 1}`} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                  {hasGrid && (
+                    <RadioGroup
+                      value={personMode}
+                      onValueChange={(v) => setPersonMode(v as 'photo' | 'grid')}
+                      className="flex items-center gap-2 ml-2"
+                    >
+                      <div className="flex items-center gap-1">
+                        <RadioGroupItem value="photo" id="ctrl-mode-photo" className="h-3 w-3" />
+                        <Label htmlFor="ctrl-mode-photo" className="text-[10px] text-muted-foreground cursor-pointer">Foto</Label>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <RadioGroupItem value="grid" id="ctrl-mode-grid" className="h-3 w-3" />
+                        <Label htmlFor="ctrl-mode-grid" className="text-[10px] text-muted-foreground cursor-pointer">Grid</Label>
+                      </div>
+                    </RadioGroup>
+                  )}
+                </div>
+                {includePersonPhoto && (
+                  <div className="pl-5">
+                    <PositionGrid value={personPosition} onChange={setPersonPosition} label="Posição da pessoa" />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Brand Kit & Context */}
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <Checkbox checked={useBrandKitFlag} onCheckedChange={(v) => setUseBrandKitFlag(!!v)} className="h-3.5 w-3.5" />
+                <span className="text-xs text-foreground">Usar Brand Kit</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <Checkbox checked={useContext} onCheckedChange={(v) => setUseContext(!!v)} className="h-3.5 w-3.5" />
+                <span className="text-xs text-foreground">Usar Contexto</span>
+              </label>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Format buttons */}
+        <div className="px-4 py-2 border-t">
+          <span className="text-[10px] text-muted-foreground block mb-1.5">Formato</span>
+          <div className="flex flex-wrap gap-1">
+            {FORMATS.map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFormat(f)}
+                className={cn(
+                  'px-2.5 py-1 text-xs rounded border transition-colors',
+                  format === f
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-secondary border-border text-muted-foreground hover:border-primary/50'
+                )}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Sticky generate button */}
+      <div className="px-4 py-3 border-t bg-card">
+        <Button onClick={handleGenerate} disabled={generating || !canGenerate()} className="w-full h-9 text-sm">
+          {generating ? (
+            <><Loader2 className="h-4 w-4 animate-spin mr-1.5" /> Gerando...</>
+          ) : (
+            <><Zap className="h-4 w-4 mr-1.5 fill-primary-foreground" /> Gerar Criativo</>
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+}
