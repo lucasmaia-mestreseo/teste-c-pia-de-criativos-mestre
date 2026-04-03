@@ -136,6 +136,9 @@ function buildInstructionBlock(
   logoAnalysis: string | null = null,
   elementOverrides: ElementOverride | null = null,
   ignoreBrandKit: boolean = false,
+  logoPosition: string | null = null,
+  logoSize: string | null = null,
+  personPosition: string | null = null,
 ): string {
   const sections: string[] = [];
 
