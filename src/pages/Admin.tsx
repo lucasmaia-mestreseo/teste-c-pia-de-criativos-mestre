@@ -928,15 +928,6 @@ function PromptsTab({ userId }: { userId?: string }) {
             />
           </div>
 
-          {/* Save prompt button */}
-          {edits[p.id] !== undefined && edits[p.id] !== p.prompt && (
-            <div className="flex justify-end">
-              <Button size="sm" onClick={() => handleSave(p.id)} disabled={saving === p.id}>
-                {saving === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
-                Salvar Prompt
-              </Button>
-            </div>
-          )}
         </div>
       ))}
     </div>

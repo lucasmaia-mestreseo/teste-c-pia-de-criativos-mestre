@@ -486,18 +486,19 @@ serve(async (req) => {
       const dbClient = createClient(supabaseUrl, supabaseKey);
       const { data: tpRow } = await dbClient
         .from("template_prompts")
-        .select("prompt, base_image_url")
+        .select("prompt, style_prompt, base_image_url")
         .eq("id", templateId)
         .single();
 
-      const templateBase = tpRow?.prompt || '';
+      const compositionPrompt = tpRow?.prompt || '';
+      const stylePrompt = tpRow?.style_prompt || '';
       templateBaseImageUrl = tpRow?.base_image_url || null;
       const fieldLines = Object.entries(templateFields)
         .filter(([_, v]) => v && (v as string).trim())
         .map(([k, v]) => `- ${k}: ${v}`)
         .join('\n');
 
-      effectivePrompt = `${templateBase}\n\nElementos do anúncio:\n${fieldLines}${prompt ? `\n\nInstruções adicionais: ${prompt}` : ''}`;
+      effectivePrompt = `COMPOSIÇÃO E LAYOUT:\n${compositionPrompt}\n\nESTILO VISUAL E ESTÉTICA:\n${stylePrompt}\n\nElementos do anúncio:\n${fieldLines}${prompt ? `\n\nInstruções adicionais: ${prompt}` : ''}`;
 
       systemPrompt = `You are an expert advertising creative designer. You create high-converting ad creatives based on proven ad structures/templates. Generate a professional ad image following the template structure described. Apply all brand kit rules with ZERO deviation.
 

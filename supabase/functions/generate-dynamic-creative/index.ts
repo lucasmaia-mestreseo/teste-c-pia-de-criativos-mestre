@@ -52,7 +52,8 @@ Deno.serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     for (const { type, count } of types) {
-      const basePrompt = promptMap.get(typeToPromptId[type]) || "";
+      const promptData = promptMap.get(typeToPromptId[type]) || { prompt: "", style_prompt: "" };
+      const basePrompt = promptData.prompt ? `COMPOSIÇÃO E LAYOUT:\n${promptData.prompt}${promptData.style_prompt ? `\n\nESTILO VISUAL E ESTÉTICA:\n${promptData.style_prompt}` : ''}` : "";
       const validCount = Math.min(Math.max(1, count), 5);
 
       for (let i = 0; i < validCount; i++) {
