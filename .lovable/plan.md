@@ -1,59 +1,41 @@
 
 
-# Ajustes no painel de geração + URLs por seção/projeto
+# Ajustes visuais no painel de geração
 
-## Mudanças
+## Problemas identificados
 
-### 1. Configurações Avançadas — melhor espaçamento e botões (`GenerationControls.tsx`)
+1. **Espaço entre "Sugerir Criativos" e "Configurações Avançadas"**: O `FreePromptPanel` usa `flex-1` no container de conteúdo, fazendo o espaço expandir. O conteúdo precisa fluir naturalmente sem forçar expansão.
 
-- **Remover espaço vazio** entre "Sugerir Criativos com IA" e "Configurações Avançadas" — o Collapsible fica logo abaixo do conteúdo do modo, sem margin/padding extra
-- **Logo**: trocar Checkbox por botão toggle (estilo pill). Desmarcado por padrão (`includeLogo = false`). Ao ativar, exibir grid 3x3 e tamanho com elementos ligeiramente maiores (w-7 h-7 no grid, botões de tamanho maiores)
-- **Pessoa**: mesmo padrão — botão toggle em vez de checkbox, desmarcado por padrão
-- **Brand Kit e Contexto**: trocar Checkbox por botões toggle (pills) que funcionam como on/off, mantendo marcados por padrão
+2. **Estilo dos botões inconsistente**: Os toggle pills (Logo, Pessoa, Brand Kit, Contexto) usam `rounded-full` e bordas finas, enquanto os botões principais (Sugerir, Gerar) usam `rounded-md` com estilo `outline`/`default`. Precisa unificar — os toggles devem usar `rounded-md` com o mesmo estilo visual.
 
-### 2. PositionGrid maior (`PositionGrid.tsx`)
+3. **Logo muito pequeno**: Atualmente `h-6 w-6` — aumentar para `h-10 w-10`.
 
-- Aumentar de `w-5 h-5` para `w-7 h-7`, gap de `gap-1`, dot de `w-2 h-2`
+4. **Layout caótico nas opções de pessoa**: Fotos, radio Foto/Grid e grid de posição ficam misturados. Reorganizar com separação clara: primeiro o toggle + fotos em linha, depois Foto/Grid, depois o grid de posição — com espaçamento uniforme.
 
-### 3. Formato como dropdown ao lado do botão Gerar (`GenerationControls.tsx`)
+## Alterações
 
-- Remover a seção de botões de formato
-- No footer fixo, colocar um `Select` de formato (dropdown) ao lado esquerdo do botão "Gerar Criativo"
-- Pré-selecionar `9:16` como padrão (`useState('9:16')`)
-- O último valor selecionado persiste durante a sessão (já é o comportamento atual com `useState`)
+### `src/components/FreePromptPanel.tsx`
+- Remover `flex flex-col h-full` e `flex-1` do container — usar apenas `div` com overflow, sem forçar altura
+- O conteúdo flui naturalmente e "Configurações Avançadas" fica colado logo abaixo
 
-### 4. URLs por seção e projeto (`App.tsx`, `Index.tsx`, `TopBar.tsx`)
+### `src/components/GenerationControls.tsx`
+- **TogglePill**: trocar `rounded-full` por `rounded-md` e ajustar padding/borda para coincidir com o estilo dos outros botões (`border` consistente)
+- **Logo preview**: de `h-6 w-6` para `h-10 w-10`
+- **Seção Logo expandida**: manter `flex items-start gap-6` mas com labels mais claros
+- **Seção Pessoa expandida**: reorganizar em blocos verticais separados:
+  1. Toggle + thumbnails de fotos (em grid wrap, não inline caótico)
+  2. Radio Foto/Grid (se disponível)
+  3. Grid de posição
+- **Brand Kit / Contexto**: mesmos ajustes de estilo no TogglePill
+- Remover `border-t` do CollapsibleTrigger para eliminar a linha separadora que cria distância visual
 
-Estrutura de rotas:
-
-| URL | Conteúdo |
-|-----|----------|
-| `/` | Dashboard (sem projeto) |
-| `/project/:projectId` | Projeto com painel padrão (generate) |
-| `/project/:projectId/generate` | Gerar |
-| `/project/:projectId/dynamic` | Dinâmica |
-| `/project/:projectId/creatives` | Criativos |
-| `/project/:projectId/brandkit` | Brand Kit |
-| `/project/:projectId/context` | Contexto |
-| `/project/:projectId/history` | Histórico |
-| `/profile` | Perfil (já existe) |
-| `/admin` | Admin (já existe) |
-| `/admin/users` | Admin Usuários |
-| `/admin/prompts` | Admin Prompts |
-
-**Implementação:**
-- `App.tsx`: Adicionar rota `/project/:projectId/:panel?` apontando para `Index`
-- `Index.tsx`: Usar `useParams` para ler `projectId` e `panel` da URL. Usar `useNavigate` para sincronizar mudanças de projeto/painel com a URL
-- `TopBar.tsx`: Ao trocar de projeto ou painel, navegar para a URL correta em vez de apenas setar estado
-- Ao entrar numa URL com projeto/painel, carregar diretamente no estado correto
+### `src/components/PositionGrid.tsx`
+- Sem alterações (já está em w-7 h-7)
 
 ## Arquivos
 
 | Ação | Arquivo |
 |------|---------|
-| Editar | `src/components/GenerationControls.tsx` — layout, botões toggle, formato dropdown no footer |
-| Editar | `src/components/PositionGrid.tsx` — tamanhos maiores |
-| Editar | `src/App.tsx` — novas rotas por projeto/painel |
-| Editar | `src/pages/Index.tsx` — sync URL ↔ estado via useParams/useNavigate |
-| Editar | `src/components/TopBar.tsx` — navegação por URL |
+| Editar | `src/components/FreePromptPanel.tsx` — remover flex-1/h-full para colar conteúdo |
+| Editar | `src/components/GenerationControls.tsx` — unificar estilo botões, logo maior, layout pessoa |
 
