@@ -246,6 +246,32 @@ IMPORTANTE: Tudo que o usuário escreveu acima é uma ORDEM OBRIGATÓRIA. Cada p
 
   /* --- 4. REGRAS DE LOGO --- */
   if (hasLogo) {
+    // Build logo size instruction — user-specified logoSize takes priority over reference matching
+    let logoSizeInstruction: string;
+    if (logoSize === 'small') {
+      logoSizeInstruction = `📏 REGRA DE ESCALA (CRÍTICA — DEFINIDA PELO USUÁRIO):
+- O logo deve ser DISCRETO e PEQUENO, ocupando no máximo 3-5% da área total da imagem.
+- IGNORE qualquer tamanho de logo que apareça na referência. O tamanho solicitado pelo usuário TEM PRIORIDADE ABSOLUTA.
+- NUNCA tornar o logo o elemento visual dominante.`;
+    } else if (logoSize === 'large') {
+      logoSizeInstruction = `📏 REGRA DE ESCALA (CRÍTICA — DEFINIDA PELO USUÁRIO):
+- O logo deve ser BEM VISÍVEL e PROEMINENTE, ocupando ~12-18% da área total da imagem.
+- IGNORE qualquer tamanho de logo que apareça na referência. O tamanho solicitado pelo usuário TEM PRIORIDADE ABSOLUTA.
+- O logo deve ter presença visual forte e ser facilmente identificável.`;
+    } else if (logoSize === 'normal') {
+      logoSizeInstruction = `📏 REGRA DE ESCALA (CRÍTICA — DEFINIDA PELO USUÁRIO):
+- O logo deve ter tamanho MODERADO, ocupando ~6-8% da área total da imagem.
+- IGNORE qualquer tamanho de logo que apareça na referência. O tamanho solicitado pelo usuário TEM PRIORIDADE ABSOLUTA.`;
+    } else {
+      // No user-specified size — fall back to reference matching
+      logoSizeInstruction = `📏 REGRA DE ESCALA (CRÍTICA):
+- O novo logo DEVE ter o MESMO tamanho relativo que o logo da referência em relação à área total da imagem.
+- Se o logo da referência ocupa aproximadamente 5% da área da imagem, o novo logo DEVE ocupar aproximadamente 5%.
+- NUNCA ampliar o logo para um tamanho maior que o da referência.
+- NUNCA tornar o logo o elemento visual dominante — ele é um elemento de assinatura, discreto e proporcional.
+- Se NÃO houver logo na referência, use um tamanho que ocupe no máximo 5-8% da área total da imagem.`;
+    }
+
     sections.push(`═══ SEÇÃO 4: REGRAS DO LOGO ═══
 Uma imagem de LOGO será fornecida separadamente. Regras OBRIGATÓRIAS:
 
@@ -255,12 +281,7 @@ Uma imagem de LOGO será fornecida separadamente. Regras OBRIGATÓRIAS:
 - Se o logo da referência está no canto inferior direito com ~3% de margem, o novo logo DEVE estar no canto inferior direito com ~3% de margem.
 - Se NÃO houver logo na referência, posicione no canto inferior direito com margem de segurança de ~3-5% das bordas.
 
-📏 REGRA DE ESCALA (CRÍTICA):
-- O novo logo DEVE ter o MESMO tamanho relativo que o logo da referência em relação à área total da imagem.
-- Se o logo da referência ocupa aproximadamente 5% da área da imagem, o novo logo DEVE ocupar aproximadamente 5%.
-- NUNCA ampliar o logo para um tamanho maior que o da referência.
-- NUNCA tornar o logo o elemento visual dominante — ele é um elemento de assinatura, discreto e proporcional.
-- Se NÃO houver logo na referência, use um tamanho que ocupe no máximo 5-8% da área total da imagem.
+${logoSizeInstruction}
 
 🛡️ REGRA DE INTEGRIDADE (CRÍTICA):
 - O logo DEVE aparecer 100% COMPLETO — PROIBIDO cortar, recortar ou ocultar qualquer pixel do logo.
@@ -287,9 +308,6 @@ ${logoAnalysis}
 - O logo reproduzido deve conter EXATAMENTE os mesmos textos detectados.` : ""}
 
 ${logoPosition ? `📍 POSIÇÃO SOLICITADA PELO USUÁRIO: ${logoPosition.replace('-', ' ')} da imagem.
-- Se o usuário especificar algo diferente no prompt, prevalece o prompt.` : ''}
-
-${logoSize ? `📏 TAMANHO SOLICITADO PELO USUÁRIO: ${logoSize === 'small' ? 'Pequeno (~3-5% da área)' : logoSize === 'normal' ? 'Normal (~5-8% da área)' : 'Grande (~10-15% da área)'}.
 - Se o usuário especificar algo diferente no prompt, prevalece o prompt.` : ''}
 
 ⚠️ COEXISTÊNCIA: Se uma foto de pessoa TAMBÉM foi fornecida, AMBOS devem aparecer na imagem final. O logo NÃO substitui a pessoa. A pessoa NÃO substitui o logo. São assets independentes.`);
@@ -379,7 +397,11 @@ ${personPosition ? `📍 POSIÇÃO SOLICITADA PELO USUÁRIO: ${personPosition.re
   }
   
   if (hasLogo) {
-    checklistItems.push("□ O logo tem o MESMO tamanho relativo que o logo na referência (não está ampliado)?");
+    if (logoSize) {
+      checklistItems.push(`□ O logo está no tamanho solicitado pelo usuário (${logoSize === 'small' ? 'PEQUENO 3-5%' : logoSize === 'large' ? 'GRANDE 12-18%' : 'MODERADO 6-8%'} da área)?`);
+    } else {
+      checklistItems.push("□ O logo tem o MESMO tamanho relativo que o logo na referência (não está ampliado)?");
+    }
     checklistItems.push("□ O logo está no MESMO local/canto que o logo na referência?");
     checklistItems.push("□ O logo está 100% visível com margem de segurança, sem NENHUM pixel cortado?");
     checklistItems.push("□ As cores internas do logo estão inalteradas?");
