@@ -44,10 +44,10 @@ function TogglePill({ active, onClick, children, className }: { active: boolean;
       type="button"
       onClick={onClick}
       className={cn(
-        'px-3 py-1.5 text-xs font-medium rounded-full border transition-colors',
+        'px-3 py-1.5 text-xs font-medium rounded-md border transition-colors',
         active
           ? 'bg-primary text-primary-foreground border-primary'
-          : 'bg-secondary text-muted-foreground border-border hover:border-primary/50',
+          : 'bg-background text-muted-foreground border-input hover:bg-accent hover:text-accent-foreground',
         className
       )}
     >
