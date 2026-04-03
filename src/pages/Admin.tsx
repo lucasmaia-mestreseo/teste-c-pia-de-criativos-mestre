@@ -780,6 +780,24 @@ function PromptsTab({ userId }: { userId?: string }) {
     setSaving(null);
   };
 
+  const handleSaveStyle = async (id: string) => {
+    const newStyle = styleEdits[id];
+    if (newStyle === undefined) return;
+    setSaving(id + '-style');
+    const { error } = await supabase
+      .from('template_prompts')
+      .update({ style_prompt: newStyle, updated_by: userId } as any)
+      .eq('id', id);
+    if (error) {
+      toast.error('Erro ao salvar');
+    } else {
+      toast.success('Prompt de estilo salvo!');
+      setPrompts((prev) => prev.map((p) => (p.id === id ? { ...p, style_prompt: newStyle } : p)));
+      setStyleEdits((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    }
+    setSaving(null);
+  };
+
   const handleImageUpload = async (id: string, file: File) => {
     setUploading(id);
     const ext = file.name.split('.').pop() || 'png';
