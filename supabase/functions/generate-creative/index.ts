@@ -531,6 +531,7 @@ CRITICAL RULES:
       const instructionBlock = buildInstructionBlock(
         effectivePrompt, format, brandKit, hasLogo,
         hasPersonPhoto || hasPersonGrid, photoMode, logoAnalysis, null, !!ignoreBrandKit,
+        logoPosition || null, logoSize || null, personPosition || null,
       );
       userContent.push({ type: "text", text: instructionBlock });
 
