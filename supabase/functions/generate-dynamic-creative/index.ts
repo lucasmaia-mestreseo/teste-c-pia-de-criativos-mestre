@@ -41,8 +41,8 @@ Deno.serve(async (req) => {
     };
 
     const promptIds = types.map((t: any) => typeToPromptId[t.type]).filter(Boolean);
-    const { data: prompts } = await anonClient.from("template_prompts").select("id, prompt").in("id", promptIds);
-    const promptMap = new Map((prompts || []).map((p: any) => [p.id, p.prompt]));
+    const { data: prompts } = await anonClient.from("template_prompts").select("id, prompt, style_prompt").in("id", promptIds);
+    const promptMap = new Map((prompts || []).map((p: any) => [p.id, { prompt: p.prompt, style_prompt: p.style_prompt || '' }]));
 
     const brandInfo = (!ignoreBrandKit && brandKit)
       ? `Cores: primária ${brandKit.primary_color || "N/A"}, secundária ${brandKit.secondary_color || "N/A"}, fundo ${brandKit.background_color || "N/A"}. Tipografia: ${brandKit.typography || "N/A"}.`
