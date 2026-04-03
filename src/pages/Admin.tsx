@@ -860,6 +860,8 @@ function UsageTab() {
 
 // ─── Prompts Tab ───
 
+const INTERNAL_PROMPT_IDS = ['context-extraction', 'voice-analysis'];
+
 function PromptsTab({ userId }: { userId?: string }) {
   const [prompts, setPrompts] = useState<PromptRow[]>([]);
   const [loading, setLoading] = useState(true);
