@@ -99,12 +99,12 @@ export default function FreePromptPanel({ projectId, data, onChange }: FreePromp
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div>
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <h2 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">Prompt Livre</h2>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="p-4 space-y-4">
         <div>
           <p className="text-xs text-muted-foreground mb-2">
             Descreva o criativo que deseja gerar. Você pode anexar imagens como referência.
