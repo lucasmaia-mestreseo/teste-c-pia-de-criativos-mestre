@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import {
   ArrowLeft, Check, X, Trash2, Loader2, Shield, Plus, Power, PowerOff,
   Save, Pencil, BarChart3, FileCode, FolderOpen, Users, Upload, ImageIcon,
-  Mail, AlertCircle
+  Mail, AlertCircle, Search, Star, Download, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
