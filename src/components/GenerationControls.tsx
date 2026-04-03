@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Zap, Loader2, ChevronDown, Settings2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import CreationModeSelector, { type CreationMode } from '@/components/CreationModeSelector';
@@ -38,6 +38,24 @@ interface GenerationControlsProps {
   onGeneratingChange: (g: boolean) => void;
 }
 
+function TogglePill({ active, onClick, children, className }: { active: boolean; onClick: () => void; children: React.ReactNode; className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'px-3 py-1.5 text-xs font-medium rounded-full border transition-colors',
+        active
+          ? 'bg-primary text-primary-foreground border-primary'
+          : 'bg-secondary text-muted-foreground border-border hover:border-primary/50',
+        className
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function GenerationControls({
   projectId,
   creationMode,
@@ -50,7 +68,7 @@ export default function GenerationControls({
   onTemplateDataChange,
   onGeneratingChange,
 }: GenerationControlsProps) {
-  const [format, setFormat] = useState('1:1');
+  const [format, setFormat] = useState('9:16');
   const [generating, setGenerating] = useState(false);
   const [includeLogo, setIncludeLogo] = useState(false);
   const [logoPosition, setLogoPosition] = useState<Position | null>(null);
@@ -237,7 +255,7 @@ export default function GenerationControls({
           />
         )}
 
-        {/* Advanced Settings */}
+        {/* Advanced Settings — tight spacing, no gap */}
         <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
           <CollapsibleTrigger className="flex items-center gap-1.5 w-full px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors border-t">
             <Settings2 className="h-3.5 w-3.5" />
@@ -245,27 +263,30 @@ export default function GenerationControls({
             <ChevronDown className={cn('h-3 w-3 ml-auto transition-transform', advancedOpen && 'rotate-180')} />
           </CollapsibleTrigger>
           <CollapsibleContent className="px-4 pb-3 space-y-3">
-            {/* Logo */}
+            {/* Logo toggle */}
             {hasLogo && (
               <div className="space-y-2">
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <Checkbox checked={includeLogo} onCheckedChange={(v) => setIncludeLogo(!!v)} className="h-3.5 w-3.5" />
-                  <img src={brandKit!.logo_url!} alt="Logo" className="h-5 w-5 object-contain rounded" />
-                  <span className="text-xs text-foreground">Incluir Logo</span>
-                </label>
+                <div className="flex items-center gap-2">
+                  <TogglePill active={includeLogo} onClick={() => setIncludeLogo(!includeLogo)}>
+                    Incluir Logo
+                  </TogglePill>
+                  {includeLogo && brandKit?.logo_url && (
+                    <img src={brandKit.logo_url} alt="Logo" className="h-6 w-6 object-contain rounded" />
+                  )}
+                </div>
                 {includeLogo && (
-                  <div className="flex items-start gap-4 pl-5">
+                  <div className="flex items-start gap-6 pl-1">
                     <PositionGrid value={logoPosition} onChange={setLogoPosition} label="Posição" />
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-muted-foreground">Tamanho</span>
-                      <div className="flex gap-1">
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] text-muted-foreground">Tamanho</span>
+                      <div className="flex gap-1.5">
                         {(['small', 'normal', 'large'] as LogoSize[]).map((s) => (
                           <button
                             key={s}
                             type="button"
                             onClick={() => setLogoSize(logoSize === s ? null : s)}
                             className={cn(
-                              'px-2 py-1 text-[10px] rounded border transition-colors',
+                              'px-3 py-1.5 text-xs rounded border transition-colors',
                               logoSize === s
                                 ? 'bg-primary text-primary-foreground border-primary'
                                 : 'bg-secondary border-border text-muted-foreground hover:border-primary/50'
@@ -281,29 +302,30 @@ export default function GenerationControls({
               </div>
             )}
 
-            {/* Person */}
+            {/* Person toggle */}
             {hasPersonPhotos && (
               <div className="space-y-2">
-                <div className="flex items-center gap-1.5">
-                  <Checkbox checked={includePersonPhoto} onCheckedChange={(v) => { setIncludePersonPhoto(!!v); if (!v) setSelectedPersonPhoto(''); }} className="h-3.5 w-3.5" />
-                  <span className="text-xs text-foreground">Incluir Pessoa</span>
-                  {personPhotos.map((url, i) => (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <TogglePill active={includePersonPhoto} onClick={() => { setIncludePersonPhoto(!includePersonPhoto); if (includePersonPhoto) setSelectedPersonPhoto(''); }}>
+                    Incluir Pessoa
+                  </TogglePill>
+                  {includePersonPhoto && personPhotos.map((url, i) => (
                     <button
                       key={i}
-                      onClick={() => { setIncludePersonPhoto(true); setSelectedPersonPhoto(url); }}
+                      onClick={() => setSelectedPersonPhoto(url)}
                       className={cn(
-                        'w-6 h-6 rounded-full overflow-hidden border-2 transition-colors',
-                        selectedPersonPhoto === url && includePersonPhoto ? 'border-primary' : 'border-transparent'
+                        'w-8 h-8 rounded-full overflow-hidden border-2 transition-colors',
+                        selectedPersonPhoto === url ? 'border-primary' : 'border-transparent hover:border-primary/50'
                       )}
                     >
                       <img src={url} alt={`Pessoa ${i + 1}`} className="w-full h-full object-cover" />
                     </button>
                   ))}
-                  {hasGrid && (
+                  {hasGrid && includePersonPhoto && (
                     <RadioGroup
                       value={personMode}
                       onValueChange={(v) => setPersonMode(v as 'photo' | 'grid')}
-                      className="flex items-center gap-2 ml-2"
+                      className="flex items-center gap-2 ml-1"
                     >
                       <div className="flex items-center gap-1">
                         <RadioGroupItem value="photo" id="ctrl-mode-photo" className="h-3 w-3" />
@@ -317,53 +339,39 @@ export default function GenerationControls({
                   )}
                 </div>
                 {includePersonPhoto && (
-                  <div className="pl-5">
+                  <div className="pl-1">
                     <PositionGrid value={personPosition} onChange={setPersonPosition} label="Posição da pessoa" />
                   </div>
                 )}
               </div>
             )}
 
-            {/* Brand Kit & Context */}
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <Checkbox checked={useBrandKitFlag} onCheckedChange={(v) => setUseBrandKitFlag(!!v)} className="h-3.5 w-3.5" />
-                <span className="text-xs text-foreground">Usar Brand Kit</span>
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <Checkbox checked={useContext} onCheckedChange={(v) => setUseContext(!!v)} className="h-3.5 w-3.5" />
-                <span className="text-xs text-foreground">Usar Contexto</span>
-              </label>
+            {/* Brand Kit & Context toggles */}
+            <div className="flex flex-wrap items-center gap-2">
+              <TogglePill active={useBrandKitFlag} onClick={() => setUseBrandKitFlag(!useBrandKitFlag)}>
+                Brand Kit
+              </TogglePill>
+              <TogglePill active={useContext} onClick={() => setUseContext(!useContext)}>
+                Contexto
+              </TogglePill>
             </div>
           </CollapsibleContent>
         </Collapsible>
-
-        {/* Format buttons */}
-        <div className="px-4 py-2 border-t">
-          <span className="text-[10px] text-muted-foreground block mb-1.5">Formato</span>
-          <div className="flex flex-wrap gap-1">
-            {FORMATS.map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setFormat(f)}
-                className={cn(
-                  'px-2.5 py-1 text-xs rounded border transition-colors',
-                  format === f
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'bg-secondary border-border text-muted-foreground hover:border-primary/50'
-                )}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
-      {/* Sticky generate button */}
-      <div className="px-4 py-3 border-t bg-card">
-        <Button onClick={handleGenerate} disabled={generating || !canGenerate()} className="w-full h-9 text-sm">
+      {/* Sticky footer: format dropdown + generate button */}
+      <div className="px-4 py-3 border-t bg-card flex items-center gap-2">
+        <Select value={format} onValueChange={setFormat}>
+          <SelectTrigger className="w-[90px] h-9 text-xs bg-secondary">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {FORMATS.map((f) => (
+              <SelectItem key={f} value={f}>{f}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button onClick={handleGenerate} disabled={generating || !canGenerate()} className="flex-1 h-9 text-sm">
           {generating ? (
             <><Loader2 className="h-4 w-4 animate-spin mr-1.5" /> Gerando...</>
           ) : (

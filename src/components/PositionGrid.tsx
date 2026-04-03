@@ -21,7 +21,7 @@ export default function PositionGrid({ value, onChange, label }: PositionGridPro
   return (
     <div className="space-y-1">
       {label && <span className="text-[10px] text-muted-foreground">{label}</span>}
-      <div className="grid grid-cols-3 gap-0.5 w-fit">
+      <div className="grid grid-cols-3 gap-1 w-fit">
         {POSITIONS.map((pos) => {
           const active = value === pos;
           return (
@@ -30,7 +30,7 @@ export default function PositionGrid({ value, onChange, label }: PositionGridPro
               type="button"
               onClick={() => onChange(active ? null : pos)}
               className={cn(
-                'w-5 h-5 rounded-sm border transition-colors flex items-center justify-center',
+                'w-7 h-7 rounded-sm border transition-colors flex items-center justify-center',
                 active
                   ? 'bg-primary border-primary'
                   : 'bg-secondary border-border hover:border-primary/50'
@@ -39,7 +39,7 @@ export default function PositionGrid({ value, onChange, label }: PositionGridPro
             >
               <span
                 className={cn(
-                  'block w-1.5 h-1.5 rounded-full',
+                  'block w-2 h-2 rounded-full',
                   active ? 'bg-primary-foreground' : 'bg-muted-foreground/40'
                 )}
               />

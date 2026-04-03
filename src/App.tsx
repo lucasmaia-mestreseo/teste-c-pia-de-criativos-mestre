@@ -33,6 +33,14 @@ const App = () => (
               }
             />
             <Route
+              path="/project/:projectId/:panel?"
+              element={
+                <AuthGuard>
+                  <Index />
+                </AuthGuard>
+              }
+            />
+            <Route
               path="/profile"
               element={
                 <AuthGuard>
@@ -41,7 +49,7 @@ const App = () => (
               }
             />
             <Route
-              path="/admin"
+              path="/admin/*"
               element={
                 <AuthGuard>
                   <Admin />
