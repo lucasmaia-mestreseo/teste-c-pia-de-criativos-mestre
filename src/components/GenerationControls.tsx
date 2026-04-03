@@ -271,7 +271,7 @@ export default function GenerationControls({
                     Incluir Logo
                   </TogglePill>
                   {includeLogo && brandKit?.logo_url && (
-                    <img src={brandKit.logo_url} alt="Logo" className="h-6 w-6 object-contain rounded" />
+                    <img src={brandKit.logo_url} alt="Logo" className="h-10 w-10 object-contain rounded" />
                   )}
                 </div>
                 {includeLogo && (
