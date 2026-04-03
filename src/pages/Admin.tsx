@@ -57,6 +57,7 @@ interface UsageRow {
 interface PromptRow {
   id: string;
   prompt: string;
+  style_prompt: string;
   base_image_url: string | null;
 }
 
