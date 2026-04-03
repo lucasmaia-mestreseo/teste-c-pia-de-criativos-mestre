@@ -57,6 +57,7 @@ interface UsageRow {
 interface PromptRow {
   id: string;
   prompt: string;
+  style_prompt: string;
   base_image_url: string | null;
 }
 
@@ -750,11 +751,12 @@ function PromptsTab({ userId }: { userId?: string }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, string>>({});
+  const [styleEdits, setStyleEdits] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState<string | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
-    supabase.from('template_prompts').select('id, prompt, base_image_url').then(({ data }) => {
+    supabase.from('template_prompts').select('id, prompt, style_prompt, base_image_url').then(({ data }) => {
       setPrompts((data as any) || []);
       setLoading(false);
     });
@@ -774,6 +776,24 @@ function PromptsTab({ userId }: { userId?: string }) {
       toast.success('Prompt salvo!');
       setPrompts((prev) => prev.map((p) => (p.id === id ? { ...p, prompt: newPrompt } : p)));
       setEdits((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    }
+    setSaving(null);
+  };
+
+  const handleSaveStyle = async (id: string) => {
+    const newStyle = styleEdits[id];
+    if (newStyle === undefined) return;
+    setSaving(id + '-style');
+    const { error } = await supabase
+      .from('template_prompts')
+      .update({ style_prompt: newStyle, updated_by: userId } as any)
+      .eq('id', id);
+    if (error) {
+      toast.error('Erro ao salvar');
+    } else {
+      toast.success('Prompt de estilo salvo!');
+      setPrompts((prev) => prev.map((p) => (p.id === id ? { ...p, style_prompt: newStyle } : p)));
+      setStyleEdits((prev) => { const next = { ...prev }; delete next[id]; return next; });
     }
     setSaving(null);
   };
@@ -835,14 +855,40 @@ function PromptsTab({ userId }: { userId?: string }) {
         <div key={p.id} className="space-y-3 p-4 rounded-lg border bg-card">
           <h3 className="text-sm font-semibold text-primary">{TEMPLATE_LABELS[p.id] || p.id}</h3>
 
-          {/* Prompt */}
+          {/* Prompt de Composição */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">Prompt do modelo</label>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Prompt de Composição (layout/estrutura)</label>
             <Textarea
               value={edits[p.id] ?? p.prompt}
               onChange={(e) => setEdits((prev) => ({ ...prev, [p.id]: e.target.value }))}
               className="bg-secondary min-h-[120px] text-sm font-mono"
             />
+            {edits[p.id] !== undefined && edits[p.id] !== p.prompt && (
+              <div className="flex justify-end mt-2">
+                <Button size="sm" onClick={() => handleSave(p.id)} disabled={saving === p.id}>
+                  {saving === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                  Salvar Composição
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Prompt de Estilo Visual */}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Prompt de Estilo Visual (estética)</label>
+            <Textarea
+              value={styleEdits[p.id] ?? p.style_prompt}
+              onChange={(e) => setStyleEdits((prev) => ({ ...prev, [p.id]: e.target.value }))}
+              className="bg-secondary min-h-[120px] text-sm font-mono"
+            />
+            {styleEdits[p.id] !== undefined && styleEdits[p.id] !== p.style_prompt && (
+              <div className="flex justify-end mt-2">
+                <Button size="sm" onClick={() => handleSaveStyle(p.id)} disabled={saving === p.id + '-style'}>
+                  {saving === p.id + '-style' ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                  Salvar Estilo Visual
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Base Image */}
@@ -900,15 +946,6 @@ function PromptsTab({ userId }: { userId?: string }) {
             />
           </div>
 
-          {/* Save prompt button */}
-          {edits[p.id] !== undefined && edits[p.id] !== p.prompt && (
-            <div className="flex justify-end">
-              <Button size="sm" onClick={() => handleSave(p.id)} disabled={saving === p.id}>
-                {saving === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
-                Salvar Prompt
-              </Button>
-            </div>
-          )}
         </div>
       ))}
     </div>

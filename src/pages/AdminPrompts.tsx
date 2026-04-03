@@ -10,6 +10,7 @@ import { ArrowLeft, Save, Loader2, FileCode } from 'lucide-react';
 interface PromptRow {
   id: string;
   prompt: string;
+  style_prompt: string;
 }
 
 const TEMPLATE_LABELS: Record<string, string> = {
@@ -29,12 +30,13 @@ export default function AdminPrompts() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, string>>({});
+  const [styleEdits, setStyleEdits] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!authLoading && role === 'owner') {
       supabase
         .from('template_prompts')
-        .select('id, prompt')
+        .select('id, prompt, style_prompt')
         .then(({ data }) => {
           setPrompts(data || []);
           setLoading(false);
@@ -67,6 +69,24 @@ export default function AdminPrompts() {
     setSaving(null);
   };
 
+  const handleSaveStyle = async (id: string) => {
+    const newStyle = styleEdits[id];
+    if (newStyle === undefined) return;
+    setSaving(id + '-style');
+    const { error } = await supabase
+      .from('template_prompts')
+      .update({ style_prompt: newStyle, updated_by: user!.id } as any)
+      .eq('id', id);
+    if (error) {
+      toast.error('Erro ao salvar');
+    } else {
+      toast.success('Prompt de estilo salvo!');
+      setPrompts((prev) => prev.map((p) => (p.id === id ? { ...p, style_prompt: newStyle } : p)));
+      setStyleEdits((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    }
+    setSaving(null);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="flex items-center gap-3 px-5 py-3 border-b bg-card">
@@ -88,16 +108,32 @@ export default function AdminPrompts() {
               <h3 className="text-sm font-semibold text-primary">
                 {TEMPLATE_LABELS[p.id] || p.id}
               </h3>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Prompt de Composição (layout/estrutura)</label>
               <Textarea
                 value={edits[p.id] ?? p.prompt}
                 onChange={(e) => setEdits((prev) => ({ ...prev, [p.id]: e.target.value }))}
                 className="bg-secondary min-h-[120px] text-sm font-mono"
               />
               {edits[p.id] !== undefined && edits[p.id] !== p.prompt && (
-                <div className="flex justify-end">
+                <div className="flex justify-end mt-2">
                   <Button size="sm" onClick={() => handleSave(p.id)} disabled={saving === p.id}>
                     {saving === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
-                    Salvar
+                    Salvar Composição
+                  </Button>
+                </div>
+              )}
+
+              <label className="text-xs font-medium text-muted-foreground mb-1 block mt-4">Prompt de Estilo Visual (estética)</label>
+              <Textarea
+                value={styleEdits[p.id] ?? p.style_prompt}
+                onChange={(e) => setStyleEdits((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                className="bg-secondary min-h-[120px] text-sm font-mono"
+              />
+              {styleEdits[p.id] !== undefined && styleEdits[p.id] !== p.style_prompt && (
+                <div className="flex justify-end mt-2">
+                  <Button size="sm" onClick={() => handleSaveStyle(p.id)} disabled={saving === p.id + '-style'}>
+                    {saving === p.id + '-style' ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                    Salvar Estilo Visual
                   </Button>
                 </div>
               )}
