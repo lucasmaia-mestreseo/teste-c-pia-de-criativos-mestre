@@ -69,6 +69,24 @@ export default function AdminPrompts() {
     setSaving(null);
   };
 
+  const handleSaveStyle = async (id: string) => {
+    const newStyle = styleEdits[id];
+    if (newStyle === undefined) return;
+    setSaving(id + '-style');
+    const { error } = await supabase
+      .from('template_prompts')
+      .update({ style_prompt: newStyle, updated_by: user!.id } as any)
+      .eq('id', id);
+    if (error) {
+      toast.error('Erro ao salvar');
+    } else {
+      toast.success('Prompt de estilo salvo!');
+      setPrompts((prev) => prev.map((p) => (p.id === id ? { ...p, style_prompt: newStyle } : p)));
+      setStyleEdits((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    }
+    setSaving(null);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="flex items-center gap-3 px-5 py-3 border-b bg-card">
