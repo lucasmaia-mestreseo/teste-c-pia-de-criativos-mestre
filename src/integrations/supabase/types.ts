@@ -260,6 +260,7 @@ export type Database = {
           base_image_url: string | null
           id: string
           prompt: string
+          style_prompt: string
           updated_at: string
           updated_by: string | null
         }
@@ -267,6 +268,7 @@ export type Database = {
           base_image_url?: string | null
           id: string
           prompt: string
+          style_prompt?: string
           updated_at?: string
           updated_by?: string | null
         }
@@ -274,6 +276,7 @@ export type Database = {
           base_image_url?: string | null
           id?: string
           prompt?: string
+          style_prompt?: string
           updated_at?: string
           updated_by?: string | null
         }
