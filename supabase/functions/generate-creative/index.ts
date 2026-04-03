@@ -250,17 +250,17 @@ IMPORTANTE: Tudo que o usuário escreveu acima é uma ORDEM OBRIGATÓRIA. Cada p
     let logoSizeInstruction: string;
     if (logoSize === 'small') {
       logoSizeInstruction = `📏 REGRA DE ESCALA (CRÍTICA — DEFINIDA PELO USUÁRIO):
-- O logo deve ser DISCRETO e PEQUENO, ocupando no máximo 3-5% da área total da imagem.
+- O logo deve ser DISCRETO e PEQUENO, ocupando no máximo 1.5-2.5% da área total da imagem.
 - IGNORE qualquer tamanho de logo que apareça na referência. O tamanho solicitado pelo usuário TEM PRIORIDADE ABSOLUTA.
 - NUNCA tornar o logo o elemento visual dominante.`;
     } else if (logoSize === 'large') {
       logoSizeInstruction = `📏 REGRA DE ESCALA (CRÍTICA — DEFINIDA PELO USUÁRIO):
-- O logo deve ser BEM VISÍVEL e PROEMINENTE, ocupando ~12-18% da área total da imagem.
+- O logo deve ser BEM VISÍVEL e PROEMINENTE, ocupando ~6-9% da área total da imagem.
 - IGNORE qualquer tamanho de logo que apareça na referência. O tamanho solicitado pelo usuário TEM PRIORIDADE ABSOLUTA.
 - O logo deve ter presença visual forte e ser facilmente identificável.`;
     } else if (logoSize === 'normal') {
       logoSizeInstruction = `📏 REGRA DE ESCALA (CRÍTICA — DEFINIDA PELO USUÁRIO):
-- O logo deve ter tamanho MODERADO, ocupando ~6-8% da área total da imagem.
+- O logo deve ter tamanho MODERADO, ocupando ~3-4% da área total da imagem.
 - IGNORE qualquer tamanho de logo que apareça na referência. O tamanho solicitado pelo usuário TEM PRIORIDADE ABSOLUTA.`;
     } else {
       // No user-specified size — fall back to reference matching
@@ -398,7 +398,7 @@ ${personPosition ? `📍 POSIÇÃO SOLICITADA PELO USUÁRIO: ${personPosition.re
   
   if (hasLogo) {
     if (logoSize) {
-      checklistItems.push(`□ O logo está no tamanho solicitado pelo usuário (${logoSize === 'small' ? 'PEQUENO 3-5%' : logoSize === 'large' ? 'GRANDE 12-18%' : 'MODERADO 6-8%'} da área)?`);
+      checklistItems.push(`□ O logo está no tamanho solicitado pelo usuário (${logoSize === 'small' ? 'PEQUENO 1.5-2.5%' : logoSize === 'large' ? 'GRANDE 6-9%' : 'MODERADO 3-4%'} da área)?`);
     } else {
       checklistItems.push("□ O logo tem o MESMO tamanho relativo que o logo na referência (não está ampliado)?");
     }
