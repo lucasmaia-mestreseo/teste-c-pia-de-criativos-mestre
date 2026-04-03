@@ -57,14 +57,12 @@ const Index = () => {
   const showDashboard = !projectId;
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <RightSidebar
+    <div className="flex flex-col h-screen overflow-hidden">
+      <TopBar
         selectedProjectId={projectId}
         onSelectProject={handleProjectChange}
         activePanel={activePanel}
         onPanelChange={setActivePanel}
-        collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
         onboardingPending={onboardingPending}
         onGoToDashboard={() => setProjectId(null)}
       />
