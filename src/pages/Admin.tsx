@@ -167,6 +167,10 @@ function ProjectsTab() {
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
 
   const fetchProjects = async () => {
     const { data: projs } = await supabase.from('projects').select('id, name, active, created_at').order('created_at', { ascending: false });
@@ -187,6 +191,22 @@ function ProjectsTab() {
   };
 
   useEffect(() => { fetchProjects(); }, []);
+
+  const filtered = useMemo(() => {
+    let list = projects;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((p) => p.name.toLowerCase().includes(q));
+    }
+    if (statusFilter === 'active') list = list.filter((p) => p.active);
+    if (statusFilter === 'inactive') list = list.filter((p) => !p.active);
+    return list;
+  }, [projects, search, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+  const paginated = filtered.slice((page - 1) * perPage, page * perPage);
+
+  useEffect(() => { setPage(1); }, [search, statusFilter, perPage]);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -221,13 +241,43 @@ function ProjectsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
-        <Input placeholder="Nome do novo projeto" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleCreate()} className="bg-secondary max-w-xs" />
-        <Button onClick={handleCreate} disabled={creating}><Plus className="h-4 w-4 mr-1" /> Criar</Button>
+      {/* Create project - separate row */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase">Projetos ({filtered.length})</h3>
+        <div className="flex gap-2">
+          <Input placeholder="Nome do novo projeto" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleCreate()} className="bg-secondary max-w-xs" />
+          <Button onClick={handleCreate} disabled={creating}><Plus className="h-4 w-4 mr-1" /> Criar</Button>
+        </div>
       </div>
 
+      {/* Filters row */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Buscar projeto..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-secondary" />
+        </div>
+        <div className="flex gap-1">
+          {(['all', 'active', 'inactive'] as const).map((s) => (
+            <Button key={s} size="sm" variant={statusFilter === s ? 'default' : 'outline'} onClick={() => setStatusFilter(s)}>
+              {s === 'all' ? 'Todos' : s === 'active' ? 'Ativos' : 'Inativos'}
+            </Button>
+          ))}
+        </div>
+        <Select value={String(perPage)} onValueChange={(v) => setPerPage(Number(v))}>
+          <SelectTrigger className="w-24 bg-secondary">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {[25, 50, 100, 250].map((n) => (
+              <SelectItem key={n} value={String(n)}>{n} / pág</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Project list */}
       <div className="space-y-2">
-        {projects.map((p) => (
+        {paginated.map((p) => (
           <div key={p.id} className={`flex items-center gap-4 p-4 rounded-lg border bg-card ${!p.active ? 'opacity-50' : ''}`}>
             <div className="flex-1 min-w-0">
               <p className="font-medium truncate">{p.name}</p>
@@ -251,6 +301,21 @@ function ProjectsTab() {
           </div>
         ))}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-xs text-muted-foreground">Página {page} de {totalPages}</p>
+          <div className="flex gap-1">
+            <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+              <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
+            </Button>
+            <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
+              Próximo <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
