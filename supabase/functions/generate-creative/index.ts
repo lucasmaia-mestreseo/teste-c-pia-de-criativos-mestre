@@ -306,6 +306,9 @@ Uma foto de PESSOA será fornecida separadamente. O usuário quer SUBSTITUIR a f
 ✓ NÃO gere um rosto inventado ou diferente do fornecido
 ✓ Se NÃO houver pessoa na referência, posicione esta pessoa de forma harmônica no criativo
 
+${personPosition ? `📍 POSIÇÃO SOLICITADA PELO USUÁRIO: ${personPosition.replace('-', ' ')} da imagem.
+- Se o usuário especificar algo diferente no prompt, prevalece o prompt.` : ''}
+
 ⚠️ COEXISTÊNCIA: Se um LOGO também foi fornecido, AMBOS devem aparecer. A pessoa NÃO substitui o logo.`);
     } else {
       sections.push(`═══ SEÇÃO 5: REGRAS DE PESSOA (MODO: FACE SWAP) ═══
