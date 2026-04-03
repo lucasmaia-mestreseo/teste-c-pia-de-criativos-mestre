@@ -870,6 +870,7 @@ function PromptsTab({ userId }: { userId?: string }) {
   const [styleEdits, setStyleEdits] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState<string | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [category, setCategory] = useState<'style' | 'internal'>('style');
 
   useEffect(() => {
     supabase.from('template_prompts').select('id, prompt, style_prompt, base_image_url').then(({ data }) => {
