@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import RightSidebar from '@/components/RightSidebar';
+import TopBar from '@/components/TopBar';
 import GeneratePanel from '@/components/GeneratePanel';
 import GenerationControls from '@/components/GenerationControls';
 import BrandKitPanel from '@/components/BrandKitPanel';
@@ -26,7 +26,7 @@ const Index = () => {
   const [creationMode, setCreationMode] = useState<CreationMode>('free');
   const [freePromptData, setFreePromptData] = useState<FreePromptData>({ prompt: '', attachedImages: [] });
   const [templateData, setTemplateData] = useState<TemplateData>({ templateId: null, fields: {}, prompt: '', attachedImages: [] });
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
   const [generating, setGenerating] = useState(false);
 
   const project = useProject(projectId);
@@ -57,14 +57,12 @@ const Index = () => {
   const showDashboard = !projectId;
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <RightSidebar
+    <div className="flex flex-col h-screen overflow-hidden">
+      <TopBar
         selectedProjectId={projectId}
         onSelectProject={handleProjectChange}
         activePanel={activePanel}
         onPanelChange={setActivePanel}
-        collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
         onboardingPending={onboardingPending}
         onGoToDashboard={() => setProjectId(null)}
       />
