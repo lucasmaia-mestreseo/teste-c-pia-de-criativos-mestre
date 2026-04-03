@@ -286,6 +286,12 @@ ${logoAnalysis}
 - Use esta descrição para garantir que NENHUMA parte do logo seja omitida ou cortada.
 - O logo reproduzido deve conter EXATAMENTE os mesmos textos detectados.` : ""}
 
+${logoPosition ? `📍 POSIÇÃO SOLICITADA PELO USUÁRIO: ${logoPosition.replace('-', ' ')} da imagem.
+- Se o usuário especificar algo diferente no prompt, prevalece o prompt.` : ''}
+
+${logoSize ? `📏 TAMANHO SOLICITADO PELO USUÁRIO: ${logoSize === 'small' ? 'Pequeno (~3-5% da área)' : logoSize === 'normal' ? 'Normal (~5-8% da área)' : 'Grande (~10-15% da área)'}.
+- Se o usuário especificar algo diferente no prompt, prevalece o prompt.` : ''}
+
 ⚠️ COEXISTÊNCIA: Se uma foto de pessoa TAMBÉM foi fornecida, AMBOS devem aparecer na imagem final. O logo NÃO substitui a pessoa. A pessoa NÃO substitui o logo. São assets independentes.`);
   }
 
