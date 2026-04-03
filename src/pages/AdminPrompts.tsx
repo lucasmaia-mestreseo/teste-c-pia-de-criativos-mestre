@@ -10,6 +10,7 @@ import { ArrowLeft, Save, Loader2, FileCode } from 'lucide-react';
 interface PromptRow {
   id: string;
   prompt: string;
+  style_prompt: string;
 }
 
 const TEMPLATE_LABELS: Record<string, string> = {
