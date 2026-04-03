@@ -722,6 +722,7 @@ function UsageTab() {
   const [period, setPeriod] = useState<'day' | 'week' | 'month'>('month');
   const [usage, setUsage] = useState<UsageRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
 
   const fetchUsage = async () => {
     setLoading(true);
@@ -737,35 +738,59 @@ function UsageTab() {
       since.setMonth(since.getMonth() - 1);
     }
 
-    const { data: creatives } = await supabase
-      .from('generated_creatives')
-      .select('created_by, created_at')
-      .gte('created_at', since.toISOString());
+    const sinceISO = since.toISOString();
 
-    const { data: profiles } = await supabase.from('profiles').select('user_id, name, email');
+    // Fetch creatives, downloads, favorites and profiles in parallel
+    const [creativesRes, downloadsRes, favoritesRes, profilesRes] = await Promise.all([
+      supabase.from('generated_creatives').select('created_by, created_at').gte('created_at', sinceISO),
+      supabase.from('user_downloads' as any).select('user_id, created_at').gte('created_at', sinceISO),
+      supabase.from('generated_creatives').select('created_by').eq('favorite', true),
+      supabase.from('profiles').select('user_id, name, email'),
+    ]);
+
+    const creatives = creativesRes.data || [];
+    const downloads = (downloadsRes.data || []) as any[];
+    const favorites = favoritesRes.data || [];
+    const profiles = profilesRes.data || [];
 
     const countMap = new Map<string, number>();
-    (creatives || []).forEach((c: any) => {
-      if (c.created_by) {
-        countMap.set(c.created_by, (countMap.get(c.created_by) || 0) + 1);
-      }
+    (creatives as any[]).forEach((c) => {
+      if (c.created_by) countMap.set(c.created_by, (countMap.get(c.created_by) || 0) + 1);
+    });
+
+    const downloadMap = new Map<string, number>();
+    downloads.forEach((d: any) => {
+      if (d.user_id) downloadMap.set(d.user_id, (downloadMap.get(d.user_id) || 0) + 1);
+    });
+
+    const favMap = new Map<string, number>();
+    (favorites as any[]).forEach((f) => {
+      if (f.created_by) favMap.set(f.created_by, (favMap.get(f.created_by) || 0) + 1);
     });
 
     const profileMap = new Map<string, { name: string; email: string }>();
-    (profiles || []).forEach((p: any) => profileMap.set(p.user_id, { name: p.name, email: p.email }));
+    (profiles as any[]).forEach((p) => profileMap.set(p.user_id, { name: p.name, email: p.email }));
+
+    const allUserIds = new Set<string>();
+    countMap.forEach((_, k) => allUserIds.add(k));
+    downloadMap.forEach((_, k) => allUserIds.add(k));
+    (profiles as any[]).forEach((p) => allUserIds.add(p.user_id));
 
     const rows: UsageRow[] = [];
-    countMap.forEach((count, userId) => {
+    allUserIds.forEach((userId) => {
       const p = profileMap.get(userId);
-      rows.push({ user_id: userId, name: p?.name || 'Desconhecido', email: p?.email || '', count });
+      rows.push({
+        user_id: userId,
+        name: p?.name || 'Desconhecido',
+        email: p?.email || '',
+        count: countMap.get(userId) || 0,
+        downloads: downloadMap.get(userId) || 0,
+        favorites: favMap.get(userId) || 0,
+      });
     });
-    rows.sort((a, b) => b.count - a.count);
 
-    (profiles || []).forEach((p: any) => {
-      if (!countMap.has(p.user_id)) {
-        rows.push({ user_id: p.user_id, name: p.name, email: p.email, count: 0 });
-      }
-    });
+    // Sort alphabetically by name
+    rows.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 
     setUsage(rows);
     setLoading(false);
@@ -775,34 +800,56 @@ function UsageTab() {
 
   const periodLabel = { day: 'Hoje', week: 'Últimos 7 dias', month: 'Último mês' };
 
+  const filtered = useMemo(() => {
+    if (!search.trim()) return usage;
+    const q = search.toLowerCase();
+    return usage.filter((u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+  }, [usage, search]);
+
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
+      <div className="flex items-center gap-3">
         {(['day', 'week', 'month'] as const).map((p) => (
           <Button key={p} size="sm" variant={period === p ? 'default' : 'outline'} onClick={() => setPeriod(p)}>
             {periodLabel[p]}
           </Button>
         ))}
+        <div className="relative flex-1 max-w-xs ml-auto">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Buscar usuário..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-secondary" />
+        </div>
       </div>
 
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
       ) : (
         <div className="space-y-2">
-          {usage.map((u) => (
+          {filtered.map((u) => (
             <div key={u.user_id} className="flex items-center gap-4 p-4 rounded-lg border bg-card">
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate">{u.name}</p>
                 <p className="text-xs text-muted-foreground truncate">{u.email}</p>
               </div>
-              <div className="flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-semibold">{u.count}</span>
-                <span className="text-xs text-muted-foreground">criativos</span>
+              <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-1.5" title="Criativos gerados">
+                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-semibold">{u.count}</span>
+                  <span className="text-xs text-muted-foreground">criativos</span>
+                </div>
+                <div className="flex items-center gap-1.5" title="Downloads">
+                  <Download className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-semibold">{u.downloads}</span>
+                  <span className="text-xs text-muted-foreground">downloads</span>
+                </div>
+                <div className="flex items-center gap-1.5" title="Favoritos">
+                  <Star className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-semibold">{u.favorites}</span>
+                  <span className="text-xs text-muted-foreground">favoritos</span>
+                </div>
               </div>
             </div>
           ))}
-          {usage.length === 0 && (
+          {filtered.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-8">Nenhum dado para o período selecionado.</p>
           )}
         </div>
