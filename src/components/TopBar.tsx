@@ -1,0 +1,175 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { useProjects, useCreateProject } from '@/hooks/useProjects';
+import { useAuth } from '@/contexts/AuthContext';
+import { Palette, Clock, Plus, Zap, FileText, Shield, LogOut, User, Sparkles, Image } from 'lucide-react';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+
+type RightPanel = 'generate' | 'brandkit' | 'context' | 'history' | 'dynamic' | 'creatives';
+
+interface TopBarProps {
+  selectedProjectId: string | null;
+  onSelectProject: (id: string) => void;
+  activePanel: RightPanel;
+  onPanelChange: (panel: RightPanel) => void;
+  onboardingPending?: boolean;
+  onGoToDashboard?: () => void;
+}
+
+export default function TopBar({ selectedProjectId, onSelectProject, activePanel, onPanelChange, onboardingPending, onGoToDashboard }: TopBarProps) {
+  const { data: projects } = useProjects();
+  const createProject = useCreateProject();
+  const { profile, role, signOut } = useAuth();
+  const navigate = useNavigate();
+  const [newName, setNewName] = useState('');
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const canCreateProject = role === 'owner' || role === 'admin' || role === 'manager';
+  const canAdmin = role === 'owner' || role === 'admin';
+
+  const userInitials = profile?.name
+    ?.split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || 'U';
+
+  const handleCreate = async () => {
+    if (!newName.trim()) return;
+    try {
+      const p = await createProject.mutateAsync({ name: newName.trim() });
+      onSelectProject(p.id);
+      setNewName('');
+      setDialogOpen(false);
+      toast.success('Projeto criado!');
+    } catch {
+      toast.error('Erro ao criar projeto');
+    }
+  };
+
+  const navItems: { panel: RightPanel; icon: React.ElementType; label: string }[] = [
+    { panel: 'generate', icon: Zap, label: 'Gerar' },
+    { panel: 'dynamic', icon: Sparkles, label: 'Dinâmica' },
+    { panel: 'creatives', icon: Image, label: 'Criativos' },
+    { panel: 'brandkit', icon: Palette, label: 'Brand Kit' },
+    { panel: 'context', icon: FileText, label: 'Contexto' },
+    { panel: 'history', icon: Clock, label: 'Histórico' },
+  ];
+
+  return (
+    <header className="h-12 border-b bg-card flex items-center px-3 gap-2 flex-shrink-0">
+      {/* Logo */}
+      <button
+        onClick={onGoToDashboard}
+        className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity mr-2 flex-shrink-0"
+      >
+        <Zap className="h-4 w-4 text-primary fill-primary" />
+        <span className="text-sm font-bold tracking-tight whitespace-nowrap">Criativos Mestre</span>
+      </button>
+
+      {/* Separator */}
+      <div className="w-px h-6 bg-border flex-shrink-0" />
+
+      {/* Project selector */}
+      <div className="flex items-center gap-1 flex-shrink-0">
+        <Select value={selectedProjectId ?? ''} onValueChange={onSelectProject}>
+          <SelectTrigger className="w-[170px] h-8 text-xs bg-secondary border-border">
+            <SelectValue placeholder="Selecione um projeto" />
+          </SelectTrigger>
+          <SelectContent>
+            {projects?.filter((p: any) => p.active !== false).sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
+              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {canCreateProject && (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="icon" variant="ghost" className="h-8 w-8">
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-card">
+              <DialogHeader><DialogTitle>Novo Projeto</DialogTitle></DialogHeader>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Nome do projeto"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+                  className="bg-secondary"
+                />
+                <Button onClick={handleCreate} disabled={createProject.isPending}>Criar</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+
+      {/* Separator */}
+      <div className="w-px h-6 bg-border flex-shrink-0" />
+
+      {/* Navigation */}
+      {selectedProjectId && (
+        <nav className="flex items-center gap-0.5 flex-1 min-w-0">
+          {navItems.map(({ panel, icon: Icon, label }) => (
+            <button
+              key={panel}
+              onClick={() => !onboardingPending && onPanelChange(panel)}
+              disabled={onboardingPending}
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap",
+                onboardingPending
+                  ? 'text-muted-foreground/50 cursor-not-allowed'
+                  : activePanel === panel
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {label}
+            </button>
+          ))}
+        </nav>
+      )}
+
+      {!selectedProjectId && <div className="flex-1" />}
+
+      {/* User avatar */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="flex items-center gap-2 p-1 rounded-md hover:bg-secondary transition-colors flex-shrink-0">
+            <Avatar className="h-7 w-7">
+              <AvatarFallback className="text-[10px] font-semibold bg-primary text-primary-foreground">
+                {userInitials}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-xs font-medium truncate max-w-[100px] hidden lg:block">{profile?.name}</span>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => navigate('/profile')}>
+            <User className="h-3.5 w-3.5 mr-2" /> Perfil
+          </DropdownMenuItem>
+          {canAdmin && (
+            <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => navigate('/admin')}>
+              <Shield className="h-3.5 w-3.5 mr-2" /> Administração
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem className="cursor-pointer text-xs" onClick={signOut}>
+            <LogOut className="h-3.5 w-3.5 mr-2" /> Sair
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </header>
+  );
+}

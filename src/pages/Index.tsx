@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import RightSidebar from '@/components/RightSidebar';
+import TopBar from '@/components/TopBar';
 import GeneratePanel from '@/components/GeneratePanel';
 import GenerationControls from '@/components/GenerationControls';
 import BrandKitPanel from '@/components/BrandKitPanel';
