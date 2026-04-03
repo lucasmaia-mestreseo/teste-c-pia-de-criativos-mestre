@@ -136,6 +136,9 @@ function buildInstructionBlock(
   logoAnalysis: string | null = null,
   elementOverrides: ElementOverride | null = null,
   ignoreBrandKit: boolean = false,
+  logoPosition: string | null = null,
+  logoSize: string | null = null,
+  personPosition: string | null = null,
 ): string {
   const sections: string[] = [];
 
@@ -283,6 +286,12 @@ ${logoAnalysis}
 - Use esta descrição para garantir que NENHUMA parte do logo seja omitida ou cortada.
 - O logo reproduzido deve conter EXATAMENTE os mesmos textos detectados.` : ""}
 
+${logoPosition ? `📍 POSIÇÃO SOLICITADA PELO USUÁRIO: ${logoPosition.replace('-', ' ')} da imagem.
+- Se o usuário especificar algo diferente no prompt, prevalece o prompt.` : ''}
+
+${logoSize ? `📏 TAMANHO SOLICITADO PELO USUÁRIO: ${logoSize === 'small' ? 'Pequeno (~3-5% da área)' : logoSize === 'normal' ? 'Normal (~5-8% da área)' : 'Grande (~10-15% da área)'}.
+- Se o usuário especificar algo diferente no prompt, prevalece o prompt.` : ''}
+
 ⚠️ COEXISTÊNCIA: Se uma foto de pessoa TAMBÉM foi fornecida, AMBOS devem aparecer na imagem final. O logo NÃO substitui a pessoa. A pessoa NÃO substitui o logo. São assets independentes.`);
   }
 
@@ -297,6 +306,9 @@ Uma foto de PESSOA será fornecida separadamente. O usuário quer SUBSTITUIR a f
 ✓ NÃO gere um rosto inventado ou diferente do fornecido
 ✓ Se NÃO houver pessoa na referência, posicione esta pessoa de forma harmônica no criativo
 
+${personPosition ? `📍 POSIÇÃO SOLICITADA PELO USUÁRIO: ${personPosition.replace('-', ' ')} da imagem.
+- Se o usuário especificar algo diferente no prompt, prevalece o prompt.` : ''}
+
 ⚠️ COEXISTÊNCIA: Se um LOGO também foi fornecido, AMBOS devem aparecer. A pessoa NÃO substitui o logo.`);
     } else {
       sections.push(`═══ SEÇÃO 5: REGRAS DE PESSOA (MODO: FACE SWAP) ═══
@@ -308,6 +320,9 @@ Uma foto de PESSOA será fornecida separadamente. Regras OBRIGATÓRIAS:
 ✓ NÃO gere um rosto inventado ou diferente
 ✓ NÃO altere a pose, roupa ou cenário da referência
 ✓ Se NÃO houver uma pessoa na referência original, posicione a pessoa fornecida de forma natural e harmônica
+
+${personPosition ? `📍 POSIÇÃO SOLICITADA PELO USUÁRIO: ${personPosition.replace('-', ' ')} da imagem.
+- Se o usuário especificar algo diferente no prompt, prevalece o prompt.` : ''}
 
 ⚠️ COEXISTÊNCIA: Se um LOGO também foi fornecido, AMBOS devem aparecer. A pessoa NÃO substitui o logo. O logo NÃO substitui a pessoa.`);
     }
@@ -405,7 +420,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, format, swipeFileId, swipeFileUrl, projectId, brandKit, elementOverrides, mode, templateId, templateFields, attachedImages, ignoreContext, ignoreBrandKit } = await req.json();
+    const { prompt, format, swipeFileId, swipeFileUrl, projectId, brandKit, elementOverrides, mode, templateId, templateFields, attachedImages, ignoreContext, ignoreBrandKit, logoPosition, logoSize, personPosition } = await req.json();
 
     // Extract authenticated user
     const authHeader = req.headers.get("Authorization");
@@ -505,6 +520,7 @@ CRITICAL RULES:
         effectivePrompt, format, brandKit, hasLogo,
         hasPersonPhoto || hasPersonGrid, photoMode, logoAnalysis,
         elementOverrides || null, !!ignoreBrandKit,
+        logoPosition || null, logoSize || null, personPosition || null,
       );
       userContent.push(
         { type: "text", text: "📎 IMAGEM DE REFERÊNCIA (use como base de layout e estrutura visual):" },
@@ -515,6 +531,7 @@ CRITICAL RULES:
       const instructionBlock = buildInstructionBlock(
         effectivePrompt, format, brandKit, hasLogo,
         hasPersonPhoto || hasPersonGrid, photoMode, logoAnalysis, null, !!ignoreBrandKit,
+        logoPosition || null, logoSize || null, personPosition || null,
       );
       userContent.push({ type: "text", text: instructionBlock });
 
