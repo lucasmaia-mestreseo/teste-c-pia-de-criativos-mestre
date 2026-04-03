@@ -837,14 +837,40 @@ function PromptsTab({ userId }: { userId?: string }) {
         <div key={p.id} className="space-y-3 p-4 rounded-lg border bg-card">
           <h3 className="text-sm font-semibold text-primary">{TEMPLATE_LABELS[p.id] || p.id}</h3>
 
-          {/* Prompt */}
+          {/* Prompt de Composição */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">Prompt do modelo</label>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Prompt de Composição (layout/estrutura)</label>
             <Textarea
               value={edits[p.id] ?? p.prompt}
               onChange={(e) => setEdits((prev) => ({ ...prev, [p.id]: e.target.value }))}
               className="bg-secondary min-h-[120px] text-sm font-mono"
             />
+            {edits[p.id] !== undefined && edits[p.id] !== p.prompt && (
+              <div className="flex justify-end mt-2">
+                <Button size="sm" onClick={() => handleSave(p.id)} disabled={saving === p.id}>
+                  {saving === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                  Salvar Composição
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Prompt de Estilo Visual */}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Prompt de Estilo Visual (estética)</label>
+            <Textarea
+              value={styleEdits[p.id] ?? p.style_prompt}
+              onChange={(e) => setStyleEdits((prev) => ({ ...prev, [p.id]: e.target.value }))}
+              className="bg-secondary min-h-[120px] text-sm font-mono"
+            />
+            {styleEdits[p.id] !== undefined && styleEdits[p.id] !== p.style_prompt && (
+              <div className="flex justify-end mt-2">
+                <Button size="sm" onClick={() => handleSaveStyle(p.id)} disabled={saving === p.id + '-style'}>
+                  {saving === p.id + '-style' ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                  Salvar Estilo Visual
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Base Image */}
