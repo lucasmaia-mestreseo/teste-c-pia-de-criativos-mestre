@@ -398,7 +398,7 @@ ${personPosition ? `📍 POSIÇÃO SOLICITADA PELO USUÁRIO: ${personPosition.re
   
   if (hasLogo) {
     if (logoSize) {
-      checklistItems.push(`□ O logo está no tamanho solicitado pelo usuário (${logoSize === 'small' ? 'PEQUENO 3-5%' : logoSize === 'large' ? 'GRANDE 12-18%' : 'MODERADO 6-8%'} da área)?`);
+      checklistItems.push(`□ O logo está no tamanho solicitado pelo usuário (${logoSize === 'small' ? 'PEQUENO 1.5-2.5%' : logoSize === 'large' ? 'GRANDE 6-9%' : 'MODERADO 3-4%'} da área)?`);
     } else {
       checklistItems.push("□ O logo tem o MESMO tamanho relativo que o logo na referência (não está ampliado)?");
     }
