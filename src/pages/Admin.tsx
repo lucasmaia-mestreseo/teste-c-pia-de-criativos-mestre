@@ -1160,3 +1160,252 @@ function FormatsTab() {
     </div>
   );
 }
+
+// ─── Permissions Tab ───
+
+const ROLES_ORDER: AppRole[] = ['owner', 'admin', 'manager', 'analyst'];
+
+function PermissionsTab() {
+  const [permissions, setPermissions] = useState<{ role: string; permission: string; enabled: boolean }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  // Project access state
+  const [users, setUsers] = useState<{ user_id: string; name: string; email: string; role: AppRole | null }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [accessMap, setAccessMap] = useState<Record<string, string[]>>({});
+  const [accessLoading, setAccessLoading] = useState(true);
+  const [accessSaving, setAccessSaving] = useState<string | null>(null);
+  const [userSearch, setUserSearch] = useState('');
+
+  // Fetch role permissions
+  useEffect(() => {
+    supabase.from('role_permissions').select('role, permission, enabled').then(({ data }) => {
+      setPermissions((data as any) || []);
+      setLoading(false);
+    });
+  }, []);
+
+  // Fetch users, projects and access
+  useEffect(() => {
+    const fetchAccess = async () => {
+      const [profilesRes, rolesRes, projectsRes, accessRes] = await Promise.all([
+        supabase.from('profiles').select('user_id, name, email'),
+        supabase.from('user_roles').select('user_id, role'),
+        supabase.from('projects').select('id, name').eq('active', true).order('name'),
+        supabase.from('user_project_access').select('user_id, project_id'),
+      ]);
+
+      const roleMap = new Map<string, AppRole>();
+      const priority: AppRole[] = ['owner', 'admin', 'manager', 'analyst'];
+      (rolesRes.data || []).forEach((r: any) => {
+        const existing = roleMap.get(r.user_id);
+        if (!existing || priority.indexOf(r.role) < priority.indexOf(existing)) {
+          roleMap.set(r.user_id, r.role);
+        }
+      });
+
+      setUsers(
+        (profilesRes.data || []).map((p: any) => ({
+          user_id: p.user_id,
+          name: p.name,
+          email: p.email,
+          role: roleMap.get(p.user_id) || null,
+        })).sort((a: any, b: any) => a.name.localeCompare(b.name, 'pt-BR'))
+      );
+
+      setProjects((projectsRes.data as any) || []);
+
+      const map: Record<string, string[]> = {};
+      (accessRes.data || []).forEach((a: any) => {
+        if (!map[a.user_id]) map[a.user_id] = [];
+        map[a.user_id].push(a.project_id);
+      });
+      setAccessMap(map);
+      setAccessLoading(false);
+    };
+    fetchAccess();
+  }, []);
+
+  const getEnabled = (role: string, permission: string) => {
+    const entry = permissions.find((p) => p.role === role && p.permission === permission);
+    return entry?.enabled ?? false;
+  };
+
+  const togglePermission = (role: string, permission: string) => {
+    if (role === 'owner') return; // Owner always enabled
+    setDirty(true);
+    setPermissions((prev) => prev.map((p) =>
+      p.role === role && p.permission === permission ? { ...p, enabled: !p.enabled } : p
+    ));
+  };
+
+  const handleSavePermissions = async () => {
+    setSaving(true);
+    // Update each non-owner permission
+    const nonOwner = permissions.filter((p) => p.role !== 'owner');
+    for (const p of nonOwner) {
+      await supabase
+        .from('role_permissions')
+        .update({ enabled: p.enabled })
+        .eq('role', p.role as any)
+        .eq('permission', p.permission);
+    }
+    toast.success('Permissões salvas!');
+    setSaving(false);
+    setDirty(false);
+  };
+
+  const hasFullAccess = (userId: string) => !accessMap[userId] || accessMap[userId].length === 0;
+
+  const toggleFullAccess = async (userId: string) => {
+    setAccessSaving(userId);
+    if (!hasFullAccess(userId)) {
+      // Remove all entries = full access
+      await supabase.from('user_project_access').delete().eq('user_id', userId);
+      setAccessMap((prev) => { const next = { ...prev }; delete next[userId]; return next; });
+    } else {
+      // Set to first project only as starting point
+      if (projects.length > 0) {
+        await supabase.from('user_project_access').insert({ user_id: userId, project_id: projects[0].id });
+        setAccessMap((prev) => ({ ...prev, [userId]: [projects[0].id] }));
+      }
+    }
+    setAccessSaving(null);
+  };
+
+  const toggleProjectAccess = async (userId: string, projectId: string) => {
+    setAccessSaving(userId);
+    const current = accessMap[userId] || [];
+    if (current.includes(projectId)) {
+      // Remove
+      await supabase.from('user_project_access').delete().eq('user_id', userId).eq('project_id', projectId);
+      const updated = current.filter((id) => id !== projectId);
+      if (updated.length === 0) {
+        setAccessMap((prev) => { const next = { ...prev }; delete next[userId]; return next; });
+      } else {
+        setAccessMap((prev) => ({ ...prev, [userId]: updated }));
+      }
+    } else {
+      // Add
+      await supabase.from('user_project_access').insert({ user_id: userId, project_id: projectId });
+      setAccessMap((prev) => ({ ...prev, [userId]: [...current, projectId] }));
+    }
+    setAccessSaving(null);
+  };
+
+  const filteredUsers = useMemo(() => {
+    if (!userSearch.trim()) return users;
+    const q = userSearch.toLowerCase();
+    return users.filter((u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+  }, [users, userSearch]);
+
+  if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+
+  return (
+    <div className="space-y-8">
+      {/* Section 1: Role Permissions */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase">Permissões por Cargo</h3>
+        <div className="rounded-lg border bg-card overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="min-w-[200px]">Permissão</TableHead>
+                {ROLES_ORDER.map((r) => (
+                  <TableHead key={r} className="text-center w-[100px]">{ROLE_LABELS[r]}</TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {ALL_PERMISSIONS.map((perm) => (
+                <TableRow key={perm}>
+                  <TableCell className="text-sm font-medium">{PERMISSION_LABELS[perm]}</TableCell>
+                  {ROLES_ORDER.map((r) => (
+                    <TableCell key={r} className="text-center">
+                      <Checkbox
+                        checked={getEnabled(r, perm)}
+                        onCheckedChange={() => togglePermission(r, perm)}
+                        disabled={r === 'owner'}
+                        className="mx-auto"
+                      />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        {dirty && (
+          <div className="flex justify-end">
+            <Button onClick={handleSavePermissions} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
+              Salvar Permissões
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Section 2: Project Access */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase">Acesso por Projeto</h3>
+        <p className="text-xs text-muted-foreground">
+          Por padrão todos os usuários têm acesso a todos os projetos. Desative "Acesso Total" para restringir.
+        </p>
+        <div className="relative max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Buscar usuário..." value={userSearch} onChange={(e) => setUserSearch(e.target.value)} className="pl-9 bg-secondary" />
+        </div>
+
+        {accessLoading ? (
+          <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        ) : (
+          <div className="space-y-3">
+            {filteredUsers.map((u) => (
+              <div key={u.user_id} className="p-4 rounded-lg border bg-card space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">{u.name}</p>
+                    <p className="text-xs text-muted-foreground">{u.email}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge className={`${roleBadgeColor(u.role)} border text-xs`}>
+                      {ROLE_LABELS[u.role || ''] || 'Sem cargo'}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant={hasFullAccess(u.user_id) ? 'default' : 'outline'}
+                      onClick={() => toggleFullAccess(u.user_id)}
+                      disabled={accessSaving === u.user_id || u.role === 'owner' || u.role === 'admin'}
+                      className="text-xs h-7"
+                    >
+                      {hasFullAccess(u.user_id) ? 'Acesso Total' : 'Restrito'}
+                    </Button>
+                  </div>
+                </div>
+                {!hasFullAccess(u.user_id) && (
+                  <div className="flex flex-wrap gap-2">
+                    {projects.map((proj) => {
+                      const hasAccess = (accessMap[u.user_id] || []).includes(proj.id);
+                      return (
+                        <label key={proj.id} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                          <Checkbox
+                            checked={hasAccess}
+                            onCheckedChange={() => toggleProjectAccess(u.user_id, proj.id)}
+                            disabled={accessSaving === u.user_id}
+                          />
+                          {proj.name}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
