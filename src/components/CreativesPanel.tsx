@@ -8,6 +8,7 @@ import { Download, Trash2, Star, Minimize2, Maximize2, Eye, ImagePlus } from 'lu
 import { stripPngMetadata } from '@/lib/stripPngMetadata';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface CreativesPanelProps {
   projectId: string | null;
