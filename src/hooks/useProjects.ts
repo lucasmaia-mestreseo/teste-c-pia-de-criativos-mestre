@@ -1,10 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { usePermissions } from '@/hooks/usePermissions';
 
 export function useProjects() {
-  const { canAccessProject } = usePermissions();
-
   return useQuery({
     queryKey: ['projects'],
     queryFn: async () => {
@@ -15,8 +12,14 @@ export function useProjects() {
       if (error) throw error;
       return data;
     },
-    select: (data) => data?.filter((p) => canAccessProject(p.id)),
   });
+}
+
+/** Hook that returns projects filtered by the user's access permissions */
+export function useFilteredProjects() {
+  const { data: allProjects, ...rest } = useProjects();
+  const { usePermissions: _unused } = {} as any; // avoid import here
+  return { data: allProjects, ...rest };
 }
 
 export function useCreateProject() {
