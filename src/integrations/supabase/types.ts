@@ -214,6 +214,27 @@ export type Database = {
         }
         Relationships: []
       }
+      role_permissions: {
+        Row: {
+          enabled: boolean
+          id: string
+          permission: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Insert: {
+          enabled?: boolean
+          id?: string
+          permission: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Update: {
+          enabled?: boolean
+          id?: string
+          permission?: string
+          role?: Database["public"]["Enums"]["app_role"]
+        }
+        Relationships: []
+      }
       swipe_files: {
         Row: {
           analysis: Json | null
@@ -326,6 +347,32 @@ export type Database = {
           invited_by?: string
         }
         Relationships: []
+      }
+      user_project_access: {
+        Row: {
+          id: string
+          project_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_project_access_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
