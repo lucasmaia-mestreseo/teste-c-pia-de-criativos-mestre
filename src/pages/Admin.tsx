@@ -97,7 +97,7 @@ const roleBadgeColor = (r: AppRole | null) => {
   }
 };
 
-type Section = 'projects' | 'users' | 'usage' | 'prompts' | 'formats';
+type Section = 'projects' | 'users' | 'usage' | 'prompts' | 'formats' | 'permissions';
 
 const SIDEBAR_ITEMS: { id: Section; label: string; icon: React.ReactNode; ownerOnly?: boolean }[] = [
   { id: 'projects', label: 'Projetos', icon: <FolderOpen className="h-4 w-4" /> },
@@ -105,6 +105,7 @@ const SIDEBAR_ITEMS: { id: Section; label: string; icon: React.ReactNode; ownerO
   { id: 'usage', label: 'Uso do Sistema', icon: <BarChart3 className="h-4 w-4" /> },
   { id: 'formats', label: 'Formatos', icon: <ImageIcon className="h-4 w-4" /> },
   { id: 'prompts', label: 'Prompts', icon: <FileCode className="h-4 w-4" />, ownerOnly: true },
+  { id: 'permissions', label: 'Permissões', icon: <Lock className="h-4 w-4" />, ownerOnly: true },
 ];
 
 export default function AdminPage() {
