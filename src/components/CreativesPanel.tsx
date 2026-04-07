@@ -18,6 +18,7 @@ interface CreativesPanelProps {
 const STORAGE_KEY = 'thumbSize-creatives';
 
 export default function CreativesPanel({ projectId, onUseAsReference }: CreativesPanelProps) {
+  const { can } = usePermissions();
   const [thumbSize, setThumbSize] = useState(() => Number(localStorage.getItem(STORAGE_KEY)) || 200);
   const [onlyFavorites, setOnlyFavorites] = useState(false);
   const [modalCreative, setModalCreative] = useState<any | null>(null);
