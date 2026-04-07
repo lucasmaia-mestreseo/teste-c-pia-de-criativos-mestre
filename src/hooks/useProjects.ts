@@ -15,13 +15,6 @@ export function useProjects() {
   });
 }
 
-/** Hook that returns projects filtered by the user's access permissions */
-export function useFilteredProjects() {
-  const { data: allProjects, ...rest } = useProjects();
-  const { usePermissions: _unused } = {} as any; // avoid import here
-  return { data: allProjects, ...rest };
-}
-
 export function useCreateProject() {
   const qc = useQueryClient();
   return useMutation({
