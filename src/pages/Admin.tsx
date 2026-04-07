@@ -157,6 +157,7 @@ export default function AdminPage() {
           {activeSection === 'usage' && <UsageTab />}
           {activeSection === 'formats' && <FormatsTab />}
           {activeSection === 'prompts' && role === 'owner' && <PromptsTab userId={user?.id} />}
+          {activeSection === 'permissions' && role === 'owner' && <PermissionsTab />}
         </main>
       </div>
     </div>
