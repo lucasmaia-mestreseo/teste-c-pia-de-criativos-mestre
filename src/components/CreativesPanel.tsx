@@ -122,15 +122,21 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
               <button onClick={() => setModalCreative(c)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Detalhes">
                 <Eye className="h-3 w-3 text-muted-foreground" />
               </button>
-              <button onClick={() => toggleFavorite.mutate({ id: c.id, projectId: c.project_id, favorite: !c.favorite })} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Favoritar">
-                <Star className={`h-3 w-3 ${c.favorite ? 'fill-primary text-primary' : 'text-muted-foreground'}`} />
-              </button>
-              <button onClick={() => handleDownload(c.image_url, `creative-${c.id}.png`, c.id)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Download">
-                <Download className="h-3 w-3 text-muted-foreground" />
-              </button>
-              <button onClick={() => setDeleteTarget({ id: c.id, projectId: c.project_id })} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Excluir">
-                <Trash2 className="h-3 w-3 text-muted-foreground" />
-              </button>
+              {can('favorite_creative') && (
+                <button onClick={() => toggleFavorite.mutate({ id: c.id, projectId: c.project_id, favorite: !c.favorite })} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Favoritar">
+                  <Star className={`h-3 w-3 ${c.favorite ? 'fill-primary text-primary' : 'text-muted-foreground'}`} />
+                </button>
+              )}
+              {can('download_creative') && (
+                <button onClick={() => handleDownload(c.image_url, `creative-${c.id}.png`, c.id)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Download">
+                  <Download className="h-3 w-3 text-muted-foreground" />
+                </button>
+              )}
+              {can('delete_creative') && (
+                <button onClick={() => setDeleteTarget({ id: c.id, projectId: c.project_id })} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Excluir">
+                  <Trash2 className="h-3 w-3 text-muted-foreground" />
+                </button>
+              )}
               {onUseAsReference && (
                 <button onClick={() => onUseAsReference(c.image_url, c.project_id)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Usar como referência">
                   <ImagePlus className="h-3 w-3 text-muted-foreground" />
