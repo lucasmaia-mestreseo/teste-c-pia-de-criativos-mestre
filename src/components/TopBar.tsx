@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useProjects, useCreateProject } from '@/hooks/useProjects';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useAuth } from '@/contexts/AuthContext';
 import { Palette, Clock, Plus, Zap, FileText, Shield, LogOut, User, Sparkles, Image } from 'lucide-react';
 import { toast } from 'sonner';
@@ -24,7 +25,9 @@ interface TopBarProps {
 }
 
 export default function TopBar({ selectedProjectId, onSelectProject, activePanel, onPanelChange, onboardingPending, onGoToDashboard }: TopBarProps) {
-  const { data: projects } = useProjects();
+  const { data: allProjects } = useProjects();
+  const { canAccessProject } = usePermissions();
+  const projects = allProjects?.filter((p) => canAccessProject(p.id));
   const createProject = useCreateProject();
   const { profile, role, signOut } = useAuth();
   const navigate = useNavigate();
