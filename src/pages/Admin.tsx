@@ -13,8 +13,10 @@ import { toast } from 'sonner';
 import {
   ArrowLeft, Check, X, Trash2, Loader2, Shield, Plus, Power, PowerOff,
   Save, Pencil, BarChart3, FileCode, FolderOpen, Users, Upload, ImageIcon,
-  Mail, AlertCircle, Search, Star, Download, ChevronLeft, ChevronRight
+  Mail, AlertCircle, Search, Star, Download, ChevronLeft, ChevronRight, Lock
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ALL_PERMISSIONS, PERMISSION_LABELS, type Permission } from '@/hooks/usePermissions';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
