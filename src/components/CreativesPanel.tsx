@@ -207,7 +207,7 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
                     <ImagePlus className="h-3.5 w-3.5 mr-1" /> Referência
                   </Button>
                 )}
-                <p className="text-[10px] text-muted-foreground mt-2 leading-tight">{modalCreative.prompt}</p>
+                <ExpandablePrompt text={modalCreative.prompt} />
                 <p className="text-[10px] text-muted-foreground"><strong>Formato:</strong> {modalCreative.format}</p>
                 <p className="text-[10px] text-muted-foreground">{(selectedIndex ?? 0) + 1} / {filtered.length}</p>
               </div>

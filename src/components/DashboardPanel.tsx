@@ -255,7 +255,7 @@ export default function DashboardPanel({ onSelectProject, onUseAsReference }: Da
                     <ImagePlus className="h-3.5 w-3.5 mr-1" /> Referência
                   </Button>
                 )}
-                {modalCreative.prompt && <p className="text-[10px] text-muted-foreground mt-2 leading-tight">{modalCreative.prompt}</p>}
+                {modalCreative.prompt && <ExpandablePrompt text={modalCreative.prompt} />}
                 <p className="text-[10px] text-muted-foreground"><strong>Formato:</strong> {modalCreative.format}</p>
               </div>
             </div>

@@ -152,7 +152,7 @@ export default function HistoryPanel({ projectId }: HistoryPanelProps) {
                 <Button size="sm" variant="destructive" onClick={() => setDeleteTarget({ id: modalCreative.id, projectId: modalCreative.project_id })}>
                   <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir
                 </Button>
-                {modalCreative.prompt && <p className="text-[10px] text-muted-foreground mt-2 leading-tight">{modalCreative.prompt}</p>}
+                {modalCreative.prompt && <ExpandablePrompt text={modalCreative.prompt} />}
                 <p className="text-[10px] text-muted-foreground"><strong>Formato:</strong> {modalCreative.format}</p>
                 <p className="text-[10px] text-muted-foreground">
                   {format(new Date(modalCreative.created_at), "dd MMM yyyy 'às' HH:mm", { locale: ptBR })}
