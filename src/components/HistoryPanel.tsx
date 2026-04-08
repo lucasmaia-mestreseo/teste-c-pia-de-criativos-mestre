@@ -129,23 +129,21 @@ export default function HistoryPanel({ projectId }: HistoryPanelProps) {
         <DialogContent className="max-w-[90vw] w-auto p-3">
           {modalCreative && (
             <div className="flex gap-4 items-start">
-              <div className="relative flex items-center">
-                <button
-                  onClick={handlePrev}
-                  disabled={selectedIndex === 0}
-                  className="absolute -left-10 z-10 p-1 rounded-full bg-background/80 border border-border hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-                <img src={modalCreative.image_url} alt={modalCreative.prompt || 'Criativo'} className="max-h-[80vh] max-w-[70vw] object-contain rounded-md" />
-                <button
-                  onClick={handleNext}
-                  disabled={selectedIndex === items.length - 1}
-                  className="absolute -right-10 z-10 p-1 rounded-full bg-background/80 border border-border hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
-              </div>
+              <button
+                onClick={handlePrev}
+                disabled={selectedIndex === 0}
+                className="flex-shrink-0 self-center p-2 rounded-full border border-border hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <img src={modalCreative.image_url} alt={modalCreative.prompt || 'Criativo'} className="max-h-[80vh] max-w-[60vw] object-contain rounded-md" />
+              <button
+                onClick={handleNext}
+                disabled={selectedIndex === items.length - 1}
+                className="flex-shrink-0 self-center p-2 rounded-full border border-border hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
               <div className="flex flex-col gap-2 min-w-[120px] pt-8">
                 <span className="text-xs text-muted-foreground text-center">{(selectedIndex ?? 0) + 1} / {items.length}</span>
                 <Button size="sm" variant="outline" onClick={() => handleDownload(modalCreative.image_url, modalCreative.id)}>
