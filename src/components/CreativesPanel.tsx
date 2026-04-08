@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import ExpandablePrompt from '@/components/ExpandablePrompt';
 import { useGeneratedCreatives, useDeleteCreative, useToggleFavorite } from '@/hooks/useGeneratedCreatives';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -168,7 +169,7 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
                 <ChevronLeft className="h-6 w-6 text-foreground" />
               </button>
 
-              <img src={modalCreative.image_url} alt={modalCreative.prompt} className="max-h-[80vh] max-w-[60vw] object-contain rounded-md" />
+              <img src={modalCreative.image_url} alt={modalCreative.prompt} className="max-h-[80vh] max-w-[65vw] object-contain rounded-md" />
 
               {/* Right arrow */}
               <button
@@ -179,7 +180,7 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
                 <ChevronRight className="h-6 w-6 text-foreground" />
               </button>
 
-              <div className="flex flex-col gap-2 min-w-[120px] pt-8">
+              <div className="flex flex-col gap-2 min-w-[180px] max-w-[220px] pt-8 max-h-[80vh] overflow-y-auto">
                 {can('download_creative') && (
                   <Button size="sm" variant="outline" onClick={() => handleDownload(modalCreative.image_url, `creative-${modalCreative.id}.png`, modalCreative.id)}>
                     <Download className="h-3.5 w-3.5 mr-1" /> Download
@@ -207,7 +208,7 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
                     <ImagePlus className="h-3.5 w-3.5 mr-1" /> Referência
                   </Button>
                 )}
-                <p className="text-[10px] text-muted-foreground mt-2 leading-tight">{modalCreative.prompt}</p>
+                <ExpandablePrompt text={modalCreative.prompt} />
                 <p className="text-[10px] text-muted-foreground"><strong>Formato:</strong> {modalCreative.format}</p>
                 <p className="text-[10px] text-muted-foreground">{(selectedIndex ?? 0) + 1} / {filtered.length}</p>
               </div>

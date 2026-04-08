@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import ExpandablePrompt from '@/components/ExpandablePrompt';
 import { useGeneratedCreatives, useDeleteCreative, useToggleFavorite } from '@/hooks/useGeneratedCreatives';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -134,11 +135,11 @@ export default function DynamicResultsPanel({ projectId, generating, onUseAsRefe
               <button onClick={handlePrev} disabled={selectedIndex === 0} className="p-2 rounded-full hover:bg-secondary disabled:opacity-20 disabled:cursor-default transition-colors flex-shrink-0">
                 <ChevronLeft className="h-6 w-6 text-foreground" />
               </button>
-              <img src={modalCreative.image_url} alt={modalCreative.prompt} className="max-h-[80vh] max-w-[60vw] object-contain rounded-md" />
+              <img src={modalCreative.image_url} alt={modalCreative.prompt} className="max-h-[80vh] max-w-[65vw] object-contain rounded-md" />
               <button onClick={handleNext} disabled={selectedIndex === dynamicCreatives.length - 1} className="p-2 rounded-full hover:bg-secondary disabled:opacity-20 disabled:cursor-default transition-colors flex-shrink-0">
                 <ChevronRight className="h-6 w-6 text-foreground" />
               </button>
-              <div className="flex flex-col gap-2 min-w-[160px] pt-8">
+              <div className="flex flex-col gap-2 min-w-[180px] max-w-[220px] pt-8 max-h-[80vh] overflow-y-auto">
                 <Button size="sm" variant="outline" onClick={() => handleDownload(modalCreative.image_url, `creative-${modalCreative.id}.png`)}>
                   <Download className="h-3.5 w-3.5 mr-1" /> Download
                 </Button>
@@ -160,7 +161,7 @@ export default function DynamicResultsPanel({ projectId, generating, onUseAsRefe
                     <ImagePlus className="h-3.5 w-3.5 mr-1" /> Referência
                   </Button>
                 )}
-                <p className="text-[10px] text-muted-foreground mt-2 leading-tight">{modalCreative.prompt}</p>
+                <ExpandablePrompt text={modalCreative.prompt} />
                 <p className="text-[10px] text-muted-foreground"><strong>Formato:</strong> {modalCreative.format}</p>
                 <p className="text-[10px] text-muted-foreground">{(selectedIndex ?? 0) + 1} / {dynamicCreatives.length}</p>
               </div>

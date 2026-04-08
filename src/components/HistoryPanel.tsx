@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import ExpandablePrompt from '@/components/ExpandablePrompt';
 import { useGeneratedCreatives, useDeleteCreative } from '@/hooks/useGeneratedCreatives';
 import { Download, Trash2, Clock, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
@@ -136,7 +137,7 @@ export default function HistoryPanel({ projectId }: HistoryPanelProps) {
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
-              <img src={modalCreative.image_url} alt={modalCreative.prompt || 'Criativo'} className="max-h-[80vh] max-w-[60vw] object-contain rounded-md" />
+              <img src={modalCreative.image_url} alt={modalCreative.prompt || 'Criativo'} className="max-h-[80vh] max-w-[65vw] object-contain rounded-md" />
               <button
                 onClick={handleNext}
                 disabled={selectedIndex === items.length - 1}
@@ -144,7 +145,7 @@ export default function HistoryPanel({ projectId }: HistoryPanelProps) {
               >
                 <ChevronRight className="h-5 w-5" />
               </button>
-              <div className="flex flex-col gap-2 min-w-[120px] pt-8">
+              <div className="flex flex-col gap-2 min-w-[180px] max-w-[220px] pt-8 max-h-[80vh] overflow-y-auto">
                 <span className="text-xs text-muted-foreground text-center">{(selectedIndex ?? 0) + 1} / {items.length}</span>
                 <Button size="sm" variant="outline" onClick={() => handleDownload(modalCreative.image_url, modalCreative.id)}>
                   <Download className="h-3.5 w-3.5 mr-1" /> Download
@@ -152,7 +153,7 @@ export default function HistoryPanel({ projectId }: HistoryPanelProps) {
                 <Button size="sm" variant="destructive" onClick={() => setDeleteTarget({ id: modalCreative.id, projectId: modalCreative.project_id })}>
                   <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir
                 </Button>
-                {modalCreative.prompt && <p className="text-[10px] text-muted-foreground mt-2 leading-tight">{modalCreative.prompt}</p>}
+                {modalCreative.prompt && <ExpandablePrompt text={modalCreative.prompt} />}
                 <p className="text-[10px] text-muted-foreground"><strong>Formato:</strong> {modalCreative.format}</p>
                 <p className="text-[10px] text-muted-foreground">
                   {format(new Date(modalCreative.created_at), "dd MMM yyyy 'às' HH:mm", { locale: ptBR })}
