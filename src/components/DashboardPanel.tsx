@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useDeleteCreative, useToggleFavorite } from '@/hooks/useGeneratedCreatives';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Slider } from '@/components/ui/slider';
-import { Zap, TrendingUp, Image, FolderOpen, Download, Trash2, Star, Eye, Minimize2, Maximize2, ImagePlus } from 'lucide-react';
+import { Zap, TrendingUp, Image, FolderOpen, Download, Trash2, Star, Eye, Minimize2, Maximize2, ImagePlus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { stripPngMetadata } from '@/lib/stripPngMetadata';
@@ -25,8 +25,29 @@ export default function DashboardPanel({ onSelectProject, onUseAsReference }: Da
   const deleteCreative = useDeleteCreative();
   const toggleFavorite = useToggleFavorite();
   const [thumbSize, setThumbSize] = useState(() => Number(localStorage.getItem(STORAGE_KEY)) || 160);
-  const [modalCreative, setModalCreative] = useState<any | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; projectId: string } | null>(null);
+
+  const items = recentCreatives as any[];
+  const modalCreative = selectedIndex !== null ? items[selectedIndex] : null;
+
+  const handlePrev = useCallback(() => {
+    setSelectedIndex(prev => prev !== null && prev > 0 ? prev - 1 : prev);
+  }, []);
+
+  const handleNext = useCallback(() => {
+    setSelectedIndex(prev => prev !== null && prev < items.length - 1 ? prev + 1 : prev);
+  }, [items.length]);
+
+  useEffect(() => {
+    if (selectedIndex === null) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') handlePrev();
+      else if (e.key === 'ArrowRight') handleNext();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [selectedIndex, handlePrev, handleNext]);
 
   const handleThumbSizeChange = ([v]: number[]) => {
     setThumbSize(v);
@@ -52,7 +73,7 @@ export default function DashboardPanel({ onSelectProject, onUseAsReference }: Da
   const confirmDelete = () => {
     if (deleteTarget) {
       deleteCreative.mutate(deleteTarget);
-      if (modalCreative?.id === deleteTarget.id) setModalCreative(null);
+      if (modalCreative?.id === deleteTarget.id) setSelectedIndex(null);
       setDeleteTarget(null);
     }
   };
@@ -123,11 +144,11 @@ export default function DashboardPanel({ onSelectProject, onUseAsReference }: Da
             <Maximize2 className="h-3 w-3 text-muted-foreground" />
           </div>
         </div>
-        {recentCreatives.length === 0 ? (
+        {items.length === 0 ? (
           <p className="text-muted-foreground text-sm">Nenhum criativo gerado ainda.</p>
         ) : (
           <div className="flex flex-wrap gap-3">
-            {recentCreatives.map((c: any) => (
+            {items.map((c: any, idx: number) => (
               <div
                 key={c.id}
                 className="group relative rounded-lg overflow-hidden border border-border bg-secondary"
@@ -136,11 +157,12 @@ export default function DashboardPanel({ onSelectProject, onUseAsReference }: Da
                 <img
                   src={c.image_url}
                   alt="Criativo"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover cursor-pointer"
                   loading="lazy"
+                  onClick={() => setSelectedIndex(idx)}
                 />
                 <div className="absolute bottom-0 left-0 right-0 bg-background/90 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-0.5 py-1">
-                  <button onClick={() => setModalCreative(c)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Detalhes">
+                  <button onClick={() => setSelectedIndex(idx)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Detalhes">
                     <Eye className="h-3 w-3 text-muted-foreground" />
                   </button>
                   <button onClick={() => toggleFavorite.mutate({ id: c.id, projectId: c.project_id, favorite: !c.favorite })} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Favoritar">
@@ -190,13 +212,30 @@ export default function DashboardPanel({ onSelectProject, onUseAsReference }: Da
         )}
       </div>
 
-      {/* Detail Modal */}
-      <Dialog open={!!modalCreative} onOpenChange={() => setModalCreative(null)}>
+      {/* Detail Modal with Navigation */}
+      <Dialog open={selectedIndex !== null} onOpenChange={() => setSelectedIndex(null)}>
         <DialogContent className="max-w-[90vw] w-auto p-3">
           {modalCreative && (
             <div className="flex gap-4 items-start">
-              <img src={modalCreative.image_url} alt={modalCreative.prompt || 'Criativo'} className="max-h-[80vh] max-w-[70vw] object-contain rounded-md" />
+              <div className="relative flex items-center">
+                <button
+                  onClick={handlePrev}
+                  disabled={selectedIndex === 0}
+                  className="absolute -left-10 z-10 p-1 rounded-full bg-background/80 border border-border hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <img src={modalCreative.image_url} alt={modalCreative.prompt || 'Criativo'} className="max-h-[80vh] max-w-[70vw] object-contain rounded-md" />
+                <button
+                  onClick={handleNext}
+                  disabled={selectedIndex === items.length - 1}
+                  className="absolute -right-10 z-10 p-1 rounded-full bg-background/80 border border-border hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
               <div className="flex flex-col gap-2 min-w-[120px] pt-8">
+                <span className="text-xs text-muted-foreground text-center">{(selectedIndex ?? 0) + 1} / {items.length}</span>
                 <Button size="sm" variant="outline" onClick={() => handleDownload(modalCreative.image_url, `creative-${modalCreative.id}.png`)}>
                   <Download className="h-3.5 w-3.5 mr-1" /> Download
                 </Button>
@@ -205,7 +244,6 @@ export default function DashboardPanel({ onSelectProject, onUseAsReference }: Da
                   variant={modalCreative.favorite ? 'default' : 'outline'}
                   onClick={() => {
                     toggleFavorite.mutate({ id: modalCreative.id, projectId: modalCreative.project_id, favorite: !modalCreative.favorite });
-                    setModalCreative({ ...modalCreative, favorite: !modalCreative.favorite });
                   }}
                 >
                   <Star className={`h-3.5 w-3.5 mr-1 ${modalCreative.favorite ? 'fill-primary-foreground' : ''}`} />
@@ -215,7 +253,7 @@ export default function DashboardPanel({ onSelectProject, onUseAsReference }: Da
                   <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir
                 </Button>
                 {onUseAsReference && (
-                  <Button size="sm" variant="outline" onClick={() => { onUseAsReference(modalCreative.image_url, modalCreative.project_id); setModalCreative(null); }}>
+                  <Button size="sm" variant="outline" onClick={() => { onUseAsReference(modalCreative.image_url, modalCreative.project_id); setSelectedIndex(null); }}>
                     <ImagePlus className="h-3.5 w-3.5 mr-1" /> Referência
                   </Button>
                 )}
