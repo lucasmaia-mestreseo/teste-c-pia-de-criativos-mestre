@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import ExpandablePrompt from '@/components/ExpandablePrompt';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useDeleteCreative, useToggleFavorite } from '@/hooks/useGeneratedCreatives';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

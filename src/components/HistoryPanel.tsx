@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import ExpandablePrompt from '@/components/ExpandablePrompt';
 import { useGeneratedCreatives, useDeleteCreative } from '@/hooks/useGeneratedCreatives';
 import { Download, Trash2, Clock, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';

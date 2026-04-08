@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import ExpandablePrompt from '@/components/ExpandablePrompt';
 import { useGeneratedCreatives, useDeleteCreative, useToggleFavorite } from '@/hooks/useGeneratedCreatives';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
