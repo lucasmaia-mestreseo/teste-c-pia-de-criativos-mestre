@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, forwardRef, useImperativeHandle } from 'react';
 import { useBrandKit, useUpsertBrandKit } from '@/hooks/useBrandKit';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Plus, X, Upload, Save, Loader2, Globe, Image, Grid3x3 } from 'lucide-react';
 import { toast } from 'sonner';
 import ColorPickerWithHex from '@/components/ColorPickerWithHex';
+import { invokeWithRetry } from '@/lib/invokeWithRetry';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,11 +19,15 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+export interface BrandKitPanelHandle {
+  saveIfDirty: () => Promise<void>;
+}
+
 interface BrandKitPanelProps {
   projectId: string | null;
 }
 
-export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
+const BrandKitPanel = forwardRef<BrandKitPanelHandle, BrandKitPanelProps>(({ projectId }, ref) => {
   const { data: kit, isLoading } = useBrandKit(projectId);
   const upsert = useUpsertBrandKit();
 
@@ -35,11 +40,13 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
   const [photos, setPhotos] = useState<string[]>([]);
   const [peoplePhotos, setPeoplePhotos] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
   const [siteUrl, setSiteUrl] = useState('');
   const [extracting, setExtracting] = useState(false);
   const [personGridUrl, setPersonGridUrl] = useState('');
   const [generatingGrid, setGeneratingGrid] = useState(false);
   const [designScreenshotUrl, setDesignScreenshotUrl] = useState('');
+  const [dirty, setDirty] = useState(false);
 
   const [pendingExtraction, setPendingExtraction] = useState<any>(null);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -61,6 +68,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
       setPeoplePhotos(kit.people_photos ?? []);
       setPersonGridUrl(kit.person_grid_url ?? '');
       setDesignScreenshotUrl((kit as any).design_screenshot_url ?? '');
+      setDirty(false);
     } else {
       setPrimaryColor('');
       setSecondaryColor('');
@@ -72,33 +80,38 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
       setPeoplePhotos([]);
       setPersonGridUrl('');
       setDesignScreenshotUrl('');
+      setDirty(false);
     }
   }, [kit]);
+
+  // Mark dirty on any change
+  const setAndDirty = <T,>(setter: React.Dispatch<React.SetStateAction<T>>) => (val: T | ((prev: T) => T)) => {
+    setter(val);
+    setDirty(true);
+  };
 
   const hasExistingData = primaryColor || secondaryColor || backgroundColor || auxColors.length > 0 || typography;
 
   const applyExtraction = (data: any, mode: 'replace' | 'merge') => {
     if (mode === 'replace') {
-      if (data.primary_color) setPrimaryColor(data.primary_color);
-      if (data.secondary_color) setSecondaryColor(data.secondary_color);
-      if (data.background_color) setBackgroundColor(data.background_color);
-      if (data.aux_colors?.length) setAuxColors(data.aux_colors);
-      if (data.typography) setTypography(data.typography);
+      if (data.primary_color) { setPrimaryColor(data.primary_color); setDirty(true); }
+      if (data.secondary_color) { setSecondaryColor(data.secondary_color); setDirty(true); }
+      if (data.background_color) { setBackgroundColor(data.background_color); setDirty(true); }
+      if (data.aux_colors?.length) { setAuxColors(data.aux_colors); setDirty(true); }
+      if (data.typography) { setTypography(data.typography); setDirty(true); }
     } else {
-      if (data.primary_color && !primaryColor) setPrimaryColor(data.primary_color);
-      if (data.secondary_color && !secondaryColor) setSecondaryColor(data.secondary_color);
-      if (data.background_color && !backgroundColor) setBackgroundColor(data.background_color);
-      if (data.aux_colors?.length) setAuxColors(prev => [...new Set([...prev, ...data.aux_colors])]);
-      if (data.typography && !typography) setTypography(data.typography);
+      if (data.primary_color && !primaryColor) { setPrimaryColor(data.primary_color); setDirty(true); }
+      if (data.secondary_color && !secondaryColor) { setSecondaryColor(data.secondary_color); setDirty(true); }
+      if (data.background_color && !backgroundColor) { setBackgroundColor(data.background_color); setDirty(true); }
+      if (data.aux_colors?.length) { setAuxColors(prev => [...new Set([...prev, ...data.aux_colors])]); setDirty(true); }
+      if (data.typography && !typography) { setTypography(data.typography); setDirty(true); }
     }
   };
 
   const handleExtraction = async (body: Record<string, any>) => {
     setExtracting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('extract-branding', { body });
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
+      const data = await invokeWithRetry('extract-branding', body, { friendlyName: 'Extração de Branding' });
 
       if (hasExistingData) {
         setPendingExtraction(data);
@@ -108,7 +121,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
         toast.success('Branding extraído com sucesso!');
       }
     } catch (e: any) {
-      toast.error(e.message || 'Erro ao extrair branding');
+      toast.error(e.message || 'Não foi possível extrair o branding. Tente novamente em alguns instantes.');
     } finally {
       setExtracting(false);
     }
@@ -118,14 +131,11 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
     if (!siteUrl.trim() || !projectId) return;
     setExtracting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('extract-design-system', {
-        body: { url: siteUrl.trim(), projectId },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      const data = await invokeWithRetry('extract-design-system', { url: siteUrl.trim(), projectId }, { friendlyName: 'Design System' });
 
       if (data.screenshotUrl) {
         setDesignScreenshotUrl(data.screenshotUrl);
+        setDirty(true);
       }
 
       const extractedData = {
@@ -144,7 +154,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
         toast.success('Design System extraído com sucesso!');
       }
     } catch (e: any) {
-      toast.error(e.message || 'Erro ao extrair Design System');
+      toast.error(e.message || 'Não foi possível extrair o Design System. Tente novamente em alguns instantes.');
     } finally {
       setExtracting(false);
     }
@@ -177,28 +187,43 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
     try {
       const url = await uploadFile(file, 'logos', projectId!);
       setLogoUrl(url);
+      setDirty(true);
       toast.success('Logo enviada');
     } catch { toast.error('Erro ao enviar logo'); }
     finally { setUploading(false); }
   };
 
   const handlePhotoUpload = async (files: FileList, type: 'general' | 'people') => {
+    const fileArr = Array.from(files);
+    if (fileArr.length === 0) return;
     setUploading(true);
+    setUploadProgress(`Enviando 0 de ${fileArr.length} fotos...`);
+    const bucket = type === 'people' ? 'people-photos' : 'brand-photos';
+    let completed = 0;
+    const BATCH_SIZE = 5;
+
     try {
-      const bucket = type === 'people' ? 'people-photos' : 'brand-photos';
-      const urls: string[] = [];
-      for (const file of Array.from(files)) {
-        const url = await uploadFile(file, bucket, projectId!);
-        urls.push(url);
+      for (let i = 0; i < fileArr.length; i += BATCH_SIZE) {
+        const batch = fileArr.slice(i, i + BATCH_SIZE);
+        const urls = await Promise.all(
+          batch.map((file) => uploadFile(file, bucket, projectId!))
+        );
+        completed += urls.length;
+        setUploadProgress(`Enviando ${completed} de ${fileArr.length} fotos...`);
+        if (type === 'people') {
+          setPeoplePhotos(prev => [...prev, ...urls]);
+        } else {
+          setPhotos(prev => [...prev, ...urls]);
+        }
+        setDirty(true);
       }
-      if (type === 'people') {
-        setPeoplePhotos(prev => [...prev, ...urls]);
-      } else {
-        setPhotos(prev => [...prev, ...urls]);
-      }
-      toast.success('Fotos enviadas');
-    } catch { toast.error('Erro ao enviar fotos'); }
-    finally { setUploading(false); }
+      toast.success(`${fileArr.length} foto(s) enviada(s)`);
+    } catch {
+      toast.error('Erro ao enviar algumas fotos');
+    } finally {
+      setUploading(false);
+      setUploadProgress('');
+    }
   };
 
   const handleSave = async () => {
@@ -217,9 +242,18 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
         person_grid_url: personGridUrl || undefined,
         design_screenshot_url: designScreenshotUrl || undefined,
       } as any);
+      setDirty(false);
       toast.success('Brand Kit salvo!');
     } catch { toast.error('Erro ao salvar'); }
   };
+
+  useImperativeHandle(ref, () => ({
+    saveIfDirty: async () => {
+      if (dirty && projectId) {
+        await handleSave();
+      }
+    },
+  }));
 
   if (!projectId) {
     return (
@@ -263,6 +297,14 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
         </Button>
       </div>
 
+      {/* Upload progress */}
+      {uploadProgress && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-secondary rounded-lg px-3 py-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          {uploadProgress}
+        </div>
+      )}
+
       {/* Extract Design System from URL */}
       <div className="space-y-2">
         <Label className="text-xs uppercase text-muted-foreground">Extrair Design System</Label>
@@ -293,7 +335,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
           <div className="relative group">
             <img src={designScreenshotUrl} alt="Screenshot do site" className="w-full rounded border border-border bg-secondary" />
             <button
-              onClick={() => setDesignScreenshotUrl('')}
+              onClick={() => { setDesignScreenshotUrl(''); setDirty(true); }}
               className="absolute top-1 right-1 p-1 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
             >
               <X className="h-3 w-3" />
@@ -306,9 +348,9 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
       <div className="space-y-3">
         <Label className="text-xs uppercase text-muted-foreground">Cores da Marca</Label>
         <div className="grid grid-cols-3 gap-3">
-          <ColorPickerWithHex label="Primária" value={primaryColor} onChange={setPrimaryColor} />
-          <ColorPickerWithHex label="Secundária" value={secondaryColor} onChange={setSecondaryColor} />
-          <ColorPickerWithHex label="Fundo" value={backgroundColor} onChange={setBackgroundColor} />
+          <ColorPickerWithHex label="Primária" value={primaryColor} onChange={(v) => { setPrimaryColor(v); setDirty(true); }} />
+          <ColorPickerWithHex label="Secundária" value={secondaryColor} onChange={(v) => { setSecondaryColor(v); setDirty(true); }} />
+          <ColorPickerWithHex label="Fundo" value={backgroundColor} onChange={(v) => { setBackgroundColor(v); setDirty(true); }} />
         </div>
 
         {/* Auxiliary colors */}
@@ -325,11 +367,12 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
                     const updated = [...auxColors];
                     updated[i] = v;
                     setAuxColors(updated);
+                    setDirty(true);
                   }}
                   className="bg-transparent border-0 h-5 text-xs font-mono w-20 p-0 focus-visible:ring-0"
                   maxLength={7}
                 />
-                <button onClick={() => setAuxColors(auxColors.filter((_, j) => j !== i))}>
+                <button onClick={() => { setAuxColors(auxColors.filter((_, j) => j !== i)); setDirty(true); }}>
                   <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
                 </button>
               </div>
@@ -338,7 +381,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
               <input
                 type="color"
                 className="w-6 h-6 rounded cursor-pointer bg-transparent border-0"
-                onChange={(e) => setAuxColors([...auxColors, e.target.value])}
+                onChange={(e) => { setAuxColors([...auxColors, e.target.value]); setDirty(true); }}
               />
               <span className="text-xs text-muted-foreground">Adicionar</span>
             </div>
@@ -349,7 +392,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
       {/* Typography */}
       <div className="space-y-2">
         <Label className="text-xs uppercase text-muted-foreground">Tipografia</Label>
-        <Input value={typography} onChange={(e) => setTypography(e.target.value)} placeholder="Ex: Montserrat, Roboto" className="bg-secondary" />
+        <Input value={typography} onChange={(e) => { setTypography(e.target.value); setDirty(true); }} placeholder="Ex: Montserrat, Roboto" className="bg-secondary" />
       </div>
 
       {/* Logo */}
@@ -358,7 +401,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
         {logoUrl ? (
           <div className="relative inline-block">
             <img src={logoUrl} alt="Logo" className="h-16 object-contain rounded border border-border bg-secondary p-2" />
-            <button onClick={() => setLogoUrl('')} className="absolute -top-1 -right-1 p-0.5 rounded-full bg-destructive text-destructive-foreground">
+            <button onClick={() => { setLogoUrl(''); setDirty(true); }} className="absolute -top-1 -right-1 p-0.5 rounded-full bg-destructive text-destructive-foreground">
               <X className="h-3 w-3" />
             </button>
           </div>
@@ -377,7 +420,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
           {photos.map((p, i) => (
             <div key={i} className="relative group">
               <img src={p} alt="" className="aspect-square object-cover rounded border border-border" />
-              <button onClick={() => setPhotos(photos.filter((_, j) => j !== i))} className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+              <button onClick={() => { setPhotos(photos.filter((_, j) => j !== i)); setDirty(true); }} className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity">
                 <X className="h-3 w-3" />
               </button>
             </div>
@@ -396,7 +439,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
           {peoplePhotos.map((p, i) => (
             <div key={i} className="relative group">
               <img src={p} alt="" className="aspect-square object-cover rounded border border-border" />
-              <button onClick={() => setPeoplePhotos(peoplePhotos.filter((_, j) => j !== i))} className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+              <button onClick={() => { setPeoplePhotos(peoplePhotos.filter((_, j) => j !== i)); setDirty(true); }} className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity">
                 <X className="h-3 w-3" />
               </button>
             </div>
@@ -416,12 +459,9 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
               if (peoplePhotos.length === 0) return;
               setGeneratingGrid(true);
               try {
-                const { data, error } = await supabase.functions.invoke('generate-person-grid', {
-                  body: { photos: peoplePhotos, projectId },
-                });
-                if (error) throw error;
-                if (data?.error) throw new Error(data.error);
+                const data = await invokeWithRetry('generate-person-grid', { photos: peoplePhotos, projectId }, { friendlyName: 'Grid Multi-Ângulo' });
                 setPersonGridUrl(data.gridUrl);
+                setDirty(true);
                 toast.success('Grid multi-ângulo gerado!');
               } catch (e: any) {
                 toast.error(e.message || 'Erro ao gerar grid');
@@ -443,7 +483,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
             <div className="relative inline-block">
               <img src={personGridUrl} alt="Grid multi-ângulo" className="w-full rounded border border-border bg-secondary" />
               <button
-                onClick={() => setPersonGridUrl('')}
+                onClick={() => { setPersonGridUrl(''); setDirty(true); }}
                 className="absolute -top-1 -right-1 p-0.5 rounded-full bg-destructive text-destructive-foreground"
               >
                 <X className="h-3 w-3" />
@@ -454,4 +494,7 @@ export default function BrandKitPanel({ projectId }: BrandKitPanelProps) {
       </div>
     </div>
   );
-}
+});
+
+BrandKitPanel.displayName = 'BrandKitPanel';
+export default BrandKitPanel;

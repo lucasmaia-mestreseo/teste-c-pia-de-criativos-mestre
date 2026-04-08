@@ -3,8 +3,8 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, Type, Image, Stamp, Loader2, X, Sparkles } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { invokeWithRetry } from '@/lib/invokeWithRetry';
 import type { SwipeAnalysis } from '@/hooks/useSwipeAnalysis';
 
 export interface ElementOverrides {
@@ -110,12 +110,8 @@ export default function SwipeElementsEditor({ analysis, isPending, overrides, on
     if (!projectContext?.trim() || !analysis) return;
     setSuggesting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('suggest-texts', {
-        body: { context: projectContext, texts: analysis.texts },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      const suggestions: { id: string; text: string }[] = data.suggestions ?? [];
+      const result = await invokeWithRetry('suggest-texts', { context: projectContext, texts: analysis.texts }, { friendlyName: 'Sugestão de Textos' });
+      const suggestions: { id: string; text: string }[] = result.suggestions ?? [];
       const newTexts = { ...overrides.texts };
       suggestions.forEach((s) => {
         if (newTexts[s.id]) {
@@ -125,7 +121,7 @@ export default function SwipeElementsEditor({ analysis, isPending, overrides, on
       onChange({ ...overrides, texts: newTexts });
       toast.success('Textos sugeridos pela IA!');
     } catch (e: any) {
-      toast.error(e.message || 'Erro ao sugerir textos');
+      toast.error(e.message || 'Não foi possível sugerir textos. Tente novamente.');
     } finally {
       setSuggesting(false);
     }

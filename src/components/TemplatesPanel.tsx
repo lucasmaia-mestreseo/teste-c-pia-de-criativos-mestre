@@ -8,7 +8,8 @@ import ImageAttachments from './ImageAttachments';
 import { Monitor, ArrowRightLeft, Star, List, UserCheck, Play, Tag, ChevronLeft, Sparkles, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
+import { invokeWithRetry } from '@/lib/invokeWithRetry';
 
 export interface TemplateField {
   key: string;
@@ -145,7 +146,7 @@ export default function TemplatesPanel({ projectId, data, onChange }: TemplatesP
         .eq('id', projectId)
         .single();
       if (pErr || !project?.context) {
-        toast({ title: 'Contexto não encontrado', description: 'Configure o contexto do projeto antes de usar o preenchimento com IA.', variant: 'destructive' });
+        toast.error('Configure o contexto do projeto antes de usar o preenchimento com IA.');
         return;
       }
 
@@ -156,21 +157,17 @@ export default function TemplatesPanel({ projectId, data, onChange }: TemplatesP
         position: f.label,
       }));
 
-      const { data: result, error } = await supabase.functions.invoke('suggest-texts', {
-        body: { context: project.context, texts },
-      });
-
-      if (error) throw error;
+      const result = await invokeWithRetry('suggest-texts', { context: project.context, texts }, { friendlyName: 'Preenchimento com IA' });
 
       const newFields = { ...data.fields };
       (result.suggestions as { id: string; text: string }[]).forEach((s) => {
         newFields[s.id] = s.text;
       });
       onChange({ ...data, fields: newFields });
-      toast({ title: 'Campos preenchidos com IA ✨' });
+      toast.success('Campos preenchidos com IA ✨');
     } catch (e: any) {
       console.error('AI fill error:', e);
-      toast({ title: 'Erro ao preencher', description: e?.message || 'Tente novamente.', variant: 'destructive' });
+      toast.error(e?.message || 'Não foi possível preencher. Tente novamente.');
     } finally {
       setFilling(false);
     }
