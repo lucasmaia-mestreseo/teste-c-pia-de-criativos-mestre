@@ -1,106 +1,61 @@
 
 
-# Sistema de Permissões no Painel Administrativo
+# Ajustes de Robustez, Upload Múltiplo e Auto-Save no Onboarding
 
-## Resumo
+## AJUSTE #01 & #04 — Retry automático + mensagens de erro claras nas Edge Functions
 
-Criar uma nova aba "Permissões" no admin onde o Owner/Admin pode configurar o que cada cargo (Owner, Admin, Gerente, Analista) pode fazer, e também controlar acesso por projeto por usuário.
+### Problema
+Chamadas a `extract-branding`, `extract-design-system`, `suggest-creatives` e `suggest-texts` falham intermitentemente com "Edge Function returned a non-2xx status code" sem informação útil.
 
-## Arquitetura
+### Solução
+Criar uma função utilitária `invokeWithRetry` no frontend que:
+- Tenta invocar a Edge Function até **3 vezes** com delay exponencial (1s, 2s, 4s)
+- Exibe toast com mensagem amigável e número da tentativa: "Tentativa 2 de 3..."
+- Só mostra erro final após esgotar tentativas, com mensagem descritiva (ex: "Não foi possível extrair o branding. Tente novamente em alguns instantes.")
 
-### Tabela `role_permissions`
-Armazena as permissões de cada cargo. Cada linha é um cargo + permissão + habilitado/desabilitado.
+Aplicar em: `BrandKitPanel.tsx` (extract-branding, extract-design-system), `ContextPanel.tsx` (extract-context), `FreePromptPanel.tsx` (suggest-creatives), `TemplatesPanel.tsx` (suggest-texts), `SwipeElementsEditor.tsx` (suggest-texts).
 
-```sql
-CREATE TABLE public.role_permissions (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  role app_role NOT NULL,
-  permission text NOT NULL,
-  enabled boolean NOT NULL DEFAULT true,
-  UNIQUE(role, permission)
-);
-```
+### Arquivo novo
+`src/lib/invokeWithRetry.ts` — função genérica de retry
 
-### Tabela `user_project_access`
-Controla quais projetos cada usuário pode acessar. Se não houver registros para um usuário, ele tem acesso a todos (comportamento atual).
+---
 
-```sql
-CREATE TABLE public.user_project_access (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL,
-  project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  UNIQUE(user_id, project_id)
-);
-```
+## AJUSTE #02 — Upload múltiplo de imagens no Brand Kit
 
-### Permissões disponíveis
+### Problema
+No Brand Kit, o upload de fotos gerais e fotos de pessoas aceita `multiple` no input, mas o handler `handlePhotoUpload` processa sequencialmente e pode travar se muitos arquivos são selecionados. O upload de logo só aceita um arquivo (correto).
 
-| Permissão | Descrição |
-|-----------|-----------|
-| `create_project` | Criar novos projetos |
-| `delete_project` | Excluir projetos |
-| `edit_project` | Editar projetos existentes |
-| `generate_creative` | Gerar criativos |
-| `delete_creative` | Excluir criativos |
-| `download_creative` | Fazer download de criativos |
-| `manage_brand_kit` | Editar brand kit |
-| `manage_swipe_files` | Gerenciar swipe files |
-| `favorite_creative` | Favoritar criativos |
+### Solução
+Refatorar `handlePhotoUpload` em `BrandKitPanel.tsx`:
+- Processar uploads em paralelo com `Promise.all` (limitado a lotes de 5)
+- Atualizar o state progressivamente conforme cada upload termina
+- Mostrar progresso: "Enviando 3 de 8 fotos..."
 
-### Defaults iniciais (seed)
+---
 
-- **Owner**: tudo habilitado
-- **Admin**: tudo habilitado
-- **Gerente**: tudo exceto delete_project
-- **Analista**: apenas generate, download, favorite
+## AJUSTE #03 — Auto-save ao avançar etapas no Onboarding
 
-## UI — Nova aba "Permissões"
+### Problema
+Ao clicar "Próximo" no onboarding sem clicar "Salvar", os dados se perdem.
 
-Adicionar à sidebar do admin uma aba **"Permissões"** (ícone de cadeado/shield). Visível apenas para Owner.
+### Solução
+Modificar `ProjectOnboarding.tsx`:
+- Adicionar refs/callbacks para disparar save do BrandKitPanel e ContextPanel antes de avançar
+- Expor um método `saveIfDirty()` no BrandKitPanel e ContextPanel via `useImperativeHandle` / `forwardRef`
+- No botão "Próximo", chamar o save antes de mudar de step: `await panelRef.current?.saveIfDirty()`
+- Se o save falhar, mostrar toast de erro e não avançar
 
-### Layout da aba
-
-**Seção 1 — Permissões por Cargo**
-Tabela/grid com:
-- Linhas: cada permissão (com label legível em PT-BR)
-- Colunas: Owner (sempre ativo, não editável), Admin, Gerente, Analista
-- Cada célula: checkbox (toggle on/off)
-- Botão "Salvar" ao final
-
-**Seção 2 — Acesso por Projeto**
-- Lista de usuários com dropdown de projetos acessíveis
-- Checkbox para cada projeto
-- Toggle "Acesso total" (sem restrição de projeto)
-- Filtro de busca por usuário
-
-## Hook `usePermissions`
-
-Criar hook que:
-1. Busca as permissões do cargo do usuário logado
-2. Busca o acesso por projeto (se houver restrição)
-3. Expõe `can(permission)` e `canAccessProject(projectId)`
-
-Este hook será usado nos componentes existentes para habilitar/desabilitar botões e ações.
-
-## Integração nos componentes
-
-- **Botão criar projeto**: `can('create_project')`
-- **Botão excluir projeto**: `can('delete_project')`
-- **Botão gerar criativo**: `can('generate_creative')`
-- **Botão download**: `can('download_creative')`
-- **Botão excluir criativo**: `can('delete_creative')`
-- **Brand kit edição**: `can('manage_brand_kit')`
-- **Seletor de projeto**: filtrar por `canAccessProject()`
+---
 
 ## Arquivos
 
 | Ação | Arquivo |
 |------|---------|
-| Migração | Criar tabelas `role_permissions` e `user_project_access` com RLS + seed de dados iniciais |
-| Criar | `src/hooks/usePermissions.ts` — hook com `can()` e `canAccessProject()` |
-| Editar | `src/pages/Admin.tsx` — adicionar aba "Permissões" com grid de checkboxes por cargo + acesso por projeto |
-| Editar | `src/components/CreativesPanel.tsx` — usar `can()` nos botões de download/delete/favorite |
-| Editar | `src/components/GeneratePanel.tsx` — condicionar geração com `can('generate_creative')` |
-| Editar | `src/components/BrandKitPanel.tsx` — condicionar edição com `can('manage_brand_kit')` |
-| Editar | `src/hooks/useProjects.ts` — filtrar projetos por `canAccessProject()` |
+| Criar | `src/lib/invokeWithRetry.ts` — utilitário de retry com backoff |
+| Editar | `src/components/BrandKitPanel.tsx` — usar retry nas extrações + upload paralelo + expor `saveIfDirty` via forwardRef |
+| Editar | `src/components/ContextPanel.tsx` — usar retry na extração + expor `saveIfDirty` via forwardRef |
+| Editar | `src/components/ProjectOnboarding.tsx` — chamar save automático antes de avançar |
+| Editar | `src/components/FreePromptPanel.tsx` — usar retry em suggest-creatives |
+| Editar | `src/components/TemplatesPanel.tsx` — usar retry em suggest-texts |
+| Editar | `src/components/SwipeElementsEditor.tsx` — usar retry em suggest-texts |
 
