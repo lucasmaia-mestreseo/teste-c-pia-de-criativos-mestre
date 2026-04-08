@@ -138,7 +138,7 @@ export default function GeneratePanel({ projectId, generating, onUseAsReference 
               <button onClick={handlePrev} disabled={selectedIndex === 0} className="p-2 rounded-full hover:bg-secondary disabled:opacity-20 disabled:cursor-default transition-colors flex-shrink-0">
                 <ChevronLeft className="h-6 w-6 text-foreground" />
               </button>
-              <img src={modalCreative.image_url} alt={modalCreative.prompt} className="max-h-[80vh] max-w-[60vw] object-contain rounded-md" />
+              <img src={modalCreative.image_url} alt={modalCreative.prompt} className="max-h-[80vh] max-w-[65vw] object-contain rounded-md" />
               <button onClick={handleNext} disabled={selectedIndex === items.length - 1} className="p-2 rounded-full hover:bg-secondary disabled:opacity-20 disabled:cursor-default transition-colors flex-shrink-0">
                 <ChevronRight className="h-6 w-6 text-foreground" />
               </button>
