@@ -232,7 +232,7 @@ export default function DashboardPanel({ onSelectProject, onUseAsReference }: Da
               >
                 <ChevronRight className="h-5 w-5" />
               </button>
-              <div className="flex flex-col gap-2 min-w-[120px] pt-8">
+              <div className="flex flex-col gap-2 min-w-[180px] max-w-[220px] pt-8 max-h-[80vh] overflow-y-auto">
                 <span className="text-xs text-muted-foreground text-center">{(selectedIndex ?? 0) + 1} / {items.length}</span>
                 <Button size="sm" variant="outline" onClick={() => handleDownload(modalCreative.image_url, `creative-${modalCreative.id}.png`)}>
                   <Download className="h-3.5 w-3.5 mr-1" /> Download
