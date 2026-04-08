@@ -134,12 +134,15 @@ Retorne em formato JSON com as chaves: titulo, copy, proposta_imagem, objetivo_e
 
         // Step 2: Generate image
         const imagePrompt = `Create a professional ad creative image for social media.
-Title: "${briefing.titulo || ""}"
+
+HEADLINE TEXT (must appear prominently in the image): "${briefing.titulo || ""}"
+${briefing.copy ? `SUPPORTING COPY (include as secondary text in the layout): "${briefing.copy}"` : ""}
+
 Visual concept: ${briefing.proposta_imagem || "professional marketing image"}
 Brand colors: primary ${(!ignoreBrandKit && brandKit?.primary_color) || "#333"}, secondary ${(!ignoreBrandKit && brandKit?.secondary_color) || "#666"}
 Typography: ${(!ignoreBrandKit && brandKit?.typography) || "modern sans-serif"}
-Style: Clean, professional, high-conversion ad creative.
-DO NOT include any text in the image. The image should be purely visual.`;
+Style: Clean, professional, high-conversion ad creative with clear text hierarchy.
+IMPORTANT: The headline and copy text MUST be rendered as readable text elements in the image, integrated into the visual layout like a real advertisement. Use the brand typography and colors for the text.`;
 
         const imageResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
