@@ -224,7 +224,7 @@ export default function DashboardPanel({ onSelectProject, onUseAsReference }: Da
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
-              <img src={modalCreative.image_url} alt={modalCreative.prompt || 'Criativo'} className="max-h-[80vh] max-w-[60vw] object-contain rounded-md" />
+              <img src={modalCreative.image_url} alt={modalCreative.prompt || 'Criativo'} className="max-h-[80vh] max-w-[65vw] object-contain rounded-md" />
               <button
                 onClick={handleNext}
                 disabled={selectedIndex === items.length - 1}
