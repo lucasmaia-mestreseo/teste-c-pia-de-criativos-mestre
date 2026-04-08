@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useGeneratedCreatives, useDeleteCreative, useToggleFavorite } from '@/hooks/useGeneratedCreatives';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Slider } from '@/components/ui/slider';
-import { Download, Trash2, Star, Minimize2, Maximize2, Eye, ImagePlus } from 'lucide-react';
+import { Download, Trash2, Star, Minimize2, Maximize2, Eye, ImagePlus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { stripPngMetadata } from '@/lib/stripPngMetadata';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,11 +21,35 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
   const { can } = usePermissions();
   const [thumbSize, setThumbSize] = useState(() => Number(localStorage.getItem(STORAGE_KEY)) || 200);
   const [onlyFavorites, setOnlyFavorites] = useState(false);
-  const [modalCreative, setModalCreative] = useState<any | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; projectId: string } | null>(null);
   const { data: creatives } = useGeneratedCreatives(projectId);
   const deleteCreative = useDeleteCreative();
   const toggleFavorite = useToggleFavorite();
+
+  const filtered = onlyFavorites
+    ? (creatives || []).filter((c: any) => c.favorite)
+    : (creatives || []);
+
+  const modalCreative = selectedIndex !== null ? filtered[selectedIndex] : null;
+
+  const handlePrev = useCallback(() => {
+    setSelectedIndex(prev => prev !== null && prev > 0 ? prev - 1 : prev);
+  }, []);
+
+  const handleNext = useCallback(() => {
+    setSelectedIndex(prev => prev !== null && prev < filtered.length - 1 ? prev + 1 : prev);
+  }, [filtered.length]);
+
+  useEffect(() => {
+    if (selectedIndex === null) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') handlePrev();
+      else if (e.key === 'ArrowRight') handleNext();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [selectedIndex, handlePrev, handleNext]);
 
   const handleThumbSizeChange = ([v]: number[]) => {
     setThumbSize(v);
@@ -43,7 +67,6 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
       a.download = name;
       a.click();
       URL.revokeObjectURL(a.href);
-      // Track download
       if (creativeId) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
@@ -58,7 +81,7 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
   const confirmDelete = () => {
     if (deleteTarget) {
       deleteCreative.mutate(deleteTarget);
-      if (modalCreative?.id === deleteTarget.id) setModalCreative(null);
+      if (modalCreative?.id === deleteTarget.id) setSelectedIndex(null);
       setDeleteTarget(null);
     }
   };
@@ -70,10 +93,6 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
       </div>
     );
   }
-
-  const filtered = onlyFavorites
-    ? (creatives || []).filter((c: any) => c.favorite)
-    : (creatives || []);
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
@@ -91,14 +110,7 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
           </Button>
           <div className="flex items-center gap-1.5">
             <Minimize2 className="h-3 w-3 text-muted-foreground" />
-            <Slider
-              value={[thumbSize]}
-              onValueChange={handleThumbSizeChange}
-              min={48}
-              max={800}
-              step={8}
-              className="w-20"
-            />
+            <Slider value={[thumbSize]} onValueChange={handleThumbSizeChange} min={48} max={800} step={8} className="w-20" />
             <Maximize2 className="h-3 w-3 text-muted-foreground" />
           </div>
         </div>
@@ -110,16 +122,11 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
             {onlyFavorites ? 'Nenhum favorito encontrado.' : 'Nenhum criativo gerado ainda.'}
           </p>
         )}
-        {filtered.map((c: any) => (
-          <div
-            key={c.id}
-            className="group relative rounded-md overflow-hidden border bg-secondary flex-shrink-0"
-            style={{ width: thumbSize, height: thumbSize }}
-          >
+        {filtered.map((c: any, idx: number) => (
+          <div key={c.id} className="group relative rounded-md overflow-hidden border bg-secondary flex-shrink-0" style={{ width: thumbSize, height: thumbSize }}>
             <img src={c.image_url} alt={c.prompt} className="w-full h-full object-cover" />
-            {/* Bottom action bar on hover */}
             <div className="absolute bottom-0 left-0 right-0 bg-background/90 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-0.5 py-1">
-              <button onClick={() => setModalCreative(c)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Detalhes">
+              <button onClick={() => setSelectedIndex(idx)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Detalhes">
                 <Eye className="h-3 w-3 text-muted-foreground" />
               </button>
               {can('favorite_creative') && (
@@ -147,16 +154,31 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
         ))}
       </div>
 
-      {/* Detail Modal */}
-      <Dialog open={!!modalCreative} onOpenChange={() => setModalCreative(null)}>
+      {/* Detail Modal with Navigation */}
+      <Dialog open={selectedIndex !== null} onOpenChange={() => setSelectedIndex(null)}>
         <DialogContent className="max-w-[90vw] w-auto p-3">
           {modalCreative && (
-            <div className="flex gap-4 items-start">
-              <img
-                src={modalCreative.image_url}
-                alt={modalCreative.prompt}
-                className="max-h-[80vh] max-w-[70vw] object-contain rounded-md"
-              />
+            <div className="flex gap-4 items-center">
+              {/* Left arrow */}
+              <button
+                onClick={handlePrev}
+                disabled={selectedIndex === 0}
+                className="p-2 rounded-full hover:bg-secondary disabled:opacity-20 disabled:cursor-default transition-colors flex-shrink-0"
+              >
+                <ChevronLeft className="h-6 w-6 text-foreground" />
+              </button>
+
+              <img src={modalCreative.image_url} alt={modalCreative.prompt} className="max-h-[80vh] max-w-[60vw] object-contain rounded-md" />
+
+              {/* Right arrow */}
+              <button
+                onClick={handleNext}
+                disabled={selectedIndex === filtered.length - 1}
+                className="p-2 rounded-full hover:bg-secondary disabled:opacity-20 disabled:cursor-default transition-colors flex-shrink-0"
+              >
+                <ChevronRight className="h-6 w-6 text-foreground" />
+              </button>
+
               <div className="flex flex-col gap-2 min-w-[120px] pt-8">
                 {can('download_creative') && (
                   <Button size="sm" variant="outline" onClick={() => handleDownload(modalCreative.image_url, `creative-${modalCreative.id}.png`, modalCreative.id)}>
@@ -169,7 +191,6 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
                     variant={modalCreative.favorite ? 'default' : 'outline'}
                     onClick={() => {
                       toggleFavorite.mutate({ id: modalCreative.id, projectId: modalCreative.project_id, favorite: !modalCreative.favorite });
-                      setModalCreative({ ...modalCreative, favorite: !modalCreative.favorite });
                     }}
                   >
                     <Star className={`h-3.5 w-3.5 mr-1 ${modalCreative.favorite ? 'fill-primary-foreground' : ''}`} />
@@ -182,12 +203,13 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
                   </Button>
                 )}
                 {onUseAsReference && (
-                  <Button size="sm" variant="outline" onClick={() => { onUseAsReference(modalCreative.image_url, modalCreative.project_id); setModalCreative(null); }}>
+                  <Button size="sm" variant="outline" onClick={() => { onUseAsReference(modalCreative.image_url, modalCreative.project_id); setSelectedIndex(null); }}>
                     <ImagePlus className="h-3.5 w-3.5 mr-1" /> Referência
                   </Button>
                 )}
                 <p className="text-[10px] text-muted-foreground mt-2 leading-tight">{modalCreative.prompt}</p>
                 <p className="text-[10px] text-muted-foreground"><strong>Formato:</strong> {modalCreative.format}</p>
+                <p className="text-[10px] text-muted-foreground">{(selectedIndex ?? 0) + 1} / {filtered.length}</p>
               </div>
             </div>
           )}
