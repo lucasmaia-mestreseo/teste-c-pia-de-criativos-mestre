@@ -142,7 +142,7 @@ export default function GeneratePanel({ projectId, generating, onUseAsReference 
               <button onClick={handleNext} disabled={selectedIndex === items.length - 1} className="p-2 rounded-full hover:bg-secondary disabled:opacity-20 disabled:cursor-default transition-colors flex-shrink-0">
                 <ChevronRight className="h-6 w-6 text-foreground" />
               </button>
-              <div className="flex flex-col gap-2 min-w-[120px] pt-8">
+              <div className="flex flex-col gap-2 min-w-[180px] max-w-[220px] pt-8 max-h-[80vh] overflow-y-auto">
                 <Button size="sm" variant="outline" onClick={() => handleDownload(modalCreative.image_url, `creative-${modalCreative.id}.png`)}>
                   <Download className="h-3.5 w-3.5 mr-1" /> Download
                 </Button>
