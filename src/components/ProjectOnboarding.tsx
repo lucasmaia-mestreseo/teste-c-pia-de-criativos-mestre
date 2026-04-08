@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Check, ChevronRight, ChevronLeft, Palette, FileText, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import BrandKitPanel from '@/components/BrandKitPanel';
-import ContextPanel from '@/components/ContextPanel';
+import BrandKitPanel, { BrandKitPanelHandle } from '@/components/BrandKitPanel';
+import ContextPanel, { ContextPanelHandle } from '@/components/ContextPanel';
 import { useCompleteOnboarding } from '@/hooks/useProject';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface ProjectOnboardingProps {
   projectId: string;
@@ -19,7 +20,26 @@ const steps = [
 
 export default function ProjectOnboarding({ projectId, onComplete }: ProjectOnboardingProps) {
   const [currentStep, setCurrentStep] = useState(0);
+  const [saving, setSaving] = useState(false);
   const completeOnboarding = useCompleteOnboarding();
+  const brandKitRef = useRef<BrandKitPanelHandle>(null);
+  const contextRef = useRef<ContextPanelHandle>(null);
+
+  const handleNext = async (from: number) => {
+    setSaving(true);
+    try {
+      if (from === 0) {
+        await brandKitRef.current?.saveIfDirty();
+      } else if (from === 1) {
+        await contextRef.current?.saveIfDirty();
+      }
+      setCurrentStep(from + 1);
+    } catch {
+      toast.error('Erro ao salvar. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleFinish = async () => {
     await completeOnboarding.mutateAsync(projectId);
@@ -63,11 +83,11 @@ export default function ProjectOnboarding({ projectId, onComplete }: ProjectOnbo
           <div className="flex flex-col h-full">
             <p className="text-center text-muted-foreground mb-4">{steps[0].description}</p>
             <div className="flex-1 min-h-0 overflow-auto border rounded-lg">
-              <BrandKitPanel projectId={projectId} />
+              <BrandKitPanel ref={brandKitRef} projectId={projectId} />
             </div>
             <div className="flex justify-end mt-6">
-              <Button onClick={() => setCurrentStep(1)}>
-                Próximo <ChevronRight className="h-4 w-4 ml-1" />
+              <Button onClick={() => handleNext(0)} disabled={saving}>
+                {saving ? 'Salvando...' : 'Próximo'} <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
           </div>
@@ -77,14 +97,14 @@ export default function ProjectOnboarding({ projectId, onComplete }: ProjectOnbo
           <div className="flex flex-col h-full">
             <p className="text-center text-muted-foreground mb-4">{steps[1].description}</p>
             <div className="flex-1 min-h-0 overflow-auto border rounded-lg">
-              <ContextPanel projectId={projectId} />
+              <ContextPanel ref={contextRef} projectId={projectId} />
             </div>
             <div className="flex justify-between mt-6">
               <Button variant="outline" onClick={() => setCurrentStep(0)}>
                 <ChevronLeft className="h-4 w-4 mr-1" /> Voltar
               </Button>
-              <Button onClick={() => setCurrentStep(2)}>
-                Próximo <ChevronRight className="h-4 w-4 ml-1" />
+              <Button onClick={() => handleNext(1)} disabled={saving}>
+                {saving ? 'Salvando...' : 'Próximo'} <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
           </div>

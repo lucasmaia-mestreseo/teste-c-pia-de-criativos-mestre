@@ -1,18 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { FileText, Save, Loader2, Globe, Maximize2, X } from 'lucide-react';
+import { FileText, Save, Loader2, Globe, Maximize2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { invokeWithRetry } from '@/lib/invokeWithRetry';
+
+export interface ContextPanelHandle {
+  saveIfDirty: () => Promise<void>;
+}
 
 interface ContextPanelProps {
   projectId: string | null;
 }
 
-export default function ContextPanel({ projectId }: ContextPanelProps) {
+const ContextPanel = forwardRef<ContextPanelHandle, ContextPanelProps>(({ projectId }, ref) => {
   const qc = useQueryClient();
   const [localContext, setLocalContext] = useState('');
   const [localVoice, setLocalVoice] = useState('');
@@ -59,15 +64,23 @@ export default function ContextPanel({ projectId }: ContextPanelProps) {
     onError: () => toast.error('Erro ao salvar contexto'),
   });
 
+  const doSave = async () => {
+    await save.mutateAsync({ context: localContext, voice_guide: localVoice });
+  };
+
+  useImperativeHandle(ref, () => ({
+    saveIfDirty: async () => {
+      if (dirty && projectId) {
+        await doSave();
+      }
+    },
+  }));
+
   const handleExtractFromUrl = async () => {
     if (!extractUrl.trim() || !projectId) return;
     setExtracting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('extract-context', {
-        body: { url: extractUrl.trim(), projectId },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      const data = await invokeWithRetry('extract-context', { url: extractUrl.trim(), projectId }, { friendlyName: 'Extração de Contexto' });
 
       if (data.context) {
         setLocalContext(data.context);
@@ -79,7 +92,7 @@ export default function ContextPanel({ projectId }: ContextPanelProps) {
       }
       toast.success('Contexto e tom de voz extraídos com sucesso!');
     } catch (e: any) {
-      toast.error(e.message || 'Erro ao extrair contexto');
+      toast.error(e.message || 'Não foi possível extrair o contexto. Tente novamente em alguns instantes.');
     } finally {
       setExtracting(false);
     }
@@ -191,7 +204,7 @@ export default function ContextPanel({ projectId }: ContextPanelProps) {
       <Dialog open={expandedField !== null} onOpenChange={(open) => { if (!open) setExpandedField(null); }}>
         <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
+            <DialogTitle>
               {expandedField === 'context' ? 'Contexto' : 'Tom de Voz / Guia de Voz'}
             </DialogTitle>
           </DialogHeader>
@@ -208,4 +221,7 @@ export default function ContextPanel({ projectId }: ContextPanelProps) {
       </Dialog>
     </div>
   );
-}
+});
+
+ContextPanel.displayName = 'ContextPanel';
+export default ContextPanel;
