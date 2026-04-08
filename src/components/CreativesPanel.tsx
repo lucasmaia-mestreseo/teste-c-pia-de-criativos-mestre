@@ -168,7 +168,7 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
                 <ChevronLeft className="h-6 w-6 text-foreground" />
               </button>
 
-              <img src={modalCreative.image_url} alt={modalCreative.prompt} className="max-h-[80vh] max-w-[60vw] object-contain rounded-md" />
+              <img src={modalCreative.image_url} alt={modalCreative.prompt} className="max-h-[80vh] max-w-[65vw] object-contain rounded-md" />
 
               {/* Right arrow */}
               <button
