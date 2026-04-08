@@ -8,7 +8,8 @@ import ImageAttachments from './ImageAttachments';
 import { Monitor, ArrowRightLeft, Star, List, UserCheck, Play, Tag, ChevronLeft, Sparkles, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
+import { invokeWithRetry } from '@/lib/invokeWithRetry';
 
 export interface TemplateField {
   key: string;
