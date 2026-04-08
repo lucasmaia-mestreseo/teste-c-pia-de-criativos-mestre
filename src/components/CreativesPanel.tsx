@@ -179,7 +179,7 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
                 <ChevronRight className="h-6 w-6 text-foreground" />
               </button>
 
-              <div className="flex flex-col gap-2 min-w-[120px] pt-8">
+              <div className="flex flex-col gap-2 min-w-[180px] max-w-[220px] pt-8 max-h-[80vh] overflow-y-auto">
                 {can('download_creative') && (
                   <Button size="sm" variant="outline" onClick={() => handleDownload(modalCreative.image_url, `creative-${modalCreative.id}.png`, modalCreative.id)}>
                     <Download className="h-3.5 w-3.5 mr-1" /> Download
