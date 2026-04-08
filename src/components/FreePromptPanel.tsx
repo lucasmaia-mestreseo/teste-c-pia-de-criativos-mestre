@@ -54,18 +54,15 @@ export default function FreePromptPanel({ projectId, data, onChange }: FreePromp
   const handleSuggest = async () => {
     setSuggesting(true);
     try {
-      const { data: result, error } = await supabase.functions.invoke('suggest-creatives', {
-        body: { projectId },
-      });
-      if (error) throw error;
+      const result = await invokeWithRetry('suggest-creatives', { projectId }, { friendlyName: 'Sugestões de Criativos' });
       const items = result?.suggestions || result;
-      if (!Array.isArray(items) || items.length === 0) throw new Error('No suggestions returned');
+      if (!Array.isArray(items) || items.length === 0) throw new Error('Nenhuma sugestão retornada');
       setSuggestions(items);
       setSelectedIndex(null);
       toast.success('Sugestões geradas com sucesso!');
     } catch (e: any) {
       console.error('suggest-creatives error:', e);
-      toast.error(e?.message || 'Erro ao gerar sugestões');
+      toast.error(e?.message || 'Não foi possível gerar sugestões. Tente novamente.');
     } finally {
       setSuggesting(false);
     }
