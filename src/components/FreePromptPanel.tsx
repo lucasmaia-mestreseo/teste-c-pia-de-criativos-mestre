@@ -13,8 +13,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import ImageAttachments from './ImageAttachments';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { invokeWithRetry } from '@/lib/invokeWithRetry';
 
 export interface FreePromptData {
   prompt: string;
