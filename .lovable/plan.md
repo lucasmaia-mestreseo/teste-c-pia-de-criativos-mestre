@@ -1,37 +1,23 @@
 
 
-# Navegação Modal Consistente em Todos os Painéis
+# Reposicionar Setas de Navegação para Fora da Imagem
 
-## Situação Atual
-
-| Painel | Modal | Navegação por setas |
-|--------|-------|---------------------|
-| CreativesPanel | ✅ | ✅ |
-| GeneratePanel | ✅ | ✅ |
-| DynamicResultsPanel | ✅ | ✅ |
-| **DashboardPanel** | ✅ | ❌ Sem setas |
-| **HistoryPanel** | ❌ Sem modal | ❌ |
+## Problema
+No DashboardPanel e HistoryPanel, as setas usam `position: absolute` com `-left-10` / `-right-10`, fazendo com que fiquem em cima da imagem. Nos outros painéis (CreativesPanel, GeneratePanel, DynamicResultsPanel), as setas são itens flex ao lado da imagem — fora da área visual.
 
 ## Solução
+Padronizar todos os 5 painéis para usar o layout flex onde as setas ficam **ao lado** do modal, não sobrepostas à imagem:
 
-### DashboardPanel
-- Substituir `modalCreative` (objeto) por `selectedIndex` (número)
-- Adicionar `handlePrev` / `handleNext` com `useCallback`
-- Adicionar listener de teclado (ArrowLeft/ArrowRight)
-- Adicionar botões ChevronLeft/ChevronRight no modal
-- Adicionar contador "X / Y"
-
-### HistoryPanel
-- Adicionar estado `selectedIndex` e modal com Dialog
-- Adicionar navegação por setas (botões + teclado)
-- Tornar a imagem clicável para abrir o modal
-- Incluir botões de ação no modal (Download, Excluir)
-- Adicionar contador "X / Y"
+```text
+[ < ]  [ imagem ]  [ > ]  [ painel lateral ]
+```
 
 ## Arquivos
 
 | Ação | Arquivo |
 |------|---------|
-| Editar | `src/components/DashboardPanel.tsx` — converter para selectedIndex + setas |
-| Editar | `src/components/HistoryPanel.tsx` — adicionar modal com navegação completa |
+| Editar | `src/components/DashboardPanel.tsx` — trocar layout absolute por flex siblings |
+| Editar | `src/components/HistoryPanel.tsx` — trocar layout absolute por flex siblings |
+
+As setas passam de `absolute -left-10` para `flex-shrink-0 p-2 rounded-full hover:bg-secondary`, como já funciona nos outros painéis.
 
