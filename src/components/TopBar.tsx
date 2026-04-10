@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useProjects, useCreateProject } from '@/hooks/useProjects';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuth } from '@/contexts/AuthContext';
-import { Palette, Clock, Plus, Zap, FileText, Shield, LogOut, User, Sparkles, Image } from 'lucide-react';
+import { Palette, Clock, Plus, Zap, FileText, Shield, LogOut, User, Sparkles, Image, Check, ChevronsUpDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -33,6 +34,7 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
   const navigate = useNavigate();
   const [newName, setNewName] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [projectsOpen, setProjectsOpen] = useState('');
 
   const canCreateProject = can('create_project');
   const canAdmin = role === 'owner' || role === 'admin';
@@ -82,16 +84,40 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
 
       {/* Project selector */}
       <div className="flex items-center gap-1 flex-shrink-0">
-        <Select value={selectedProjectId ?? ''} onValueChange={onSelectProject}>
-          <SelectTrigger className="w-[170px] h-8 text-xs bg-secondary border-border">
-            <SelectValue placeholder="Selecione um projeto" />
-          </SelectTrigger>
-          <SelectContent>
-            {projects?.filter((p: any) => p.active !== false).sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
-              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Popover open={projectsOpen === 'open'} onOpenChange={(open) => setProjectsOpen(open ? 'open' : '')}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" role="combobox" className="w-[170px] h-8 text-[11px] bg-secondary border-border justify-between font-normal">
+              <span className="truncate">
+                {selectedProjectId
+                  ? projects?.find((p) => p.id === selectedProjectId)?.name ?? 'Selecione um projeto'
+                  : 'Selecione um projeto'}
+              </span>
+              <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[220px] p-0" align="start">
+            <Command>
+              <CommandInput placeholder="Buscar projeto..." className="h-8 text-[11px]" />
+              <CommandEmpty className="text-[11px] py-4">Nenhum projeto encontrado.</CommandEmpty>
+              <CommandList>
+                {projects?.filter((p: any) => p.active !== false).sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
+                  <CommandItem
+                    key={p.id}
+                    value={p.name}
+                    onSelect={() => {
+                      onSelectProject(p.id);
+                      setProjectsOpen('');
+                    }}
+                    className="text-[11px] gap-2"
+                  >
+                    <Check className={cn("h-3 w-3", selectedProjectId === p.id ? "opacity-100" : "opacity-0")} />
+                    {p.name}
+                  </CommandItem>
+                ))}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
 
         {canCreateProject && (
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
