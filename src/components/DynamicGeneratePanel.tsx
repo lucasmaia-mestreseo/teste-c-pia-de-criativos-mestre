@@ -9,6 +9,7 @@ import { Loader2, Sparkles, ShieldCheck, Lightbulb, Rocket } from 'lucide-react'
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { useCreativeFormats } from '@/hooks/useCreativeFormats';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface DynamicGeneratePanelProps {
@@ -54,6 +55,7 @@ export default function DynamicGeneratePanel({ projectId }: DynamicGeneratePanel
 
   const { data: formats } = useCreativeFormats();
   const qc = useQueryClient();
+  const { can } = usePermissions();
 
   const formatLabels = (formats || []).map((f: any) => f.label as string);
   const FORMATS = formatLabels.length > 0 ? formatLabels : ['9:16', '4:5', '1:1', '16:9'];
@@ -167,7 +169,7 @@ export default function DynamicGeneratePanel({ projectId }: DynamicGeneratePanel
         </Select>
         <Button
           onClick={handleGenerate}
-          disabled={generating || !anySelected}
+          disabled={generating || !anySelected || !can('generate_creative')}
           className="flex-1 h-8 text-xs"
         >
           {generating ? (

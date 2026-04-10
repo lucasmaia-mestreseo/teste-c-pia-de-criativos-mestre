@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import ExpandablePrompt from '@/components/ExpandablePrompt';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useGeneratedCreatives, useDeleteCreative } from '@/hooks/useGeneratedCreatives';
 import { Download, Trash2, Clock, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
@@ -17,6 +18,7 @@ interface HistoryPanelProps {
 export default function HistoryPanel({ projectId }: HistoryPanelProps) {
   const { data: creatives, isLoading } = useGeneratedCreatives(projectId);
   const deleteCreative = useDeleteCreative();
+  const { can } = usePermissions();
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; projectId: string } | null>(null);
 
@@ -107,18 +109,22 @@ export default function HistoryPanel({ projectId }: HistoryPanelProps) {
                 </div>
               </div>
               <div className="flex flex-col gap-1">
-                <button
-                  onClick={() => handleDownload(c.image_url, c.id)}
-                  className="p-1.5 rounded hover:bg-secondary transition-colors"
-                >
-                  <Download className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                </button>
-                <button
-                  onClick={() => setDeleteTarget({ id: c.id, projectId: c.project_id })}
-                  className="p-1.5 rounded hover:bg-destructive/20 transition-colors"
-                >
-                  <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                </button>
+                {can('download_creative') && (
+                  <button
+                    onClick={() => handleDownload(c.image_url, c.id)}
+                    className="p-1.5 rounded hover:bg-secondary transition-colors"
+                  >
+                    <Download className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                  </button>
+                )}
+                {can('delete_creative') && (
+                  <button
+                    onClick={() => setDeleteTarget({ id: c.id, projectId: c.project_id })}
+                    className="p-1.5 rounded hover:bg-destructive/20 transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -147,12 +153,16 @@ export default function HistoryPanel({ projectId }: HistoryPanelProps) {
               </button>
               <div className="flex flex-col gap-2 min-w-[180px] max-w-[220px] pt-8 max-h-[80vh] overflow-y-auto">
                 <span className="text-xs text-muted-foreground text-center">{(selectedIndex ?? 0) + 1} / {items.length}</span>
-                <Button size="sm" variant="outline" onClick={() => handleDownload(modalCreative.image_url, modalCreative.id)}>
-                  <Download className="h-3.5 w-3.5 mr-1" /> Download
-                </Button>
-                <Button size="sm" variant="destructive" onClick={() => setDeleteTarget({ id: modalCreative.id, projectId: modalCreative.project_id })}>
-                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir
-                </Button>
+                {can('download_creative') && (
+                  <Button size="sm" variant="outline" onClick={() => handleDownload(modalCreative.image_url, modalCreative.id)}>
+                    <Download className="h-3.5 w-3.5 mr-1" /> Download
+                  </Button>
+                )}
+                {can('delete_creative') && (
+                  <Button size="sm" variant="destructive" onClick={() => setDeleteTarget({ id: modalCreative.id, projectId: modalCreative.project_id })}>
+                    <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir
+                  </Button>
+                )}
                 {modalCreative.prompt && <ExpandablePrompt text={modalCreative.prompt} />}
                 <p className="text-[10px] text-muted-foreground"><strong>Formato:</strong> {modalCreative.format}</p>
                 <p className="text-[10px] text-muted-foreground">
