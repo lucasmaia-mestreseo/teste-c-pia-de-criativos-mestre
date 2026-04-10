@@ -398,6 +398,10 @@ export type Database = {
     }
     Functions: {
       has_any_admin_role: { Args: { _user_id: string }; Returns: boolean }
+      has_permission: {
+        Args: { _permission: string; _user_id: string }
+        Returns: boolean
+      }
       has_project_access: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
