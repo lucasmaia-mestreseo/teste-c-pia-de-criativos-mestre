@@ -1,61 +1,33 @@
 
 
-# Corrigir Permissões: Respeitar Configurações do Painel Admin
+# Seletor de Projetos: Fonte Menor + Busca com Filtro
 
 ## Problema
-As permissões configuradas no painel administrativo (tabela `role_permissions`) estão sendo ignoradas em vários lugares. O código usa verificações hardcoded por nome de cargo ao invés de consultar a tabela de permissões.
-
-### Exemplo concreto
-No `TopBar.tsx`, linha 37:
-```typescript
-const canCreateProject = role === 'owner' || role === 'admin' || role === 'manager';
-```
-Isso ignora completamente o que está configurado na aba "Permissões" do admin. Mesmo que o admin marque `create_project` como habilitado para analistas, eles não conseguem criar projetos.
-
-### Dois níveis do problema
-1. **Interface (UI)**: Verificações hardcoded por cargo ao invés de usar `can('create_project')`
-2. **Banco de dados (RLS)**: A função `has_project_access()` só permite owner/admin/manager, bloqueando analistas no nível do banco mesmo que a UI permita
+O dropdown de projetos usa `Select` do Radix, que não suporta campo de busca nativo. Com muitos projetos, fica difícil encontrar o desejado.
 
 ## Solução
+Substituir o `Select` por um **Popover + Command** (combobox com busca), que já existe no projeto via shadcn/ui. Isso permite:
 
-### Camada UI
-Substituir verificações hardcoded por `can()` do hook `usePermissions`:
+1. **Campo de busca** no topo do dropdown que filtra projetos em tempo real
+2. **Fonte menor** nos itens (`text-[11px]`) para caber mais projetos na lista
+3. Manter o mesmo visual compacto do trigger atual
 
-- **TopBar.tsx**: Trocar `role === 'owner' || ...` por `can('create_project')`
-- **DashboardPanel.tsx**: Adicionar `usePermissions` para controlar botões de download/delete/favoritar
-- **GeneratePanel.tsx**: Usar `can('generate_creative')` para controlar acesso à geração
-- **HistoryPanel.tsx**: Usar `can()` para controlar ações no modal
-
-### Camada RLS (banco de dados)
-Criar uma nova função `has_permission()` que consulta a tabela `role_permissions`:
-
-```sql
-CREATE FUNCTION public.has_permission(_user_id uuid, _permission text)
-RETURNS boolean AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.user_roles ur
-    JOIN public.role_permissions rp ON rp.role = ur.role
-    WHERE ur.user_id = _user_id
-      AND rp.permission = _permission
-      AND rp.enabled = true
-  )
-  OR EXISTS (
-    SELECT 1 FROM public.user_roles
-    WHERE user_id = _user_id AND role = 'owner'
-  )
-$$;
+### Componente resultante
+```text
+[ Projeto selecionado ▼ ]
+┌─────────────────────┐
+│ 🔍 Buscar projeto   │
+├─────────────────────┤
+│ Agência Mestre      │
+│ Focosmais Contab... │
+│ ForLife Imóveis     │
+│ ...                 │
+└─────────────────────┘
 ```
 
-Atualizar as policies de INSERT em `projects` para usar `has_permission(auth.uid(), 'create_project')` ao invés de `has_project_access()`.
-
-## Arquivos
+## Arquivo
 
 | Ação | Arquivo |
 |------|---------|
-| Migração | Nova função `has_permission` + atualizar policy de INSERT em `projects` |
-| Editar | `src/components/TopBar.tsx` — usar `can('create_project')` |
-| Editar | `src/components/DashboardPanel.tsx` — usar `can()` para ações |
-| Editar | `src/components/GeneratePanel.tsx` — usar `can('generate_creative')` |
-| Editar | `src/components/DynamicGeneratePanel.tsx` — usar `can('generate_creative')` |
-| Editar | `src/components/HistoryPanel.tsx` — usar `can()` para ações no modal |
+| Editar | `src/components/TopBar.tsx` — substituir `Select` por `Popover` + `Command` com input de busca e itens com fonte menor |
 
