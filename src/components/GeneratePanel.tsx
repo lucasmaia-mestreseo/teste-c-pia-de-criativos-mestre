@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import ExpandablePrompt from '@/components/ExpandablePrompt';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -24,6 +25,7 @@ export default function GeneratePanel({ projectId, generating, onUseAsReference 
   const { data: creatives } = useGeneratedCreatives(projectId);
   const deleteCreative = useDeleteCreative();
   const toggleFavorite = useToggleFavorite();
+  const { can } = usePermissions();
 
   const items = creatives || [];
   const modalCreative = selectedIndex !== null ? items[selectedIndex] : null;
@@ -109,15 +111,21 @@ export default function GeneratePanel({ projectId, generating, onUseAsReference 
                     <button onClick={() => setSelectedIndex(idx)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Detalhes">
                       <Eye className="h-3 w-3 text-muted-foreground" />
                     </button>
-                    <button onClick={() => toggleFavorite.mutate({ id: c.id, projectId: c.project_id, favorite: !(c as any).favorite })} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Favoritar">
-                      <Star className={`h-3 w-3 ${(c as any).favorite ? 'fill-primary text-primary' : 'text-muted-foreground'}`} />
-                    </button>
-                    <button onClick={() => handleDownload(c.image_url, `creative-${c.id}.png`)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Download">
-                      <Download className="h-3 w-3 text-muted-foreground" />
-                    </button>
-                    <button onClick={() => setDeleteTarget({ id: c.id, projectId: c.project_id })} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Excluir">
-                      <Trash2 className="h-3 w-3 text-muted-foreground" />
-                    </button>
+                    {can('favorite_creative') && (
+                      <button onClick={() => toggleFavorite.mutate({ id: c.id, projectId: c.project_id, favorite: !(c as any).favorite })} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Favoritar">
+                        <Star className={`h-3 w-3 ${(c as any).favorite ? 'fill-primary text-primary' : 'text-muted-foreground'}`} />
+                      </button>
+                    )}
+                    {can('download_creative') && (
+                      <button onClick={() => handleDownload(c.image_url, `creative-${c.id}.png`)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Download">
+                        <Download className="h-3 w-3 text-muted-foreground" />
+                      </button>
+                    )}
+                    {can('delete_creative') && (
+                      <button onClick={() => setDeleteTarget({ id: c.id, projectId: c.project_id })} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Excluir">
+                        <Trash2 className="h-3 w-3 text-muted-foreground" />
+                      </button>
+                    )}
                     {onUseAsReference && (
                       <button onClick={() => onUseAsReference(c.image_url, c.project_id)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Usar como referência">
                         <ImagePlus className="h-3 w-3 text-muted-foreground" />
@@ -144,18 +152,24 @@ export default function GeneratePanel({ projectId, generating, onUseAsReference 
                 <ChevronRight className="h-6 w-6 text-foreground" />
               </button>
               <div className="flex flex-col gap-2 min-w-[180px] max-w-[220px] pt-8 max-h-[80vh] overflow-y-auto">
-                <Button size="sm" variant="outline" onClick={() => handleDownload(modalCreative.image_url, `creative-${modalCreative.id}.png`)}>
-                  <Download className="h-3.5 w-3.5 mr-1" /> Download
-                </Button>
-                <Button size="sm" variant={(modalCreative as any).favorite ? 'default' : 'outline'} onClick={() => {
-                  toggleFavorite.mutate({ id: modalCreative.id, projectId: modalCreative.project_id, favorite: !(modalCreative as any).favorite });
-                }}>
-                  <Star className={`h-3.5 w-3.5 mr-1 ${(modalCreative as any).favorite ? 'fill-primary-foreground' : ''}`} />
-                  {(modalCreative as any).favorite ? 'Favoritado' : 'Favoritar'}
-                </Button>
-                <Button size="sm" variant="destructive" onClick={() => setDeleteTarget({ id: modalCreative.id, projectId: modalCreative.project_id })}>
-                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir
-                </Button>
+                {can('download_creative') && (
+                  <Button size="sm" variant="outline" onClick={() => handleDownload(modalCreative.image_url, `creative-${modalCreative.id}.png`)}>
+                    <Download className="h-3.5 w-3.5 mr-1" /> Download
+                  </Button>
+                )}
+                {can('favorite_creative') && (
+                  <Button size="sm" variant={(modalCreative as any).favorite ? 'default' : 'outline'} onClick={() => {
+                    toggleFavorite.mutate({ id: modalCreative.id, projectId: modalCreative.project_id, favorite: !(modalCreative as any).favorite });
+                  }}>
+                    <Star className={`h-3.5 w-3.5 mr-1 ${(modalCreative as any).favorite ? 'fill-primary-foreground' : ''}`} />
+                    {(modalCreative as any).favorite ? 'Favoritado' : 'Favoritar'}
+                  </Button>
+                )}
+                {can('delete_creative') && (
+                  <Button size="sm" variant="destructive" onClick={() => setDeleteTarget({ id: modalCreative.id, projectId: modalCreative.project_id })}>
+                    <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir
+                  </Button>
+                )}
                 {onUseAsReference && (
                   <Button size="sm" variant="outline" onClick={() => { onUseAsReference(modalCreative.image_url, modalCreative.project_id); setSelectedIndex(null); }}>
                     <ImagePlus className="h-3.5 w-3.5 mr-1" /> Referência
