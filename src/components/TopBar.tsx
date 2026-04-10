@@ -34,6 +34,7 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
   const navigate = useNavigate();
   const [newName, setNewName] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [projectsOpen, setProjectsOpen] = useState('');
 
   const canCreateProject = can('create_project');
   const canAdmin = role === 'owner' || role === 'admin';
