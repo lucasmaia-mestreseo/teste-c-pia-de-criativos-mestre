@@ -1,38 +1,61 @@
 
 
-# Modal de Criativos: Mais Espaço + Prompt com "Ver Mais"
+# Corrigir Permissões: Respeitar Configurações do Painel Admin
 
-## Problemas
-1. O painel lateral (botões + prompt) tem largura fixa pequena (`min-w-[120px]`), ficando "esmagado" em imagens horizontais.
-2. Prompts longos ocupam espaço indefinidamente sem scroll nem truncamento.
+## Problema
+As permissões configuradas no painel administrativo (tabela `role_permissions`) estão sendo ignoradas em vários lugares. O código usa verificações hardcoded por nome de cargo ao invés de consultar a tabela de permissões.
+
+### Exemplo concreto
+No `TopBar.tsx`, linha 37:
+```typescript
+const canCreateProject = role === 'owner' || role === 'admin' || role === 'manager';
+```
+Isso ignora completamente o que está configurado na aba "Permissões" do admin. Mesmo que o admin marque `create_project` como habilitado para analistas, eles não conseguem criar projetos.
+
+### Dois níveis do problema
+1. **Interface (UI)**: Verificações hardcoded por cargo ao invés de usar `can('create_project')`
+2. **Banco de dados (RLS)**: A função `has_project_access()` só permite owner/admin/manager, bloqueando analistas no nível do banco mesmo que a UI permita
 
 ## Solução
 
-### Layout do modal
-- Aumentar a largura mínima do painel lateral para `min-w-[180px] max-w-[220px]`
-- Aumentar o `max-w` da imagem de `60vw` para `65vw`
-- Envolver o painel lateral em um `ScrollArea` com `max-h-[80vh]` para não estourar o modal
+### Camada UI
+Substituir verificações hardcoded por `can()` do hook `usePermissions`:
 
-### Prompt com "Ver Mais"
-- Criar um mini-componente inline com estado `expanded`
-- Quando colapsado: `line-clamp-4` (4 linhas) + botão "Ver mais"
-- Quando expandido: texto completo dentro de scroll, botão "Ver menos"
+- **TopBar.tsx**: Trocar `role === 'owner' || ...` por `can('create_project')`
+- **DashboardPanel.tsx**: Adicionar `usePermissions` para controlar botões de download/delete/favoritar
+- **GeneratePanel.tsx**: Usar `can('generate_creative')` para controlar acesso à geração
+- **HistoryPanel.tsx**: Usar `can()` para controlar ações no modal
 
-### Consistência
-Aplicar as mesmas mudanças nos 5 painéis que têm modal:
-- `CreativesPanel.tsx`
-- `GeneratePanel.tsx`
-- `DynamicResultsPanel.tsx`
-- `DashboardPanel.tsx`
-- `HistoryPanel.tsx`
+### Camada RLS (banco de dados)
+Criar uma nova função `has_permission()` que consulta a tabela `role_permissions`:
+
+```sql
+CREATE FUNCTION public.has_permission(_user_id uuid, _permission text)
+RETURNS boolean AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_roles ur
+    JOIN public.role_permissions rp ON rp.role = ur.role
+    WHERE ur.user_id = _user_id
+      AND rp.permission = _permission
+      AND rp.enabled = true
+  )
+  OR EXISTS (
+    SELECT 1 FROM public.user_roles
+    WHERE user_id = _user_id AND role = 'owner'
+  )
+$$;
+```
+
+Atualizar as policies de INSERT em `projects` para usar `has_permission(auth.uid(), 'create_project')` ao invés de `has_project_access()`.
 
 ## Arquivos
 
 | Ação | Arquivo |
 |------|---------|
-| Editar | `src/components/CreativesPanel.tsx` |
-| Editar | `src/components/GeneratePanel.tsx` |
-| Editar | `src/components/DynamicResultsPanel.tsx` |
-| Editar | `src/components/DashboardPanel.tsx` |
-| Editar | `src/components/HistoryPanel.tsx` |
+| Migração | Nova função `has_permission` + atualizar policy de INSERT em `projects` |
+| Editar | `src/components/TopBar.tsx` — usar `can('create_project')` |
+| Editar | `src/components/DashboardPanel.tsx` — usar `can()` para ações |
+| Editar | `src/components/GeneratePanel.tsx` — usar `can('generate_creative')` |
+| Editar | `src/components/DynamicGeneratePanel.tsx` — usar `can('generate_creative')` |
+| Editar | `src/components/HistoryPanel.tsx` — usar `can()` para ações no modal |
 
