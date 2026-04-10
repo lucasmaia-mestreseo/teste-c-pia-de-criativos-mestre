@@ -26,7 +26,7 @@ interface TopBarProps {
 
 export default function TopBar({ selectedProjectId, onSelectProject, activePanel, onPanelChange, onboardingPending, onGoToDashboard }: TopBarProps) {
   const { data: allProjects } = useProjects();
-  const { canAccessProject } = usePermissions();
+  const { canAccessProject, can } = usePermissions();
   const projects = allProjects?.filter((p) => canAccessProject(p.id));
   const createProject = useCreateProject();
   const { profile, role, signOut } = useAuth();
@@ -34,7 +34,7 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
   const [newName, setNewName] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const canCreateProject = role === 'owner' || role === 'admin' || role === 'manager';
+  const canCreateProject = can('create_project');
   const canAdmin = role === 'owner' || role === 'admin';
 
   const userInitials = profile?.name
