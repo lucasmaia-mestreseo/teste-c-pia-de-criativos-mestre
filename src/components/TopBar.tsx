@@ -162,6 +162,29 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
             </DialogContent>
           </Dialog>
         )}
+
+        {selectedProjectId && can('edit_project') && (
+          <>
+            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={openRenameDialog}>
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+              <DialogContent className="bg-card">
+                <DialogHeader><DialogTitle>Renomear Projeto</DialogTitle></DialogHeader>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Novo nome do projeto"
+                    value={renameName}
+                    onChange={(e) => setRenameName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleRename()}
+                    className="bg-secondary"
+                  />
+                  <Button onClick={handleRename} disabled={renameProject.isPending}>Salvar</Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </>
+        )}
       </div>
 
       {/* Separator */}
