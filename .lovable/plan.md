@@ -1,33 +1,39 @@
 
 
-# Seletor de Projetos: Fonte Menor + Busca com Filtro
+# Renomear Projeto: Nova Funcionalidade
 
-## Problema
-O dropdown de projetos usa `Select` do Radix, que não suporta campo de busca nativo. Com muitos projetos, fica difícil encontrar o desejado.
+## Resumo
+Adicionar a possibilidade de renomear um projeto após criado, controlado pela permissão `edit_project` (que já existe na tabela de permissões). Também adicionar uma nova permissão `rename_project` ao sistema para controle granular no admin.
 
-## Solução
-Substituir o `Select` por um **Popover + Command** (combobox com busca), que já existe no projeto via shadcn/ui. Isso permite:
+## Decisão de Design
+A permissão `edit_project` já existe e cobre edição de projetos. Vou **reutilizá-la** para controlar o rename, sem criar uma permissão nova — mantendo simplicidade. O RLS de UPDATE em `projects` já usa `has_permission('edit_project')`, então o banco já está pronto.
 
-1. **Campo de busca** no topo do dropdown que filtra projetos em tempo real
-2. **Fonte menor** nos itens (`text-[11px]`) para caber mais projetos na lista
-3. Manter o mesmo visual compacto do trigger atual
+## Implementação
 
-### Componente resultante
-```text
-[ Projeto selecionado ▼ ]
-┌─────────────────────┐
-│ 🔍 Buscar projeto   │
-├─────────────────────┤
-│ Agência Mestre      │
-│ Focosmais Contab... │
-│ ForLife Imóveis     │
-│ ...                 │
-└─────────────────────┘
-```
+### 1. UI — Botão de renomear no seletor de projetos (TopBar)
+- Adicionar um ícone de edição (Pencil) ao lado do nome do projeto selecionado no Popover
+- Ao clicar, abrir um pequeno Dialog com input para o novo nome
+- Só exibir o botão se `can('edit_project')` retornar true
+- Após salvar, invalidar queries de projetos
 
-## Arquivo
+### 2. Hook — Mutation para renomear
+- Adicionar `useRenameProject()` em `src/hooks/useProject.ts`
+- Faz `supabase.from('projects').update({ name }).eq('id', projectId)`
+- Invalida `['projects']` e `['project', projectId]`
+
+### 3. Nenhuma migração necessária
+- A permissão `edit_project` já existe na tabela `role_permissions`
+- O RLS de UPDATE em `projects` já usa `has_permission(auth.uid(), 'edit_project')`
+- Basta garantir que `edit_project` esteja habilitado para todos os cargos (via insert tool)
+
+### 4. Dados — Habilitar para todos os cargos
+- Inserir/atualizar `role_permissions` para garantir que `edit_project` está `enabled = true` para admin, manager e analyst
+
+## Arquivos
 
 | Ação | Arquivo |
 |------|---------|
-| Editar | `src/components/TopBar.tsx` — substituir `Select` por `Popover` + `Command` com input de busca e itens com fonte menor |
+| Editar | `src/hooks/useProject.ts` — adicionar `useRenameProject` |
+| Editar | `src/components/TopBar.tsx` — adicionar botão de edição e Dialog de rename |
+| Dados | Garantir `edit_project` habilitado para todos os cargos via insert |
 
