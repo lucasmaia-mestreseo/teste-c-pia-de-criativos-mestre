@@ -63,6 +63,23 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
     }
   };
 
+  const handleRename = async () => {
+    if (!renameName.trim() || !selectedProjectId) return;
+    try {
+      await renameProject.mutateAsync({ id: selectedProjectId, name: renameName.trim() });
+      setRenameDialogOpen(false);
+      toast.success('Projeto renomeado!');
+    } catch {
+      toast.error('Erro ao renomear projeto');
+    }
+  };
+
+  const openRenameDialog = () => {
+    const currentName = projects?.find((p) => p.id === selectedProjectId)?.name || '';
+    setRenameName(currentName);
+    setRenameDialogOpen(true);
+  };
+
   const navItems: { panel: RightPanel; icon: React.ElementType; label: string }[] = [
     { panel: 'generate', icon: Zap, label: 'Gerar' },
     { panel: 'dynamic', icon: Sparkles, label: 'Dinâmica' },
