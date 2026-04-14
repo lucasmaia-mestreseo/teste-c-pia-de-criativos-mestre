@@ -31,10 +31,13 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
   const { canAccessProject, can } = usePermissions();
   const projects = allProjects?.filter((p) => canAccessProject(p.id));
   const createProject = useCreateProject();
+  const renameProject = useRenameProject();
   const { profile, role, signOut } = useAuth();
   const navigate = useNavigate();
   const [newName, setNewName] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renameName, setRenameName] = useState('');
   const [projectsOpen, setProjectsOpen] = useState('');
 
   const canCreateProject = can('create_project');
