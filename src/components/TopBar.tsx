@@ -8,9 +8,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useProjects, useCreateProject } from '@/hooks/useProjects';
+import { useRenameProject } from '@/hooks/useProject';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuth } from '@/contexts/AuthContext';
-import { Palette, Clock, Plus, Zap, FileText, Shield, LogOut, User, Sparkles, Image, Check, ChevronsUpDown } from 'lucide-react';
+import { Palette, Clock, Plus, Zap, FileText, Shield, LogOut, User, Sparkles, Image, Check, ChevronsUpDown, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -30,10 +31,13 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
   const { canAccessProject, can } = usePermissions();
   const projects = allProjects?.filter((p) => canAccessProject(p.id));
   const createProject = useCreateProject();
+  const renameProject = useRenameProject();
   const { profile, role, signOut } = useAuth();
   const navigate = useNavigate();
   const [newName, setNewName] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renameName, setRenameName] = useState('');
   const [projectsOpen, setProjectsOpen] = useState('');
 
   const canCreateProject = can('create_project');
@@ -57,6 +61,23 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
     } catch {
       toast.error('Erro ao criar projeto');
     }
+  };
+
+  const handleRename = async () => {
+    if (!renameName.trim() || !selectedProjectId) return;
+    try {
+      await renameProject.mutateAsync({ id: selectedProjectId, name: renameName.trim() });
+      setRenameDialogOpen(false);
+      toast.success('Projeto renomeado!');
+    } catch {
+      toast.error('Erro ao renomear projeto');
+    }
+  };
+
+  const openRenameDialog = () => {
+    const currentName = projects?.find((p) => p.id === selectedProjectId)?.name || '';
+    setRenameName(currentName);
+    setRenameDialogOpen(true);
   };
 
   const navItems: { panel: RightPanel; icon: React.ElementType; label: string }[] = [
@@ -140,6 +161,29 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
               </div>
             </DialogContent>
           </Dialog>
+        )}
+
+        {selectedProjectId && can('edit_project') && (
+          <>
+            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={openRenameDialog}>
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+              <DialogContent className="bg-card">
+                <DialogHeader><DialogTitle>Renomear Projeto</DialogTitle></DialogHeader>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Novo nome do projeto"
+                    value={renameName}
+                    onChange={(e) => setRenameName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleRename()}
+                    className="bg-secondary"
+                  />
+                  <Button onClick={handleRename} disabled={renameProject.isPending}>Salvar</Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </>
         )}
       </div>
 
