@@ -1,39 +1,23 @@
 
 
-# Renomear Projeto: Nova Funcionalidade
+# Corrigir Upload de Imagens para Analistas
 
-## Resumo
-Adicionar a possibilidade de renomear um projeto após criado, controlado pela permissão `edit_project` (que já existe na tabela de permissões). Também adicionar uma nova permissão `rename_project` ao sistema para controle granular no admin.
+## Problema
+As políticas de INSERT e DELETE nos buckets de storage (`logos`, `swipe-files`, `brand-photos`, `people-photos`) usam a função `has_project_access()`, que verifica se o cargo é `owner`, `admin` ou `manager`. Analistas são bloqueados no nível do banco, mesmo sendo usuários aprovados.
 
-## Decisão de Design
-A permissão `edit_project` já existe e cobre edição de projetos. Vou **reutilizá-la** para controlar o rename, sem criar uma permissão nova — mantendo simplicidade. O RLS de UPDATE em `projects` já usa `has_permission('edit_project')`, então o banco já está pronto.
+## Solução
+Trocar `has_project_access(auth.uid())` por `is_approved(auth.uid())` nas políticas de INSERT e DELETE de todos os buckets. Qualquer usuário aprovado poderá fazer upload e deletar arquivos em todos os buckets.
 
-## Implementação
+## Migração SQL
+Uma única migração que:
+1. Remove as políticas atuais de INSERT e DELETE em `storage.objects` para os 5 buckets
+2. Recria com `is_approved(auth.uid())` no lugar de `has_project_access(auth.uid())`
 
-### 1. UI — Botão de renomear no seletor de projetos (TopBar)
-- Adicionar um ícone de edição (Pencil) ao lado do nome do projeto selecionado no Popover
-- Ao clicar, abrir um pequeno Dialog com input para o novo nome
-- Só exibir o botão se `can('edit_project')` retornar true
-- Após salvar, invalidar queries de projetos
-
-### 2. Hook — Mutation para renomear
-- Adicionar `useRenameProject()` em `src/hooks/useProject.ts`
-- Faz `supabase.from('projects').update({ name }).eq('id', projectId)`
-- Invalida `['projects']` e `['project', projectId]`
-
-### 3. Nenhuma migração necessária
-- A permissão `edit_project` já existe na tabela `role_permissions`
-- O RLS de UPDATE em `projects` já usa `has_permission(auth.uid(), 'edit_project')`
-- Basta garantir que `edit_project` esteja habilitado para todos os cargos (via insert tool)
-
-### 4. Dados — Habilitar para todos os cargos
-- Inserir/atualizar `role_permissions` para garantir que `edit_project` está `enabled = true` para admin, manager e analyst
+Buckets afetados: `logos`, `swipe-files`, `brand-photos`, `people-photos`, `generated-creatives`
 
 ## Arquivos
 
 | Ação | Arquivo |
 |------|---------|
-| Editar | `src/hooks/useProject.ts` — adicionar `useRenameProject` |
-| Editar | `src/components/TopBar.tsx` — adicionar botão de edição e Dialog de rename |
-| Dados | Garantir `edit_project` habilitado para todos os cargos via insert |
+| Migração | Atualizar políticas de storage para usar `is_approved` |
 
