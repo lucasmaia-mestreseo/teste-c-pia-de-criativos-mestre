@@ -18,6 +18,7 @@ import { useSwipeAnalysis } from '@/hooks/useSwipeAnalysis';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { invokeWithRetry } from '@/lib/invokeWithRetry';
 import { Textarea } from '@/components/ui/textarea';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -183,9 +184,10 @@ export default function GenerationControls({
         body.attachedImages = templateData.attachedImages;
       }
 
-      const { data, error } = await supabase.functions.invoke('generate-creative', { body });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      await invokeWithRetry('generate-creative', body, {
+        friendlyName: 'Geração de Criativo',
+        projectId,
+      });
       toast.success('Criativo gerado com sucesso!');
       qc.invalidateQueries({ queryKey: ['generated_creatives', projectId] });
     } catch (e: any) {

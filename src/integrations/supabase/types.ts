@@ -97,6 +97,44 @@ export type Database = {
         }
         Relationships: []
       }
+      error_logs: {
+        Row: {
+          created_at: string
+          error_details: Json | null
+          error_message: string | null
+          function_name: string
+          id: string
+          project_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_details?: Json | null
+          error_message?: string | null
+          function_name: string
+          id?: string
+          project_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_details?: Json | null
+          error_message?: string | null
+          function_name?: string
+          id?: string
+          project_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "error_logs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generated_creatives: {
         Row: {
           created_at: string
