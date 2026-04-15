@@ -1,51 +1,37 @@
 
 
-# Melhor Tratamento de Erros + Log Administrativo
+# Ajustar Estilo de Hover no Menu Superior
 
-## Problema
-1. Erros de edge functions mostram apenas "Edge Function returned a non-2xx status code" — sem contexto
-2. As chamadas a `generate-creative` e `generate-dynamic-creative` no frontend **não usam** `invokeWithRetry` — falham na primeira tentativa sem retry
-3. Não existe log de erros para debugging futuro
+## Comportamento atual
+- **Hover**: fundo cinza (`hover:bg-accent`), texto branco (`hover:text-foreground`)
+- **Ativo**: fundo amarelo (`bg-primary`), texto preto (`text-primary-foreground`)
+
+## Comportamento desejado
+- **Hover**: borda amarela, texto amarelo, fundo preto (sem fundo extra)
+- **Ativo**: fundo amarelo, texto preto (mantém como está)
 
 ## Solução
+Na linha 207 de `src/components/TopBar.tsx`, trocar:
 
-### 1. Tabela `error_logs` no banco
-Nova tabela para registrar todos os erros de geração:
+```tsx
+'text-muted-foreground hover:bg-accent hover:text-foreground'
+```
 
-| Coluna | Tipo |
-|--------|------|
-| id | uuid (PK) |
-| user_id | uuid |
-| project_id | uuid (nullable) |
-| function_name | text |
-| error_message | text |
-| error_details | jsonb (nullable) |
-| created_at | timestamptz |
+Por:
 
-RLS: SELECT apenas para admins (`has_any_admin_role`). INSERT para qualquer autenticado.
+```tsx
+'text-muted-foreground hover:text-primary hover:border-primary border border-transparent'
+```
 
-### 2. Melhorar `invokeWithRetry` para logar erros
-Após esgotar todas as tentativas, registrar o erro automaticamente na tabela `error_logs` com: função, mensagem, detalhes (status code, attempt count).
+Isso adiciona:
+- `border border-transparent` — borda transparente por padrão (para não quebrar o layout quando a borda amarela aparecer)
+- `hover:border-primary` — borda amarela no hover
+- `hover:text-primary` — texto amarelo no hover
+- Remove `hover:bg-accent` — mantém o fundo preto
 
-### 3. Usar `invokeWithRetry` em `GenerationControls.tsx` e `DynamicGeneratePanel.tsx`
-Substituir as chamadas diretas a `supabase.functions.invoke` por `invokeWithRetry`, ganhando retries automáticos + log de erros.
+## Arquivo
 
-### 4. Mensagens de erro mais descritivas no frontend
-Mapear erros conhecidos (429 = rate limit, 402 = créditos, 500 = erro interno) para mensagens amigáveis em português.
-
-### 5. Seção "Logs de Erros" no painel admin
-Adicionar nova seção na sidebar do Admin (`error-logs`) com:
-- Lista paginada dos erros mais recentes
-- Filtro por função e por usuário
-- Exibição de detalhes em JSON expandível
-
-## Arquivos
-
-| Acao | Arquivo |
+| Ação | Arquivo |
 |------|---------|
-| Migração | Criar tabela `error_logs` + RLS |
-| Editar | `src/lib/invokeWithRetry.ts` — adicionar log de erro no banco após falha |
-| Editar | `src/components/GenerationControls.tsx` — usar `invokeWithRetry` |
-| Editar | `src/components/DynamicGeneratePanel.tsx` — usar `invokeWithRetry` |
-| Editar | `src/pages/Admin.tsx` — adicionar seção "Logs de Erros" |
+| Editar | `src/components/TopBar.tsx` linha 207 — ajustar classes de hover |
 
