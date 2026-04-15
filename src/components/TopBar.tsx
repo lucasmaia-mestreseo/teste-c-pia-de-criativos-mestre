@@ -204,7 +204,7 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
                   ? 'text-muted-foreground/50 cursor-not-allowed'
                   : activePanel === panel
                     ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                    : 'text-muted-foreground hover:text-primary hover:border-primary border border-transparent'
               )}
             >
               <Icon className="h-3.5 w-3.5" />
