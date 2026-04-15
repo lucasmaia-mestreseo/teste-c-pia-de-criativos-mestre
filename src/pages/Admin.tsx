@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import {
   ArrowLeft, Check, X, Trash2, Loader2, Shield, Plus, Power, PowerOff,
   Save, Pencil, BarChart3, FileCode, FolderOpen, Users, Upload, ImageIcon,
-  Mail, AlertCircle, Search, Star, Download, ChevronLeft, ChevronRight, Lock
+  Mail, AlertCircle, Search, Star, Download, ChevronLeft, ChevronRight, Lock, Bug
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ALL_PERMISSIONS, PERMISSION_LABELS, type Permission } from '@/hooks/usePermissions';
@@ -97,13 +97,14 @@ const roleBadgeColor = (r: AppRole | null) => {
   }
 };
 
-type Section = 'projects' | 'users' | 'usage' | 'prompts' | 'formats' | 'permissions';
+type Section = 'projects' | 'users' | 'usage' | 'prompts' | 'formats' | 'permissions' | 'error-logs';
 
 const SIDEBAR_ITEMS: { id: Section; label: string; icon: React.ReactNode; ownerOnly?: boolean }[] = [
   { id: 'projects', label: 'Projetos', icon: <FolderOpen className="h-4 w-4" /> },
   { id: 'users', label: 'Usuários', icon: <Users className="h-4 w-4" /> },
   { id: 'usage', label: 'Uso do Sistema', icon: <BarChart3 className="h-4 w-4" /> },
   { id: 'formats', label: 'Formatos', icon: <ImageIcon className="h-4 w-4" /> },
+  { id: 'error-logs', label: 'Logs de Erros', icon: <Bug className="h-4 w-4" /> },
   { id: 'prompts', label: 'Prompts', icon: <FileCode className="h-4 w-4" />, ownerOnly: true },
   { id: 'permissions', label: 'Permissões', icon: <Lock className="h-4 w-4" />, ownerOnly: true },
 ];
@@ -156,6 +157,7 @@ export default function AdminPage() {
           {activeSection === 'users' && <UsersTab currentUser={user} currentRole={role} />}
           {activeSection === 'usage' && <UsageTab />}
           {activeSection === 'formats' && <FormatsTab />}
+          {activeSection === 'error-logs' && <ErrorLogsTab />}
           {activeSection === 'prompts' && role === 'owner' && <PromptsTab userId={user?.id} />}
           {activeSection === 'permissions' && role === 'owner' && <PermissionsTab />}
         </main>
