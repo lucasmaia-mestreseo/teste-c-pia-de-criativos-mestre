@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -8,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Sparkles, ShieldCheck, Lightbulb, Rocket } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+import { invokeWithRetry } from '@/lib/invokeWithRetry';
 import { useCreativeFormats } from '@/hooks/useCreativeFormats';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useQueryClient } from '@tanstack/react-query';
@@ -75,11 +75,9 @@ export default function DynamicGeneratePanel({ projectId }: DynamicGeneratePanel
       .map(([type]) => ({ type, count: counts[type] || 1 }));
 
     try {
-      const { data, error } = await supabase.functions.invoke('generate-dynamic-creative', {
-        body: { projectId, types, format, ignoreBrandKit, ignoreContext, customPrompt: customPrompt.trim() || undefined },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      const data = await invokeWithRetry('generate-dynamic-creative', {
+        projectId, types, format, ignoreBrandKit, ignoreContext, customPrompt: customPrompt.trim() || undefined,
+      }, { friendlyName: 'Geração Dinâmica', projectId });
       toast.success(`${data.results?.length || 0} criativos gerados!`);
       qc.invalidateQueries({ queryKey: ['generated_creatives', projectId] });
     } catch (e: any) {
