@@ -1411,3 +1411,117 @@ function PermissionsTab() {
     </div>
   );
 }
+
+// ─── Error Logs Tab ───
+
+function ErrorLogsTab() {
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [functionFilter, setFunctionFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const perPage = 25;
+
+  const fetchLogs = async () => {
+    setLoading(true);
+    let query = supabase
+      .from('error_logs' as any)
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range((page - 1) * perPage, page * perPage - 1);
+
+    if (functionFilter !== 'all') {
+      query = query.eq('function_name', functionFilter);
+    }
+
+    const { data } = await query;
+    setLogs((data as any[]) || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchLogs(); }, [page, functionFilter]);
+  useEffect(() => { setPage(1); }, [functionFilter]);
+
+  const filtered = searchTerm.trim()
+    ? logs.filter((l: any) =>
+        l.error_message?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        l.function_name?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : logs;
+
+  const FUNCTION_OPTIONS = ['all', 'generate-creative', 'generate-dynamic-creative', 'analyze-swipe', 'extract-branding', 'extract-context', 'suggest-creatives', 'suggest-texts'];
+
+  if (loading && page === 1) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-sm font-semibold text-muted-foreground uppercase">Logs de Erros</h3>
+
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Buscar erro..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 bg-secondary" />
+        </div>
+        <Select value={functionFilter} onValueChange={setFunctionFilter}>
+          <SelectTrigger className="w-[220px] bg-secondary">
+            <SelectValue placeholder="Filtrar por função" />
+          </SelectTrigger>
+          <SelectContent>
+            {FUNCTION_OPTIONS.map((f) => (
+              <SelectItem key={f} value={f}>{f === 'all' ? 'Todas as funções' : f}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground text-sm">
+          <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          Nenhum erro registrado
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((log: any) => (
+            <div key={log.id} className="p-3 rounded-lg border bg-card space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Badge variant="outline" className="text-[10px] shrink-0">{log.function_name}</Badge>
+                  <span className="text-xs text-muted-foreground truncate">
+                    {format(new Date(log.created_at), 'dd/MM/yyyy HH:mm:ss')}
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-xs h-6 px-2"
+                  onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
+                >
+                  {expandedId === log.id ? 'Fechar' : 'Detalhes'}
+                </Button>
+              </div>
+              <p className="text-sm text-destructive">{log.error_message}</p>
+              {expandedId === log.id && log.error_details && (
+                <pre className="mt-2 p-2 rounded bg-secondary text-[10px] text-muted-foreground overflow-x-auto max-h-40">
+                  {JSON.stringify(log.error_details, null, 2)}
+                </pre>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between pt-2">
+        <p className="text-xs text-muted-foreground">Página {page}</p>
+        <div className="flex gap-1">
+          <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+            <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
+          </Button>
+          <Button size="sm" variant="outline" disabled={filtered.length < perPage} onClick={() => setPage(page + 1)}>
+            Próximo <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
