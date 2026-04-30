@@ -1482,32 +1482,44 @@ function ErrorLogsTab() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((log: any) => (
-            <div key={log.id} className="p-3 rounded-lg border bg-card space-y-1">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Badge variant="outline" className="text-[10px] shrink-0">{log.function_name}</Badge>
-                  <span className="text-xs text-muted-foreground truncate">
-                    {format(new Date(log.created_at), 'dd/MM/yyyy HH:mm:ss')}
-                  </span>
+          {filtered.map((log: any) => {
+            const status = log.status_code ?? log.error_details?.status;
+            const statusColor =
+              status === 429 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+              : status === 402 ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+              : status >= 500 ? 'bg-red-500/20 text-red-400 border-red-500/30'
+              : 'bg-muted text-muted-foreground';
+            return (
+              <div key={log.id} className="p-3 rounded-lg border bg-card space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                    <Badge variant="outline" className="text-[10px] shrink-0">{log.function_name}</Badge>
+                    {status && <Badge className={`${statusColor} border text-[10px] shrink-0`}>HTTP {status}</Badge>}
+                    {log.source && <Badge variant="outline" className="text-[10px] shrink-0">{log.source}</Badge>}
+                    {log.stage && <Badge variant="outline" className="text-[10px] shrink-0">{log.stage}</Badge>}
+                    {log.model && <Badge variant="outline" className="text-[10px] shrink-0 max-w-[200px] truncate">{log.model}</Badge>}
+                    <span className="text-xs text-muted-foreground truncate">
+                      {format(new Date(log.created_at), 'dd/MM/yyyy HH:mm:ss')}
+                    </span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-xs h-6 px-2 shrink-0"
+                    onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
+                  >
+                    {expandedId === log.id ? 'Fechar' : 'Detalhes'}
+                  </Button>
                 </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="text-xs h-6 px-2"
-                  onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
-                >
-                  {expandedId === log.id ? 'Fechar' : 'Detalhes'}
-                </Button>
+                <p className="text-sm text-destructive">{log.error_message}</p>
+                {expandedId === log.id && log.error_details && (
+                  <pre className="mt-2 p-2 rounded bg-secondary text-[10px] text-muted-foreground overflow-x-auto max-h-60">
+                    {JSON.stringify(log.error_details, null, 2)}
+                  </pre>
+                )}
               </div>
-              <p className="text-sm text-destructive">{log.error_message}</p>
-              {expandedId === log.id && log.error_details && (
-                <pre className="mt-2 p-2 rounded bg-secondary text-[10px] text-muted-foreground overflow-x-auto max-h-40">
-                  {JSON.stringify(log.error_details, null, 2)}
-                </pre>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

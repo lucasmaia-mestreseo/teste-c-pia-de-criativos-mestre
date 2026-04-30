@@ -77,7 +77,7 @@ export default function DynamicGeneratePanel({ projectId }: DynamicGeneratePanel
     try {
       const data = await invokeWithRetry('generate-dynamic-creative', {
         projectId, types, format, ignoreBrandKit, ignoreContext, customPrompt: customPrompt.trim() || undefined,
-      }, { friendlyName: 'Geração Dinâmica', projectId });
+      }, { friendlyName: 'Geração Dinâmica', projectId, maxRetries: 2 });
       toast.success(`${data.results?.length || 0} criativos gerados!`);
       qc.invalidateQueries({ queryKey: ['generated_creatives', projectId] });
     } catch (e: any) {
