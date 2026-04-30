@@ -104,7 +104,12 @@ export type Database = {
           error_message: string | null
           function_name: string
           id: string
+          model: string | null
           project_id: string | null
+          request_id: string | null
+          source: string | null
+          stage: string | null
+          status_code: number | null
           user_id: string
         }
         Insert: {
@@ -113,7 +118,12 @@ export type Database = {
           error_message?: string | null
           function_name: string
           id?: string
+          model?: string | null
           project_id?: string | null
+          request_id?: string | null
+          source?: string | null
+          stage?: string | null
+          status_code?: number | null
           user_id: string
         }
         Update: {
@@ -122,7 +132,12 @@ export type Database = {
           error_message?: string | null
           function_name?: string
           id?: string
+          model?: string | null
           project_id?: string | null
+          request_id?: string | null
+          source?: string | null
+          stage?: string | null
+          status_code?: number | null
           user_id?: string
         }
         Relationships: [
