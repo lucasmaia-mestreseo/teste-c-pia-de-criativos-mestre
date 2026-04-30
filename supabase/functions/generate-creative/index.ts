@@ -609,52 +609,132 @@ CRITICAL RULES:
       });
     }
 
-    const MAX_ATTEMPTS = 3;
+    const MAX_ATTEMPTS = 4;
     let generatedImage: string | undefined;
+    let lastModel = "";
+    let lastStatus: number | null = null;
+    let lastProviderBody: string | null = null;
+    let lastRetryAfter: string | null = null;
+    let lastRequestId: string | null = null;
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       const model = attempt < 3
         ? "google/gemini-3.1-flash-image-preview"
         : "google/gemini-3.1-pro-image-preview";
+      lastModel = model;
 
       console.log(`Attempt ${attempt}/${MAX_ATTEMPTS} with model ${model}`);
 
-      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      let aiResponse: Response;
+      try {
+        aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userContent },
+            ],
+            modalities: ["image", "text"],
+          }),
+        });
+      } catch (fetchErr) {
+        console.error(`Fetch error to AI gateway (attempt ${attempt}):`, fetchErr);
+        if (attempt < MAX_ATTEMPTS) {
+          await new Promise(r => setTimeout(r, 1500 * attempt));
+          continue;
+        }
+        return new Response(JSON.stringify({
+          error: "Falha ao conectar com o serviço de IA.",
+          source: "ai_gateway",
+          stage: "image-generation",
+          status: 0,
           model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userContent },
-          ],
-          modalities: ["image", "text"],
-        }),
-      });
+          attempt,
+          provider_body: String(fetchErr),
+        }), {
+          status: 502,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      lastStatus = aiResponse.status;
+      lastRequestId = aiResponse.headers.get("x-request-id") || aiResponse.headers.get("x-correlation-id");
+      lastRetryAfter = aiResponse.headers.get("retry-after");
 
       if (!aiResponse.ok) {
-        if (aiResponse.status === 429) {
-          return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em breve." }), {
-            status: 429,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
+        const errText = await aiResponse.text();
+        lastProviderBody = errText?.slice(0, 2000) || null;
+        console.error(`AI gateway error (attempt ${attempt}, model ${model}, status ${aiResponse.status}):`, errText);
+
         if (aiResponse.status === 402) {
-          return new Response(JSON.stringify({ error: "Créditos insuficientes. Adicione créditos ao seu workspace." }), {
+          return new Response(JSON.stringify({
+            error: "Créditos insuficientes. Adicione créditos ao seu workspace.",
+            source: "ai_gateway",
+            stage: "image-generation",
+            status: 402,
+            model,
+            attempt,
+            request_id: lastRequestId,
+            provider_body: lastProviderBody,
+          }), {
             status: 402,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
-        const errText = await aiResponse.text();
-        console.error(`AI gateway error (attempt ${attempt}):`, aiResponse.status, errText);
+
+        if (aiResponse.status === 429) {
+          // Internal backoff using Retry-After if present
+          if (attempt < MAX_ATTEMPTS) {
+            const ra = lastRetryAfter ? parseInt(lastRetryAfter, 10) : NaN;
+            const waitMs = !Number.isNaN(ra) && ra > 0
+              ? Math.min(ra * 1000, 10000)
+              : Math.min(2000 * attempt, 8000);
+            console.log(`Rate limited; waiting ${waitMs}ms before next attempt (model fallback may apply)`);
+            await new Promise(r => setTimeout(r, waitMs));
+            continue;
+          }
+          return new Response(JSON.stringify({
+            error: "O serviço de IA está temporariamente limitando novas gerações. Tente novamente em alguns minutos.",
+            source: "ai_gateway",
+            stage: "image-generation",
+            status: 429,
+            model,
+            attempt,
+            retry_after: lastRetryAfter,
+            request_id: lastRequestId,
+            provider_body: lastProviderBody,
+          }), {
+            status: 429,
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json",
+              ...(lastRetryAfter ? { "Retry-After": lastRetryAfter } : {}),
+            },
+          });
+        }
+
         if (attempt < MAX_ATTEMPTS) {
-          await new Promise(r => setTimeout(r, 1000));
+          await new Promise(r => setTimeout(r, 1000 * attempt));
           continue;
         }
-        throw new Error("Erro na geração de imagem");
+        return new Response(JSON.stringify({
+          error: "Erro no serviço de IA ao gerar a imagem.",
+          source: "ai_gateway",
+          stage: "image-generation",
+          status: aiResponse.status,
+          model,
+          attempt,
+          request_id: lastRequestId,
+          provider_body: lastProviderBody,
+        }), {
+          status: 502,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       const aiData = await aiResponse.json();
@@ -689,7 +769,19 @@ CRITICAL RULES:
     }
 
     if (!generatedImage) {
-      throw new Error("A IA não conseguiu gerar a imagem após múltiplas tentativas. Tente novamente ou simplifique o prompt.");
+      return new Response(JSON.stringify({
+        error: "A IA não conseguiu gerar a imagem após múltiplas tentativas. Tente novamente ou simplifique o prompt.",
+        source: "ai_gateway",
+        stage: "image-generation",
+        status: lastStatus,
+        model: lastModel,
+        attempt: MAX_ATTEMPTS,
+        request_id: lastRequestId,
+        provider_body: lastProviderBody,
+      }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Extract base64 data and strip PNG metadata before upload

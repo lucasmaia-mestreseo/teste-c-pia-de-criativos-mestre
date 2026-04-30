@@ -187,6 +187,7 @@ export default function GenerationControls({
       await invokeWithRetry('generate-creative', body, {
         friendlyName: 'Geração de Criativo',
         projectId,
+        maxRetries: 2,
       });
       toast.success('Criativo gerado com sucesso!');
       qc.invalidateQueries({ queryKey: ['generated_creatives', projectId] });
