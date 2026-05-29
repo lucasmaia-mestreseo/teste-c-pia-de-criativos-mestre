@@ -69,17 +69,13 @@ Deno.serve(async (req) => {
       const m = toCat(raw);
       const inSet = new Set(m.input_modalities);
       const outSet = new Set(m.output_modalities);
-      if (outSet.has("image")) image_generation.push(m);
-      if (inSet.has("image") && !outSet.has("image") && outSet.has("text"))
-        vision_analysis.push(m);
-      if (
-        inSet.size > 0 &&
-        outSet.size > 0 &&
-        !outSet.has("image") &&
-        !inSet.has("image") &&
-        outSet.has("text")
-      )
-        text_reasoning.push(m);
+      // If modality info missing, assume text->text so model isn't dropped
+      const effectiveOut = outSet.size === 0 ? new Set(["text"]) : outSet;
+      const effectiveIn = inSet.size === 0 ? new Set(["text"]) : inSet;
+
+      if (effectiveOut.has("image")) image_generation.push(m);
+      if (effectiveIn.has("image") && effectiveOut.has("text")) vision_analysis.push(m);
+      if (effectiveOut.has("text")) text_reasoning.push(m);
     }
 
     const sortFn = (a: CategorizedModel, b: CategorizedModel) =>
