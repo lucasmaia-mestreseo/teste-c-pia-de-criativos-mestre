@@ -101,48 +101,43 @@ CRITICAL: The lighting and color grading must remain identical to the input sour
 
     console.log("Generating person grid with", photos.length, "reference photos...");
 
-    const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3.1-flash-image-preview",
+    const imageSettings = await loadImageGenSettings();
+    const cascade = buildModelCascade(imageSettings);
+    let generatedImage: string | undefined;
+    let lastStatus = 0;
+    let lastErr: string | null = null;
+
+    for (const { model } of cascade) {
+      const r = await callOpenRouter({
+        model,
         messages: [
-          {
-            role: "system",
-            content: "You are an expert cinematographer and character consistency specialist. Generate photorealistic multi-angle grids maintaining absolute character fidelity.",
-          },
+          { role: "system", content: "You are an expert cinematographer and character consistency specialist. Generate photorealistic multi-angle grids maintaining absolute character fidelity." },
           { role: "user", content: userContent },
         ],
         modalities: ["image", "text"],
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em breve." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      });
+      lastStatus = r.status;
+      if (!r.ok) {
+        lastErr = r.errorBody ?? null;
+        console.error(`person-grid OpenRouter error (${model}):`, r.status, lastErr);
+        if (r.status === 402) {
+          return new Response(JSON.stringify({ error: "Créditos insuficientes na OpenRouter." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        if (r.status === 429) {
+          const ra = r.retryAfter ? parseInt(r.retryAfter, 10) : NaN;
+          await new Promise(res => setTimeout(res, !Number.isNaN(ra) && ra > 0 ? Math.min(ra * 1000, 8000) : 1500));
+        }
+        continue;
       }
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos insuficientes." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const errText = await aiResponse.text();
-      console.error("AI gateway error:", aiResponse.status, errText);
-      throw new Error("Erro na geração do grid");
+      generatedImage = extractImageUrl(r.data);
+      if (generatedImage) break;
     }
 
-    const aiData = await aiResponse.json();
-    const generatedImage = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-
     if (!generatedImage) {
-      throw new Error("Nenhuma imagem foi gerada pela IA");
+      if (lastStatus === 429) {
+        return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em breve." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      throw new Error("Nenhuma imagem foi gerada pela IA: " + (lastErr || "sem detalhes"));
     }
 
     // Upload to storage
