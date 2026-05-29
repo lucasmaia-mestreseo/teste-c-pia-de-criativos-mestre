@@ -1,5 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  buildModelCascade,
+  callOpenRouter,
+  callOpenRouterText,
+  extractImageUrl,
+  loadImageGenSettings,
+} from "../_shared/openrouter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,46 +40,30 @@ function detectPhotoMode(prompt: string): "replace" | "swap" {
 /* ------------------------------------------------------------------ */
 /*  Helper: pre-analyze logo content (texts, structure) via vision AI */
 /* ------------------------------------------------------------------ */
-async function analyzeLogoContent(logoUrl: string, apiKey: string): Promise<string | null> {
+async function analyzeLogoContent(logoUrl: string): Promise<string | null> {
   try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
+    const result = await callOpenRouterText("google/gemini-2.5-flash", [
+      {
+        role: "user",
+        content: [
           {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Analyze this logo image in detail. Return a structured description with:
+            type: "text",
+            text: `Analyze this logo image in detail. Return a structured description with:
 1. ALL text found in the logo — list each text exactly as written, and its position (top, center, bottom, left, right).
 2. Visual structure — describe the layout (e.g. "icon in center, text above, tagline below").
 3. Approximate proportions — how much vertical space each part occupies (e.g. "top text: ~15%, icon: ~55%, bottom text: ~30%").
 
 Be precise and exhaustive. Every single character of text must be listed. Answer in Portuguese.`,
-              },
-              {
-                type: "image_url",
-                image_url: { url: logoUrl },
-              },
-            ],
           },
+          { type: "image_url", image_url: { url: logoUrl } },
         ],
-      }),
-    });
-
-    if (!res.ok) {
-      console.error("Logo analysis failed:", res.status);
+      },
+    ]);
+    if (!result.ok) {
+      console.error("Logo analysis failed:", result.status, result.errorBody);
       return null;
     }
-
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content || null;
+    return result.data?.choices?.[0]?.message?.content || null;
   } catch (e) {
     console.error("Logo analysis error:", e);
     return null;
@@ -458,8 +449,10 @@ serve(async (req) => {
     }
 
     const creationMode = mode || 'swipe';
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    if (!Deno.env.get("OPENROUTER_API_KEY")) throw new Error("OPENROUTER_API_KEY not configured");
+
+    const imageSettings = await loadImageGenSettings();
+    const cascade = buildModelCascade(imageSettings);
 
     const hasLogo = !!(brandKit?.logoUrl);
     const hasPersonPhoto = !!(brandKit?.personPhotoUrl);
@@ -469,7 +462,7 @@ serve(async (req) => {
     let logoAnalysis: string | null = null;
     if (hasLogo) {
       console.log("Analyzing logo content...");
-      logoAnalysis = await analyzeLogoContent(brandKit.logoUrl, LOVABLE_API_KEY);
+      logoAnalysis = await analyzeLogoContent(brandKit.logoUrl);
       console.log("Logo analysis result:", logoAnalysis ? "success" : "failed");
     }
 
@@ -609,112 +602,64 @@ CRITICAL RULES:
       });
     }
 
-    const MAX_ATTEMPTS = 4;
+    const MAX_ATTEMPTS = cascade.length;
     let generatedImage: string | undefined;
     let lastModel = "";
+    let lastLevel: "primary" | "fallback" | "tertiary" = "primary";
     let lastStatus: number | null = null;
     let lastProviderBody: string | null = null;
     let lastRetryAfter: string | null = null;
-    let lastRequestId: string | null = null;
+    let lastRequestId: string | null | undefined = null;
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      const model = attempt < 3
-        ? "google/gemini-3.1-flash-image-preview"
-        : "google/gemini-3.1-pro-image-preview";
+      const { model, level } = cascade[attempt - 1];
       lastModel = model;
+      lastLevel = level;
 
-      console.log(`Attempt ${attempt}/${MAX_ATTEMPTS} with model ${model}`);
+      console.log(`Attempt ${attempt}/${MAX_ATTEMPTS} with model ${model} (${level}) via OpenRouter`);
 
-      let aiResponse: Response;
-      try {
-        aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model,
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userContent },
-            ],
-            modalities: ["image", "text"],
-          }),
-        });
-      } catch (fetchErr) {
-        console.error(`Fetch error to AI gateway (attempt ${attempt}):`, fetchErr);
-        if (attempt < MAX_ATTEMPTS) {
-          await new Promise(r => setTimeout(r, 1500 * attempt));
-          continue;
-        }
-        return new Response(JSON.stringify({
-          error: "Falha ao conectar com o serviço de IA.",
-          source: "ai_gateway",
-          stage: "image-generation",
-          status: 0,
-          model,
-          attempt,
-          provider_body: String(fetchErr),
-        }), {
-          status: 502,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      const result = await callOpenRouter({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+        modalities: ["image", "text"],
+      });
 
-      lastStatus = aiResponse.status;
-      lastRequestId = aiResponse.headers.get("x-request-id") || aiResponse.headers.get("x-correlation-id");
-      lastRetryAfter = aiResponse.headers.get("retry-after");
+      lastStatus = result.status;
+      lastRequestId = result.requestId;
+      lastRetryAfter = result.retryAfter ?? null;
 
-      if (!aiResponse.ok) {
-        const errText = await aiResponse.text();
-        lastProviderBody = errText?.slice(0, 2000) || null;
-        console.error(`AI gateway error (attempt ${attempt}, model ${model}, status ${aiResponse.status}):`, errText);
+      if (!result.ok) {
+        lastProviderBody = result.errorBody ?? null;
+        console.error(`OpenRouter error (attempt ${attempt}, model ${model}, status ${result.status}):`, lastProviderBody);
 
-        if (aiResponse.status === 402) {
+        if (result.status === 402) {
           return new Response(JSON.stringify({
-            error: "Créditos insuficientes. Adicione créditos ao seu workspace.",
-            source: "ai_gateway",
-            stage: "image-generation",
-            status: 402,
-            model,
-            attempt,
-            request_id: lastRequestId,
-            provider_body: lastProviderBody,
-          }), {
-            status: 402,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+            error: "Créditos insuficientes na OpenRouter. Adicione saldo à conta.",
+            source: "openrouter", provider: "openrouter", stage: "image-generation",
+            status: 402, model, level, attempt,
+            request_id: lastRequestId, provider_body: lastProviderBody,
+          }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
 
-        if (aiResponse.status === 429) {
-          // Internal backoff using Retry-After if present
+        if (result.status === 429) {
           if (attempt < MAX_ATTEMPTS) {
             const ra = lastRetryAfter ? parseInt(lastRetryAfter, 10) : NaN;
-            const waitMs = !Number.isNaN(ra) && ra > 0
-              ? Math.min(ra * 1000, 10000)
-              : Math.min(2000 * attempt, 8000);
-            console.log(`Rate limited; waiting ${waitMs}ms before next attempt (model fallback may apply)`);
+            const waitMs = !Number.isNaN(ra) && ra > 0 ? Math.min(ra * 1000, 10000) : Math.min(2000 * attempt, 8000);
+            console.log(`Rate limited; waiting ${waitMs}ms before next attempt (cascading model)`);
             await new Promise(r => setTimeout(r, waitMs));
             continue;
           }
           return new Response(JSON.stringify({
-            error: "O serviço de IA está temporariamente limitando novas gerações. Tente novamente em alguns minutos.",
-            source: "ai_gateway",
-            stage: "image-generation",
-            status: 429,
-            model,
-            attempt,
-            retry_after: lastRetryAfter,
-            request_id: lastRequestId,
-            provider_body: lastProviderBody,
+            error: "OpenRouter está limitando novas gerações. Tente novamente em instantes.",
+            source: "openrouter", provider: "openrouter", stage: "image-generation",
+            status: 429, model, level, attempt, retry_after: lastRetryAfter,
+            request_id: lastRequestId, provider_body: lastProviderBody,
           }), {
             status: 429,
-            headers: {
-              ...corsHeaders,
-              "Content-Type": "application/json",
-              ...(lastRetryAfter ? { "Retry-After": lastRetryAfter } : {}),
-            },
+            headers: { ...corsHeaders, "Content-Type": "application/json", ...(lastRetryAfter ? { "Retry-After": lastRetryAfter } : {}) },
           });
         }
 
@@ -723,65 +668,28 @@ CRITICAL RULES:
           continue;
         }
         return new Response(JSON.stringify({
-          error: "Erro no serviço de IA ao gerar a imagem.",
-          source: "ai_gateway",
-          stage: "image-generation",
-          status: aiResponse.status,
-          model,
-          attempt,
-          request_id: lastRequestId,
-          provider_body: lastProviderBody,
-        }), {
-          status: 502,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+          error: "Erro no provedor de IA ao gerar a imagem.",
+          source: "openrouter", provider: "openrouter", stage: "image-generation",
+          status: result.status, model, level, attempt,
+          request_id: lastRequestId, provider_body: lastProviderBody,
+        }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      const aiData = await aiResponse.json();
-      console.log(`Attempt ${attempt} - response keys:`, JSON.stringify(Object.keys(aiData)));
-      console.log(`Attempt ${attempt} - message keys:`, JSON.stringify(Object.keys(aiData.choices?.[0]?.message || {})));
-
-      // Try multiple known response formats
-      generatedImage = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-
-      if (!generatedImage) {
-        const parts = aiData.choices?.[0]?.message?.content;
-        if (Array.isArray(parts)) {
-          for (const part of parts) {
-            if ((part.type === "image_url" || part.type === "image") && part.image_url?.url) {
-              generatedImage = part.image_url.url;
-              break;
-            }
-            if (part.inline_data?.data) {
-              generatedImage = `data:${part.inline_data.mime_type || "image/png"};base64,${part.inline_data.data}`;
-              break;
-            }
-          }
-        }
-      }
-
+      generatedImage = extractImageUrl(result.data);
       if (generatedImage) break;
 
-      console.warn(`Attempt ${attempt} failed - no image. finish_reason: ${aiData.choices?.[0]?.native_finish_reason || aiData.choices?.[0]?.finish_reason}`);
-      if (attempt < MAX_ATTEMPTS) {
-        await new Promise(r => setTimeout(r, 1000));
-      }
+      console.warn(`Attempt ${attempt} returned no image. finish_reason: ${result.data?.choices?.[0]?.finish_reason}`);
+      if (attempt < MAX_ATTEMPTS) await new Promise(r => setTimeout(r, 800));
     }
+
 
     if (!generatedImage) {
       return new Response(JSON.stringify({
         error: "A IA não conseguiu gerar a imagem após múltiplas tentativas. Tente novamente ou simplifique o prompt.",
-        source: "ai_gateway",
-        stage: "image-generation",
-        status: lastStatus,
-        model: lastModel,
-        attempt: MAX_ATTEMPTS,
-        request_id: lastRequestId,
-        provider_body: lastProviderBody,
-      }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+        source: "openrouter", provider: "openrouter", stage: "image-generation",
+        status: lastStatus, model: lastModel, level: lastLevel, attempt: MAX_ATTEMPTS,
+        request_id: lastRequestId, provider_body: lastProviderBody,
+      }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Extract base64 data and strip PNG metadata before upload

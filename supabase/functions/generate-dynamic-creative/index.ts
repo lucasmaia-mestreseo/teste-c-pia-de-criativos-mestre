@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.99.0";
+import { buildModelCascade, callOpenRouter, extractImageUrl, loadImageGenSettings } from "../_shared/openrouter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,9 +16,9 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+    const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
 
-    if (!lovableKey) throw new Error("Lovable AI não configurado");
+    if (!openrouterKey) throw new Error("Lovable AI não configurado");
 
     const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -58,10 +59,10 @@ Deno.serve(async (req) => {
 
       for (let i = 0; i < validCount; i++) {
         // Step 1: Generate briefing
-        const briefingResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const briefingResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${lovableKey}`,
+            Authorization: `Bearer ${openrouterKey}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
@@ -144,28 +145,28 @@ Typography: ${(!ignoreBrandKit && brandKit?.typography) || "modern sans-serif"}
 Style: Clean, professional, high-conversion ad creative with clear text hierarchy.
 IMPORTANT: The headline and copy text MUST be rendered as readable text elements in the image, integrated into the visual layout like a real advertisement. Use the brand typography and colors for the text.`;
 
-        const imageResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${lovableKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-3.1-flash-image-preview",
+        const imageSettings = await loadImageGenSettings();
+        const cascade = buildModelCascade(imageSettings);
+        let imageBase64: string | undefined;
+        for (const { model } of cascade) {
+          const r = await callOpenRouter({
+            model,
             messages: [{ role: "user", content: imagePrompt }],
             modalities: ["image", "text"],
-          }),
-        });
-
-        if (!imageResponse.ok) {
-          console.error("Image gen error:", imageResponse.status);
-          if (imageResponse.status === 429) throw new Error("Rate limit excedido. Tente novamente em alguns minutos.");
-          if (imageResponse.status === 402) throw new Error("Créditos insuficientes.");
-          continue;
+          });
+          if (!r.ok) {
+            console.error(`Image gen error (${model}):`, r.status, r.errorBody);
+            if (r.status === 402) throw new Error("Créditos insuficientes na OpenRouter.");
+            if (r.status === 429) {
+              const ra = r.retryAfter ? parseInt(r.retryAfter, 10) : NaN;
+              await new Promise(res => setTimeout(res, !Number.isNaN(ra) && ra > 0 ? Math.min(ra * 1000, 8000) : 1500));
+            }
+            continue;
+          }
+          imageBase64 = extractImageUrl(r.data);
+          if (imageBase64) break;
         }
 
-        const imageData = await imageResponse.json();
-        const imageBase64 = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
         let imageUrl = "";
         if (imageBase64) {

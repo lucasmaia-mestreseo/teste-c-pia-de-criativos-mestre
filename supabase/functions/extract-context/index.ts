@@ -16,11 +16,11 @@ Deno.serve(async (req) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
     const perplexityKey = Deno.env.get("PERPLEXITY_API_KEY");
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+    const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
 
     if (!firecrawlKey) throw new Error("Firecrawl não configurado");
     if (!perplexityKey) throw new Error("Perplexity não configurado");
-    if (!lovableKey) throw new Error("Lovable AI não configurado");
+    if (!openrouterKey) throw new Error("Lovable AI não configurado");
 
     const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -82,10 +82,10 @@ Deno.serve(async (req) => {
     const voicePrompt = prompts?.find((p: any) => p.id === "voice-analysis")?.prompt || "";
 
     // 4. Generate context via Lovable AI
-    const contextResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const contextResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${lovableKey}`,
+        Authorization: `Bearer ${openrouterKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -107,10 +107,10 @@ Deno.serve(async (req) => {
     const generatedContext = contextData.choices?.[0]?.message?.content || "";
 
     // 5. Generate voice guide via Lovable AI
-    const voiceResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const voiceResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${lovableKey}`,
+        Authorization: `Bearer ${openrouterKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
