@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
 
-    if (!openrouterKey) throw new Error("Lovable AI não configurado");
+    if (!openrouterKey) throw new Error("OpenRouter não configurado");
 
     const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
