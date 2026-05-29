@@ -19,24 +19,15 @@ serve(async (req) => {
       throw new Error("swipeFileUrl and swipeFileId are required");
     }
 
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY not configured");
-
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Analyze this advertising creative image. Identify ALL visual elements and return structured data using the provided tool.
+    const result = await callOpenRouterWithCascade({
+      settingsKey: "vision_analysis",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Analyze this advertising creative image. Identify ALL visual elements and return structured data using the provided tool.
 
 For each TEXT element found:
 - Extract the EXACT text content (every character as written)
@@ -52,92 +43,86 @@ For each PHOTO/PERSON found:
 - Identify its position
 
 Be thorough — capture EVERY text block, even small ones. Answer in Portuguese.`,
-              },
-              {
-                type: "image_url",
-                image_url: { url: swipeFileUrl },
-              },
-            ],
-          },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "report_analysis",
-              description: "Report all detected elements in the creative image",
-              parameters: {
-                type: "object",
-                properties: {
-                  texts: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        id: { type: "string", description: "Unique ID like text_1, text_2" },
-                        content: { type: "string", description: "Exact text content" },
-                        position: { type: "string", description: "Position in the image" },
-                        role: { type: "string", enum: ["headline", "subtitle", "cta", "caption", "body", "other"] },
-                      },
-                      required: ["id", "content", "position", "role"],
-                      additionalProperties: false,
+            },
+            { type: "image_url", image_url: { url: swipeFileUrl } },
+          ],
+        },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "report_analysis",
+            description: "Report all detected elements in the creative image",
+            parameters: {
+              type: "object",
+              properties: {
+                texts: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      id: { type: "string", description: "Unique ID like text_1, text_2" },
+                      content: { type: "string", description: "Exact text content" },
+                      position: { type: "string", description: "Position in the image" },
+                      role: { type: "string", enum: ["headline", "subtitle", "cta", "caption", "body", "other"] },
                     },
-                  },
-                  logos: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        id: { type: "string", description: "Unique ID like logo_1" },
-                        position: { type: "string", description: "Position in the image" },
-                        description: { type: "string", description: "Brief description of the logo" },
-                      },
-                      required: ["id", "position", "description"],
-                      additionalProperties: false,
-                    },
-                  },
-                  photos: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        id: { type: "string", description: "Unique ID like photo_1" },
-                        position: { type: "string", description: "Position in the image" },
-                        description: { type: "string", description: "Brief description of person/photo" },
-                      },
-                      required: ["id", "position", "description"],
-                      additionalProperties: false,
-                    },
+                    required: ["id", "content", "position", "role"],
+                    additionalProperties: false,
                   },
                 },
-                required: ["texts", "logos", "photos"],
-                additionalProperties: false,
+                logos: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      id: { type: "string", description: "Unique ID like logo_1" },
+                      position: { type: "string", description: "Position in the image" },
+                      description: { type: "string", description: "Brief description of the logo" },
+                    },
+                    required: ["id", "position", "description"],
+                    additionalProperties: false,
+                  },
+                },
+                photos: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      id: { type: "string", description: "Unique ID like photo_1" },
+                      position: { type: "string", description: "Position in the image" },
+                      description: { type: "string", description: "Brief description of person/photo" },
+                    },
+                    required: ["id", "position", "description"],
+                    additionalProperties: false,
+                  },
+                },
               },
+              required: ["texts", "logos", "photos"],
+              additionalProperties: false,
             },
           },
-        ],
-        tool_choice: { type: "function", function: { name: "report_analysis" } },
-      }),
+        },
+      ],
+      toolChoice: { type: "function", function: { name: "report_analysis" } },
     });
 
-    if (!res.ok) {
-      if (res.status === 429) {
+    if (!result.ok) {
+      if (result.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (res.status === 402) {
+      if (result.status === 402) {
         return new Response(JSON.stringify({ error: "Créditos insuficientes" }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const errText = await res.text();
-      console.error("AI error:", res.status, errText);
+      console.error("AI error:", result.status, result.errorBody);
       throw new Error("Erro na análise da imagem");
     }
 
-    const aiData = await res.json();
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+    const toolCall = result.data?.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall) throw new Error("No analysis returned from AI");
 
     const analysis = JSON.parse(toolCall.function.arguments);
