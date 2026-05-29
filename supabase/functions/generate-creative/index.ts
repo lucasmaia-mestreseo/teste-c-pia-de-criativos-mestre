@@ -5,7 +5,7 @@ import {
   callOpenRouter,
   callOpenRouterText,
   extractImageUrl,
-  loadImageGenSettings,
+  loadModelSettings,
 } from "../_shared/openrouter.ts";
 
 const corsHeaders = {
@@ -451,7 +451,7 @@ serve(async (req) => {
     const creationMode = mode || 'swipe';
     if (!Deno.env.get("OPENROUTER_API_KEY")) throw new Error("OPENROUTER_API_KEY not configured");
 
-    const imageSettings = await loadImageGenSettings();
+    const imageSettings = await loadModelSettings("image_generation");
     const cascade = buildModelCascade(imageSettings);
 
     const hasLogo = !!(brandKit?.logoUrl);
