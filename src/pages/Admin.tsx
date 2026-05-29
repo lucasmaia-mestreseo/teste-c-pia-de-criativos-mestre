@@ -20,6 +20,7 @@ import { ALL_PERMISSIONS, PERMISSION_LABELS, type Permission } from '@/hooks/use
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { AiModelsTab } from '@/components/admin/AiModelsTab';
 
 // ─── Types ───
 
