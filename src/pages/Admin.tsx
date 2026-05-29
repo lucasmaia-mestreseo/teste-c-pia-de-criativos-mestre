@@ -97,7 +97,7 @@ const roleBadgeColor = (r: AppRole | null) => {
   }
 };
 
-type Section = 'projects' | 'users' | 'usage' | 'prompts' | 'formats' | 'permissions' | 'error-logs';
+type Section = 'projects' | 'users' | 'usage' | 'prompts' | 'formats' | 'permissions' | 'error-logs' | 'ai-models';
 
 const SIDEBAR_ITEMS: { id: Section; label: string; icon: React.ReactNode; ownerOnly?: boolean }[] = [
   { id: 'projects', label: 'Projetos', icon: <FolderOpen className="h-4 w-4" /> },
