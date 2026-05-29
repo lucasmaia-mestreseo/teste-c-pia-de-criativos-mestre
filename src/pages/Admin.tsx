@@ -368,6 +368,22 @@ function ProjectsTab() {
           </div>
         </div>
       )}
+
+      <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
+        <DialogContent className="bg-card">
+          <DialogHeader><DialogTitle>Renomear Projeto</DialogTitle></DialogHeader>
+          <div className="flex gap-2">
+            <Input
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
+              className="bg-secondary"
+              autoFocus
+            />
+            <Button onClick={handleSaveEdit} disabled={savingEdit}>Salvar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
