@@ -31,9 +31,6 @@ serve(async (req) => {
 
     if (projErr || !project) throw new Error("Project not found");
 
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY not configured");
-
     const systemPrompt = `Você é um diretor criativo especialista em anúncios para redes sociais.
 Gere exatamente 3 sugestões de criativos para o projeto fornecido:
 1. CONSERVADOR: Linguagem direta, provas sociais, benefícios concretos. Seguro e eficaz.
@@ -53,71 +50,62 @@ ${project.voice_guide || "Sem guia de voz definido."}
 
 Gere as 3 sugestões de criativos.`;
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "suggest_creatives",
-              description: "Return 3 creative suggestions: conservative, innovative, out-of-the-box.",
-              parameters: {
-                type: "object",
-                properties: {
-                  suggestions: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        type: { type: "string", enum: ["conservative", "innovative", "radical"], description: "The type of creative" },
-                        titulo: { type: "string", description: "Catchy title for the creative" },
-                        copy: { type: "string", description: "Persuasive copy text" },
-                        proposta_imagem: { type: "string", description: "Detailed visual proposal" },
-                        objetivo_estrategico: { type: "string", description: "Strategic objective" },
-                      },
-                      required: ["type", "titulo", "copy", "proposta_imagem", "objetivo_estrategico"],
-                      additionalProperties: false,
+    const result = await callOpenRouterWithCascade({
+      settingsKey: "text_reasoning",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "suggest_creatives",
+            description: "Return 3 creative suggestions: conservative, innovative, out-of-the-box.",
+            parameters: {
+              type: "object",
+              properties: {
+                suggestions: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      type: { type: "string", enum: ["conservative", "innovative", "radical"], description: "The type of creative" },
+                      titulo: { type: "string", description: "Catchy title for the creative" },
+                      copy: { type: "string", description: "Persuasive copy text" },
+                      proposta_imagem: { type: "string", description: "Detailed visual proposal" },
+                      objetivo_estrategico: { type: "string", description: "Strategic objective" },
                     },
+                    required: ["type", "titulo", "copy", "proposta_imagem", "objetivo_estrategico"],
+                    additionalProperties: false,
                   },
                 },
-                required: ["suggestions"],
-                additionalProperties: false,
               },
+              required: ["suggestions"],
+              additionalProperties: false,
             },
           },
-        ],
-        tool_choice: { type: "function", function: { name: "suggest_creatives" } },
-      }),
+        },
+      ],
+      toolChoice: { type: "function", function: { name: "suggest_creatives" } },
     });
 
-    if (!response.ok) {
-      if (response.status === 429) {
+    if (!result.ok) {
+      if (result.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded, tente novamente em instantes." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
+      if (result.status === 402) {
         return new Response(JSON.stringify({ error: "Créditos insuficientes." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const t = await response.text();
-      console.error("AI error:", response.status, t);
+      console.error("AI error:", result.status, result.errorBody);
       throw new Error("AI gateway error");
     }
 
-    const result = await response.json();
-    const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
+    const toolCall = result.data?.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall) throw new Error("No tool call in response");
 
     const parsed = JSON.parse(toolCall.function.arguments);
