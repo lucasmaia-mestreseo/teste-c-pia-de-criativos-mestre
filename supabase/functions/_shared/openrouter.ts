@@ -87,6 +87,8 @@ export interface ChatMessage {
 }
 
 export interface CallOptions {
+  /** Per-request timeout in ms. Defaults to 110000 (110s). */
+  timeoutMs?: number;
   model: string;
   messages: ChatMessage[];
   modalities?: string[];
