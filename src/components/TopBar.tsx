@@ -50,27 +50,42 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
     .toUpperCase()
     .slice(0, 2) || 'U';
 
+  const nameExists = (name: string, ignoreId?: string) => {
+    const n = name.trim().toLowerCase();
+    return (allProjects || []).some((p) => p.name.trim().toLowerCase() === n && p.id !== ignoreId);
+  };
+
   const handleCreate = async () => {
-    if (!newName.trim()) return;
+    const name = newName.trim();
+    if (!name) return;
+    if (nameExists(name)) {
+      toast.error('Já existe um projeto com esse nome');
+      return;
+    }
     try {
-      const p = await createProject.mutateAsync({ name: newName.trim() });
+      const p = await createProject.mutateAsync({ name });
       onSelectProject(p.id);
       setNewName('');
       setDialogOpen(false);
       toast.success('Projeto criado!');
-    } catch {
-      toast.error('Erro ao criar projeto');
+    } catch (e: any) {
+      toast.error(e?.code === '23505' ? 'Já existe um projeto com esse nome' : 'Erro ao criar projeto');
     }
   };
 
   const handleRename = async () => {
-    if (!renameName.trim() || !selectedProjectId) return;
+    const name = renameName.trim();
+    if (!name || !selectedProjectId) return;
+    if (nameExists(name, selectedProjectId)) {
+      toast.error('Já existe um projeto com esse nome');
+      return;
+    }
     try {
-      await renameProject.mutateAsync({ id: selectedProjectId, name: renameName.trim() });
+      await renameProject.mutateAsync({ id: selectedProjectId, name });
       setRenameDialogOpen(false);
       toast.success('Projeto renomeado!');
-    } catch {
-      toast.error('Erro ao renomear projeto');
+    } catch (e: any) {
+      toast.error(e?.code === '23505' ? 'Já existe um projeto com esse nome' : 'Erro ao renomear projeto');
     }
   };
 
