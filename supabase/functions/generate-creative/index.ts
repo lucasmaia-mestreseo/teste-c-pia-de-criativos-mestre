@@ -686,17 +686,10 @@ CRITICAL RULES:
     if (!generatedImage) {
       return new Response(JSON.stringify({
         error: "A IA não conseguiu gerar a imagem após múltiplas tentativas. Tente novamente ou simplifique o prompt.",
-        source: "ai_gateway",
-        stage: "image-generation",
-        status: lastStatus,
-        model: lastModel,
-        attempt: MAX_ATTEMPTS,
-        request_id: lastRequestId,
-        provider_body: lastProviderBody,
-      }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+        source: "openrouter", provider: "openrouter", stage: "image-generation",
+        status: lastStatus, model: lastModel, level: lastLevel, attempt: MAX_ATTEMPTS,
+        request_id: lastRequestId, provider_body: lastProviderBody,
+      }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Extract base64 data and strip PNG metadata before upload
