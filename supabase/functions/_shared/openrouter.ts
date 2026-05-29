@@ -123,6 +123,9 @@ export async function callOpenRouter(opts: CallOptions): Promise<CallResult> {
   if (opts.toolChoice) body.tool_choice = opts.toolChoice;
 
   let res: Response;
+  const timeoutMs = opts.timeoutMs ?? 110000;
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), timeoutMs);
   try {
     res = await fetch(OPENROUTER_URL, {
       method: "POST",
@@ -133,9 +136,13 @@ export async function callOpenRouter(opts: CallOptions): Promise<CallResult> {
         "X-Title": "Criativos Mestre",
       },
       body: JSON.stringify(body),
+      signal: ac.signal,
     });
   } catch (e) {
-    return { ok: false, status: 0, errorBody: String(e) };
+    const aborted = (e as any)?.name === "AbortError";
+    return { ok: false, status: aborted ? 408 : 0, errorBody: aborted ? `Request timed out after ${timeoutMs}ms` : String(e) };
+  } finally {
+    clearTimeout(timer);
   }
 
   const requestId = res.headers.get("x-request-id") || res.headers.get("x-correlation-id");
