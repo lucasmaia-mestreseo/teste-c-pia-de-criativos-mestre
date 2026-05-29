@@ -340,6 +340,9 @@ function ProjectsTab() {
               {p.active ? 'Ativo' : 'Inativo'}
             </Badge>
             <div className="flex gap-1">
+              <Button size="icon" variant="ghost" onClick={() => openEdit(p)} title="Editar nome">
+                <Pencil className="h-4 w-4" />
+              </Button>
               <Button size="icon" variant="ghost" onClick={() => handleToggleActive(p.id, p.active)} title={p.active ? 'Desativar' : 'Ativar'}>
                 {p.active ? <PowerOff className="h-4 w-4 text-orange-400" /> : <Power className="h-4 w-4 text-green-400" />}
               </Button>
