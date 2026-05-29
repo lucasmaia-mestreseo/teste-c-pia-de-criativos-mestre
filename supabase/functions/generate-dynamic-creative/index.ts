@@ -137,7 +137,7 @@ Typography: ${(!ignoreBrandKit && brandKit?.typography) || "modern sans-serif"}
 Style: Clean, professional, high-conversion ad creative with clear text hierarchy.
 IMPORTANT: The headline and copy text MUST be rendered as readable text elements in the image, integrated into the visual layout like a real advertisement. Use the brand typography and colors for the text.`;
 
-        const imageSettings = await loadImageGenSettings();
+        const imageSettings = await loadModelSettings("image_generation");
         const cascade = buildModelCascade(imageSettings);
         let imageBase64: string | undefined;
         for (const { model } of cascade) {
