@@ -1,32 +1,27 @@
-## Problema
+## O que será feito
 
-A Edge Function `list-openrouter-models` usa categorias mutuamente exclusivas. Modelos multimodais como `anthropic/claude-opus-4.8` (recebem texto+imagem, geram texto) só caem em "Visão", e somem da aba "Texto". Por isso o sistema mostra 182 em Texto enquanto a OpenRouter mostra 357.
+### 1. Impedir projetos com nome duplicado
+- Migração no banco: adicionar índice único case-insensitive em `projects.name` (`CREATE UNIQUE INDEX projects_name_unique_ci ON public.projects (lower(name));`).
+- Antes de aplicar, será necessário tratar o duplicado atual "Agência Mestre" (já identificado anteriormente). Sugestão: renomear o mais novo (28/05, 5 criativos) para "Agência Mestre 2" automaticamente na mesma migração — assim a unique index passa. Você pode renomear depois pela tela.
+- Frontend (`src/pages/Admin.tsx` ProjectsTab e `src/components/TopBar.tsx` handleCreate / handleRename): detectar erro de duplicidade do Postgres (código `23505`) e mostrar toast amigável: "Já existe um projeto com esse nome".
+- Também fazer checagem cliente antes do insert (comparar case-insensitive contra a lista carregada) para feedback imediato.
 
-## Solução
+### 2. Ordem alfabética na lista de admin
+- Em `ProjectsTab.fetchProjects` (`src/pages/Admin.tsx` linha 185): trocar `.order('created_at', { ascending: false })` por `.order('name', { ascending: true })`.
+- A ordenação cliente continua respeitando filtros/busca.
 
-Recategorizar por **modalidade de output** (modelo OpenRouter), permitindo que o mesmo modelo apareça em múltiplas abas.
+### 3. Editar nome do projeto na administração
+- Adicionar botão de lápis (ícone `Pencil`) na linha do projeto, ao lado do toggle ativar/desativar e do remover.
+- Ao clicar, abrir um `Dialog` com `Input` pré-preenchido com o nome atual e botão "Salvar".
+- Ao salvar: `supabase.from('projects').update({ name: novoNome.trim() }).eq('id', id)`, tratando erro `23505` (duplicado) com o mesmo toast.
+- Recarregar a lista (`fetchProjects`) após sucesso.
 
-### Mudança em `supabase/functions/list-openrouter-models/index.ts`
+### Detalhes técnicos
+- A unique index em `lower(name)` cobre variações de caixa ("agência mestre" vs "Agência Mestre").
+- Não há FK em `projects.id`, então renomear é seguro.
+- Sem mudança em RLS: política existente `Users with edit_project permission can update projects` já permite o rename para admins (que têm `edit_project`).
 
-Substituir a lógica de classificação por:
-
-- **`image_generation`**: `output_modalities` inclui `image`
-- **`vision_analysis`**: `input_modalities` inclui `image` E `output_modalities` inclui `text` (independente de também gerar imagem)
-- **`text_reasoning`**: `output_modalities` inclui `text` (sem exigir que o input seja text-only)
-
-Assim `claude-opus-4.8` aparece em Texto e Visão; `gpt-image-2` em Imagens; modelos só de texto continuam só em Texto.
-
-Remover também o filtro `inSet.size > 0 && outSet.size > 0` que estava descartando modelos cujo `architecture` da OpenRouter vinha sem `input_modalities`/`output_modalities` explícitos (alguns modelos novos chegam só com o campo legado `modality`). O fallback para `modality` "text+image->text" já existe — manter e garantir que modelos sem nenhum dado de modalidade sejam tratados como `text->text` ao invés de descartados.
-
-### Sem mudanças
-
-- `ModelCatalogDialog.tsx` continua igual (as abas e filtros do front já funcionam por categoria).
-- `AiModelsTab.tsx` continua igual.
-- `app_settings.model_catalogs` continua igual — apenas mais modelos vão aparecer nas listas após o próximo "Atualizar OpenRouter".
-
-### Verificação
-
-Após o deploy, abrir o catálogo, clicar em "Atualizar OpenRouter" e confirmar:
-1. Aba Texto mostra contagem próxima a 357
-2. `anthropic/claude-opus-4.8` aparece em Texto e em Visão
-3. Modelos já marcados continuam marcados (o estado salvo é por slug, não muda)
+## Arquivos
+- Migração nova (renomear duplicado + criar unique index)
+- `src/pages/Admin.tsx` (ordem alfabética, botão editar + dialog, tratamento de erro 23505)
+- `src/components/TopBar.tsx` (tratamento de erro 23505 em criar/renomear)

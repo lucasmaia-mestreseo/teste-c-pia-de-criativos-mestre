@@ -180,9 +180,12 @@ function ProjectsTab() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
+  const [editTarget, setEditTarget] = useState<ProjectRow | null>(null);
+  const [editName, setEditName] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const fetchProjects = async () => {
-    const { data: projs } = await supabase.from('projects').select('id, name, active, created_at').order('created_at', { ascending: false });
+    const { data: projs } = await supabase.from('projects').select('id, name, active, created_at').order('name', { ascending: true });
 
     const projectRows: ProjectRow[] = [];
     for (const p of projs || []) {
@@ -217,17 +220,54 @@ function ProjectsTab() {
 
   useEffect(() => { setPage(1); }, [search, statusFilter, perPage]);
 
+  const nameExists = (name: string, ignoreId?: string) => {
+    const n = name.trim().toLowerCase();
+    return projects.some((p) => p.name.trim().toLowerCase() === n && p.id !== ignoreId);
+  };
+
   const handleCreate = async () => {
-    if (!newName.trim()) return;
+    const name = newName.trim();
+    if (!name) return;
+    if (nameExists(name)) {
+      toast.error('Já existe um projeto com esse nome');
+      return;
+    }
     setCreating(true);
-    const { error } = await supabase.from('projects').insert({ name: newName.trim() });
-    if (error) toast.error('Erro ao criar projeto');
-    else {
+    const { error } = await supabase.from('projects').insert({ name });
+    if (error) {
+      toast.error((error as any).code === '23505' ? 'Já existe um projeto com esse nome' : 'Erro ao criar projeto');
+    } else {
       toast.success('Projeto criado!');
       setNewName('');
       fetchProjects();
     }
     setCreating(false);
+  };
+
+  const openEdit = (p: ProjectRow) => {
+    setEditTarget(p);
+    setEditName(p.name);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editTarget) return;
+    const name = editName.trim();
+    if (!name) return;
+    if (name === editTarget.name) { setEditTarget(null); return; }
+    if (nameExists(name, editTarget.id)) {
+      toast.error('Já existe um projeto com esse nome');
+      return;
+    }
+    setSavingEdit(true);
+    const { error } = await supabase.from('projects').update({ name }).eq('id', editTarget.id);
+    if (error) {
+      toast.error((error as any).code === '23505' ? 'Já existe um projeto com esse nome' : 'Erro ao renomear');
+    } else {
+      toast.success('Projeto renomeado');
+      setEditTarget(null);
+      fetchProjects();
+    }
+    setSavingEdit(false);
   };
 
   const handleToggleActive = async (id: string, active: boolean) => {
@@ -300,6 +340,9 @@ function ProjectsTab() {
               {p.active ? 'Ativo' : 'Inativo'}
             </Badge>
             <div className="flex gap-1">
+              <Button size="icon" variant="ghost" onClick={() => openEdit(p)} title="Editar nome">
+                <Pencil className="h-4 w-4" />
+              </Button>
               <Button size="icon" variant="ghost" onClick={() => handleToggleActive(p.id, p.active)} title={p.active ? 'Desativar' : 'Ativar'}>
                 {p.active ? <PowerOff className="h-4 w-4 text-orange-400" /> : <Power className="h-4 w-4 text-green-400" />}
               </Button>
@@ -325,6 +368,22 @@ function ProjectsTab() {
           </div>
         </div>
       )}
+
+      <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
+        <DialogContent className="bg-card">
+          <DialogHeader><DialogTitle>Renomear Projeto</DialogTitle></DialogHeader>
+          <div className="flex gap-2">
+            <Input
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
+              className="bg-secondary"
+              autoFocus
+            />
+            <Button onClick={handleSaveEdit} disabled={savingEdit}>Salvar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
