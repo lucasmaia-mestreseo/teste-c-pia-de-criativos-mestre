@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callOpenRouterWithCascade } from "../_shared/openrouter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,9 +18,6 @@ serve(async (req) => {
       });
     }
 
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY not configured");
-
     const textsDescription = texts.map((t: any) =>
       `- ID: "${t.id}", Role: "${t.role}", Position: "${t.position}", Current text: "${t.content}"`
     ).join("\n");
@@ -37,68 +35,59 @@ ${textsDescription}
 
 Sugira um texto substituto para CADA elemento, respeitando seu papel e tamanho aproximado.`;
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "suggest_texts",
-              description: "Return suggested replacement texts for each detected element.",
-              parameters: {
-                type: "object",
-                properties: {
-                  suggestions: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        id: { type: "string", description: "The element ID" },
-                        text: { type: "string", description: "Suggested replacement text" },
-                      },
-                      required: ["id", "text"],
-                      additionalProperties: false,
+    const result = await callOpenRouterWithCascade({
+      settingsKey: "text_reasoning",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "suggest_texts",
+            description: "Return suggested replacement texts for each detected element.",
+            parameters: {
+              type: "object",
+              properties: {
+                suggestions: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      id: { type: "string", description: "The element ID" },
+                      text: { type: "string", description: "Suggested replacement text" },
                     },
+                    required: ["id", "text"],
+                    additionalProperties: false,
                   },
                 },
-                required: ["suggestions"],
-                additionalProperties: false,
               },
+              required: ["suggestions"],
+              additionalProperties: false,
             },
           },
-        ],
-        tool_choice: { type: "function", function: { name: "suggest_texts" } },
-      }),
+        },
+      ],
+      toolChoice: { type: "function", function: { name: "suggest_texts" } },
     });
 
-    if (!response.ok) {
-      if (response.status === 429) {
+    if (!result.ok) {
+      if (result.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded, tente novamente em instantes." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
+      if (result.status === 402) {
         return new Response(JSON.stringify({ error: "Créditos insuficientes." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const t = await response.text();
-      console.error("AI error:", response.status, t);
+      console.error("AI error:", result.status, result.errorBody);
       throw new Error("AI gateway error");
     }
 
-    const result = await response.json();
-    const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
+    const toolCall = result.data?.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall) throw new Error("No tool call in response");
 
     const parsed = JSON.parse(toolCall.function.arguments);

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callOpenRouterWithCascade } from "../_shared/openrouter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,9 +15,6 @@ serve(async (req) => {
   try {
     const { url, image } = await req.json();
     if (!url && !image) throw new Error("URL ou screenshot é obrigatório");
-
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY not configured");
 
     const userContent: any[] = [];
 
@@ -36,83 +34,59 @@ serve(async (req) => {
       });
     }
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          {
-            role: "system",
-            content: `You are a brand identity analyst. Analyze websites or screenshots and extract branding elements. Return structured data using the provided tool. Always return hex color codes starting with #.`,
-          },
-          {
-            role: "user",
-            content: userContent,
-          },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "extract_branding",
-              description: "Extract categorized branding elements",
-              parameters: {
-                type: "object",
-                properties: {
-                  primary_color: {
-                    type: "string",
-                    description: "Primary brand color as hex (e.g. #FF5500)",
-                  },
-                  secondary_color: {
-                    type: "string",
-                    description: "Secondary brand color as hex",
-                  },
-                  background_color: {
-                    type: "string",
-                    description: "Main background color as hex",
-                  },
-                  aux_colors: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "Other auxiliary/accent colors as hex codes. Max 5.",
-                  },
-                  typography: {
-                    type: "string",
-                    description: "Main font families used (e.g. 'Inter, Montserrat')",
-                  },
+    const result = await callOpenRouterWithCascade({
+      settingsKey: "vision_analysis",
+      messages: [
+        {
+          role: "system",
+          content: `You are a brand identity analyst. Analyze websites or screenshots and extract branding elements. Return structured data using the provided tool. Always return hex color codes starting with #.`,
+        },
+        { role: "user", content: userContent },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "extract_branding",
+            description: "Extract categorized branding elements",
+            parameters: {
+              type: "object",
+              properties: {
+                primary_color: { type: "string", description: "Primary brand color as hex (e.g. #FF5500)" },
+                secondary_color: { type: "string", description: "Secondary brand color as hex" },
+                background_color: { type: "string", description: "Main background color as hex" },
+                aux_colors: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "Other auxiliary/accent colors as hex codes. Max 5.",
                 },
-                required: ["primary_color", "secondary_color", "background_color", "aux_colors", "typography"],
-                additionalProperties: false,
+                typography: { type: "string", description: "Main font families used (e.g. 'Inter, Montserrat')" },
               },
+              required: ["primary_color", "secondary_color", "background_color", "aux_colors", "typography"],
+              additionalProperties: false,
             },
           },
-        ],
-        tool_choice: { type: "function", function: { name: "extract_branding" } },
-      }),
+        },
+      ],
+      toolChoice: { type: "function", function: { name: "extract_branding" } },
     });
 
-    if (!response.ok) {
-      if (response.status === 429) {
+    if (!result.ok) {
+      if (result.status === 429) {
         return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em breve." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
+      if (result.status === 402) {
         return new Response(JSON.stringify({ error: "Créditos insuficientes. Adicione créditos ao seu workspace." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const errText = await response.text();
-      console.error("AI gateway error:", response.status, errText);
+      console.error("AI gateway error:", result.status, result.errorBody);
       throw new Error("Erro ao analisar");
     }
 
-    const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    const toolCall = result.data?.choices?.[0]?.message?.tool_calls?.[0];
 
     if (!toolCall?.function?.arguments) {
       throw new Error("IA não retornou dados estruturados");

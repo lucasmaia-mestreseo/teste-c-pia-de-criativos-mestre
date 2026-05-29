@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { buildModelCascade, callOpenRouter, extractImageUrl, loadImageGenSettings } from "../_shared/openrouter.ts";
+import { buildModelCascade, callOpenRouter, extractImageUrl, loadModelSettings } from "../_shared/openrouter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -101,7 +101,7 @@ CRITICAL: The lighting and color grading must remain identical to the input sour
 
     console.log("Generating person grid with", photos.length, "reference photos...");
 
-    const imageSettings = await loadImageGenSettings();
+    const imageSettings = await loadModelSettings("image_generation");
     const cascade = buildModelCascade(imageSettings);
     let generatedImage: string | undefined;
     let lastStatus = 0;

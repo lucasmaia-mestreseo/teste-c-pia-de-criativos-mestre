@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.99.0";
+import { callOpenRouterWithCascade } from "../_shared/openrouter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,7 +21,7 @@ Deno.serve(async (req) => {
 
     if (!firecrawlKey) throw new Error("Firecrawl não configurado");
     if (!perplexityKey) throw new Error("Perplexity não configurado");
-    if (!openrouterKey) throw new Error("Lovable AI não configurado");
+    if (!openrouterKey) throw new Error("OpenRouter não configurado");
 
     const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -81,55 +82,36 @@ Deno.serve(async (req) => {
     const contextPrompt = prompts?.find((p: any) => p.id === "context-extraction")?.prompt || "";
     const voicePrompt = prompts?.find((p: any) => p.id === "voice-analysis")?.prompt || "";
 
-    // 4. Generate context via Lovable AI
-    const contextResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${openrouterKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: contextPrompt },
-          { role: "user", content: `## Conteúdo do site (${formattedUrl}):\n\n${siteContent.substring(0, 8000)}\n\n## Pesquisa sobre a empresa:\n\n${research.substring(0, 4000)}` },
-        ],
-      }),
+    const contextResult = await callOpenRouterWithCascade({
+      settingsKey: "text_reasoning",
+      messages: [
+        { role: "system", content: contextPrompt },
+        { role: "user", content: `## Conteúdo do site (${formattedUrl}):\n\n${siteContent.substring(0, 8000)}\n\n## Pesquisa sobre a empresa:\n\n${research.substring(0, 4000)}` },
+      ],
     });
 
-    if (!contextResponse.ok) {
-      const errText = await contextResponse.text();
-      console.error("AI context error:", contextResponse.status, errText);
+    if (!contextResult.ok) {
+      console.error("AI context error:", contextResult.status, contextResult.errorBody);
       throw new Error("Erro ao gerar contexto com IA");
     }
 
-    const contextData = await contextResponse.json();
-    const generatedContext = contextData.choices?.[0]?.message?.content || "";
+    const generatedContext = contextResult.data?.choices?.[0]?.message?.content || "";
 
-    // 5. Generate voice guide via Lovable AI
-    const voiceResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${openrouterKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: voicePrompt },
-          { role: "user", content: `Analise o tom de voz do seguinte conteúdo do site ${formattedUrl}:\n\n${siteContent.substring(0, 8000)}` },
-        ],
-      }),
+    // 5. Generate voice guide via OpenRouter
+    const voiceResult = await callOpenRouterWithCascade({
+      settingsKey: "text_reasoning",
+      messages: [
+        { role: "system", content: voicePrompt },
+        { role: "user", content: `Analise o tom de voz do seguinte conteúdo do site ${formattedUrl}:\n\n${siteContent.substring(0, 8000)}` },
+      ],
     });
 
-    if (!voiceResponse.ok) {
-      const errText = await voiceResponse.text();
-      console.error("AI voice error:", voiceResponse.status, errText);
+    if (!voiceResult.ok) {
+      console.error("AI voice error:", voiceResult.status, voiceResult.errorBody);
       throw new Error("Erro ao gerar guia de voz com IA");
     }
 
-    const voiceData = await voiceResponse.json();
-    const voiceGuide = voiceData.choices?.[0]?.message?.content || "";
+    const voiceGuide = voiceResult.data?.choices?.[0]?.message?.content || "";
 
     return new Response(JSON.stringify({
       success: true,

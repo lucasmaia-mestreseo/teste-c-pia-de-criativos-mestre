@@ -3,9 +3,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   buildModelCascade,
   callOpenRouter,
-  callOpenRouterText,
+  callOpenRouterWithCascade,
   extractImageUrl,
-  loadImageGenSettings,
+  loadModelSettings,
 } from "../_shared/openrouter.ts";
 
 const corsHeaders = {
@@ -42,23 +42,26 @@ function detectPhotoMode(prompt: string): "replace" | "swap" {
 /* ------------------------------------------------------------------ */
 async function analyzeLogoContent(logoUrl: string): Promise<string | null> {
   try {
-    const result = await callOpenRouterText("google/gemini-2.5-flash", [
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: `Analyze this logo image in detail. Return a structured description with:
+    const result = await callOpenRouterWithCascade({
+      settingsKey: "vision_analysis",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Analyze this logo image in detail. Return a structured description with:
 1. ALL text found in the logo — list each text exactly as written, and its position (top, center, bottom, left, right).
 2. Visual structure — describe the layout (e.g. "icon in center, text above, tagline below").
 3. Approximate proportions — how much vertical space each part occupies (e.g. "top text: ~15%, icon: ~55%, bottom text: ~30%").
 
 Be precise and exhaustive. Every single character of text must be listed. Answer in Portuguese.`,
-          },
-          { type: "image_url", image_url: { url: logoUrl } },
-        ],
-      },
-    ]);
+            },
+            { type: "image_url", image_url: { url: logoUrl } },
+          ],
+        },
+      ],
+    });
     if (!result.ok) {
       console.error("Logo analysis failed:", result.status, result.errorBody);
       return null;
@@ -451,7 +454,7 @@ serve(async (req) => {
     const creationMode = mode || 'swipe';
     if (!Deno.env.get("OPENROUTER_API_KEY")) throw new Error("OPENROUTER_API_KEY not configured");
 
-    const imageSettings = await loadImageGenSettings();
+    const imageSettings = await loadModelSettings("image_generation");
     const cascade = buildModelCascade(imageSettings);
 
     const hasLogo = !!(brandKit?.logoUrl);

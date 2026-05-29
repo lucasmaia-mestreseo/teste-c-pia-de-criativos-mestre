@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.99.0";
-import { buildModelCascade, callOpenRouter, extractImageUrl, loadImageGenSettings } from "../_shared/openrouter.ts";
+import { buildModelCascade, callOpenRouter, callOpenRouterWithCascade, extractImageUrl, loadModelSettings } from "../_shared/openrouter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
 
-    if (!openrouterKey) throw new Error("Lovable AI não configurado");
+    if (!openrouterKey) throw new Error("OpenRouter não configurado");
 
     const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -59,19 +59,13 @@ Deno.serve(async (req) => {
 
       for (let i = 0; i < validCount; i++) {
         // Step 1: Generate briefing
-        const briefingResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${openrouterKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
-            messages: [
-              { role: "system", content: basePrompt },
-              {
-                role: "user",
-                content: `Contexto do projeto "${project?.name || ""}":
+        const briefingResult = await callOpenRouterWithCascade({
+          settingsKey: "text_reasoning",
+          messages: [
+            { role: "system", content: basePrompt },
+            {
+              role: "user",
+              content: `Contexto do projeto "${project?.name || ""}":
 ${ignoreContext ? "Sem contexto definido." : (project?.context || "Sem contexto definido.")}
 
 Tom de voz: ${ignoreContext ? "Não definido." : (project?.voice_guide || "Não definido.")}
@@ -86,38 +80,36 @@ Gere um criativo completo com:
 ${customPrompt ? `\nInstruções adicionais do usuário:\n${customPrompt}\n` : ""}
 Seja criativo, preciso e comercialmente estratégico. Foque sempre em conversão.
 Retorne em formato JSON com as chaves: titulo, copy, proposta_imagem, objetivo_estrategico`,
-              },
-            ],
-            tools: [{
-              type: "function",
-              function: {
-                name: "create_briefing",
-                description: "Create a creative briefing",
-                parameters: {
-                  type: "object",
-                  properties: {
-                    titulo: { type: "string" },
-                    copy: { type: "string" },
-                    proposta_imagem: { type: "string" },
-                    objetivo_estrategico: { type: "string" },
-                  },
-                  required: ["titulo", "copy", "proposta_imagem", "objetivo_estrategico"],
+            },
+          ],
+          tools: [{
+            type: "function",
+            function: {
+              name: "create_briefing",
+              description: "Create a creative briefing",
+              parameters: {
+                type: "object",
+                properties: {
+                  titulo: { type: "string" },
+                  copy: { type: "string" },
+                  proposta_imagem: { type: "string" },
+                  objetivo_estrategico: { type: "string" },
                 },
+                required: ["titulo", "copy", "proposta_imagem", "objetivo_estrategico"],
               },
-            }],
-            tool_choice: { type: "function", function: { name: "create_briefing" } },
-          }),
+            },
+          }],
+          toolChoice: { type: "function", function: { name: "create_briefing" } },
         });
 
-        if (!briefingResponse.ok) {
-          const errText = await briefingResponse.text();
-          console.error("Briefing error:", briefingResponse.status, errText);
-          if (briefingResponse.status === 429) throw new Error("Rate limit excedido. Tente novamente em alguns minutos.");
-          if (briefingResponse.status === 402) throw new Error("Créditos insuficientes. Adicione créditos em Settings > Workspace > Usage.");
+        if (!briefingResult.ok) {
+          console.error("Briefing error:", briefingResult.status, briefingResult.errorBody);
+          if (briefingResult.status === 429) throw new Error("Rate limit excedido. Tente novamente em alguns minutos.");
+          if (briefingResult.status === 402) throw new Error("Créditos insuficientes. Adicione créditos em Settings > Workspace > Usage.");
           continue;
         }
 
-        const briefingData = await briefingResponse.json();
+        const briefingData = briefingResult.data;
         let briefing: any = {};
         try {
           const toolCall = briefingData.choices?.[0]?.message?.tool_calls?.[0];
@@ -145,7 +137,7 @@ Typography: ${(!ignoreBrandKit && brandKit?.typography) || "modern sans-serif"}
 Style: Clean, professional, high-conversion ad creative with clear text hierarchy.
 IMPORTANT: The headline and copy text MUST be rendered as readable text elements in the image, integrated into the visual layout like a real advertisement. Use the brand typography and colors for the text.`;
 
-        const imageSettings = await loadImageGenSettings();
+        const imageSettings = await loadModelSettings("image_generation");
         const cascade = buildModelCascade(imageSettings);
         let imageBase64: string | undefined;
         for (const { model } of cascade) {
