@@ -4,8 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
-import { Loader2, Save, Sparkles, ImagePlus, MessageSquareText, Eye } from 'lucide-react';
+import { Loader2, Save, Sparkles, ImagePlus, MessageSquareText, Eye, ChevronDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 // Model catalogs (extend as needed; field is also free-text)
 const IMAGE_MODELS: { value: string; label: string }[] = [
@@ -111,14 +113,12 @@ const SECTIONS: SectionConfig[] = [
   },
 ];
 
-interface SectionCardProps {
-  config: SectionConfig;
-}
-
-function SectionCard({ config }: SectionCardProps) {
+function SectionCard({ config }: { config: SectionConfig }) {
   const [settings, setSettings] = useState<ModelSettings>(DEFAULTS[config.key]);
+  const [initial, setInitial] = useState<ModelSettings>(DEFAULTS[config.key]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -127,16 +127,19 @@ function SectionCard({ config }: SectionCardProps) {
         .select('value')
         .eq('key', config.key)
         .maybeSingle();
-      if (data?.value) {
-        setSettings({ ...DEFAULTS[config.key], ...(data.value as any) });
-      }
+      const merged = data?.value
+        ? { ...DEFAULTS[config.key], ...(data.value as any) }
+        : DEFAULTS[config.key];
+      setSettings(merged);
+      setInitial(merged);
       setLoading(false);
     })();
   }, [config.key]);
 
+  const isDirty = JSON.stringify(settings) !== JSON.stringify(initial);
+
   const save = async () => {
     setSaving(true);
-    // Upsert in case the row doesn't exist yet
     const { error } = await supabase
       .from('app_settings')
       .upsert(
@@ -147,17 +150,10 @@ function SectionCard({ config }: SectionCardProps) {
     if (error) {
       toast.error('Erro ao salvar: ' + error.message);
     } else {
+      setInitial(settings);
       toast.success(`${config.title} salvo.`);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="rounded-lg border bg-card p-8 flex justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
 
   const renderTier = (tier: 'primary' | 'fallback' | 'tertiary', label: string) => {
     const modelKey = `${tier}_model` as const;
@@ -218,35 +214,82 @@ function SectionCard({ config }: SectionCardProps) {
     );
   };
 
+  if (loading) {
+    return (
+      <div className="rounded-lg border bg-card p-5 flex items-center gap-3">
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        <span className="text-xs text-muted-foreground">Carregando {config.title}…</span>
+      </div>
+    );
+  }
+
   return (
-    <div className="rounded-lg border bg-card p-5 space-y-5">
-      <div className="flex items-start gap-3">
-        <div className="p-2 rounded-md bg-primary/10 text-primary">{config.icon}</div>
-        <div className="flex-1">
-          <h3 className="text-sm font-bold">{config.title}</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">{config.description}</p>
+    <Collapsible open={open} onOpenChange={setOpen} className="rounded-lg border bg-card overflow-hidden transition-colors hover:border-primary/40">
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className="w-full flex items-center gap-4 p-4 text-left hover:bg-secondary/50 transition-colors"
+        >
+          <div className="p-2 rounded-md bg-primary/10 text-primary shrink-0">{config.icon}</div>
+
+          <div className="min-w-0 shrink-0 w-56">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold truncate">{config.title}</h3>
+              {isDirty && (
+                <span className="text-[10px] uppercase font-semibold tracking-wide px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+                  não salvo
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">{config.description}</p>
+          </div>
+
+          <div className="flex-1 min-w-0 hidden md:flex items-center gap-2 text-[11px] font-mono text-muted-foreground overflow-hidden">
+            <span className="truncate">
+              <span className="text-foreground/70">P:</span> {settings.primary_model}{' '}
+              <span className="opacity-60">({settings.primary_attempts}x)</span>
+            </span>
+            <span className="opacity-40">→</span>
+            <span className="truncate">
+              <span className="text-foreground/70">F:</span> {settings.fallback_model}{' '}
+              <span className="opacity-60">({settings.fallback_attempts}x)</span>
+            </span>
+            <span className="opacity-40">→</span>
+            <span className="truncate">
+              <span className="text-foreground/70">T:</span> {settings.tertiary_model}{' '}
+              <span className="opacity-60">({settings.tertiary_attempts}x)</span>
+            </span>
+          </div>
+
+          <ChevronDown
+            className={cn('h-4 w-4 text-muted-foreground shrink-0 transition-transform', open && 'rotate-180')}
+          />
+        </button>
+      </CollapsibleTrigger>
+
+      <CollapsibleContent>
+        <div className="px-5 pb-5 pt-1 space-y-4 border-t">
+          <div className="space-y-4 pt-4">
+            {renderTier('primary', 'Primário')}
+            {renderTier('fallback', 'Fallback')}
+            {renderTier('tertiary', 'Terciário')}
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={save} disabled={saving || !isDirty} size="sm">
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Save className="h-3.5 w-3.5 mr-2" />}
+              Salvar
+            </Button>
+          </div>
         </div>
-      </div>
-
-      <div className="space-y-4">
-        {renderTier('primary', 'Primário')}
-        {renderTier('fallback', 'Fallback')}
-        {renderTier('tertiary', 'Terciário')}
-      </div>
-
-      <div className="flex justify-end">
-        <Button onClick={save} disabled={saving} size="sm">
-          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Save className="h-3.5 w-3.5 mr-2" />}
-          Salvar
-        </Button>
-      </div>
-    </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
 export function AiModelsTab() {
   return (
-    <div className="max-w-5xl space-y-6">
+    <div className="max-w-4xl space-y-6">
       <div className="flex items-center gap-3">
         <Sparkles className="h-5 w-5 text-primary" />
         <div>
@@ -257,7 +300,7 @@ export function AiModelsTab() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="space-y-3">
         {SECTIONS.map((s) => (
           <SectionCard key={s.key} config={s} />
         ))}
