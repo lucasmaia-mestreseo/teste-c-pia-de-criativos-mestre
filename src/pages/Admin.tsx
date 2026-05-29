@@ -106,6 +106,7 @@ const SIDEBAR_ITEMS: { id: Section; label: string; icon: React.ReactNode; ownerO
   { id: 'formats', label: 'Formatos', icon: <ImageIcon className="h-4 w-4" /> },
   { id: 'error-logs', label: 'Logs de Erros', icon: <Bug className="h-4 w-4" /> },
   { id: 'prompts', label: 'Prompts', icon: <FileCode className="h-4 w-4" />, ownerOnly: true },
+  { id: 'ai-models', label: 'Modelos de IA', icon: <Sparkles className="h-4 w-4" />, ownerOnly: true },
   { id: 'permissions', label: 'Permissões', icon: <Lock className="h-4 w-4" />, ownerOnly: true },
 ];
 
