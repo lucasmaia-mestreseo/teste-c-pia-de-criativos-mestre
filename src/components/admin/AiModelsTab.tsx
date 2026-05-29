@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
-import { Loader2, Save, Sparkles, ImagePlus, MessageSquareText, Eye, ChevronDown, GripVertical } from 'lucide-react';
+import { Loader2, Save, Sparkles, ImagePlus, MessageSquareText, Eye, ChevronDown, GripVertical, ListChecks } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   DndContext,
@@ -25,40 +25,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-
-// Model catalogs (extend as needed; field is also free-text)
-const IMAGE_MODELS: { value: string; label: string }[] = [
-  { value: 'openai/gpt-5.4-image-2', label: 'OpenAI · GPT-5.4 Image 2' },
-  { value: 'openai/gpt-5-image', label: 'OpenAI · GPT-5 Image' },
-  { value: 'google/gemini-3.1-flash-image-preview', label: 'Google · Gemini 3.1 Flash Image (Preview)' },
-  { value: 'google/gemini-3-pro-image-preview', label: 'Google · Gemini 3 Pro Image (Preview)' },
-  { value: 'google/gemini-2.5-flash-image', label: 'Google · Gemini 2.5 Flash Image (Nano Banana)' },
-  { value: 'x-ai/grok-imagine-image-quality', label: 'xAI · Grok Imagine (Quality)' },
-  { value: 'x-ai/grok-imagine-image', label: 'xAI · Grok Imagine' },
-  { value: 'black-forest-labs/flux-1.1-pro', label: 'Black Forest Labs · FLUX 1.1 Pro' },
-  { value: 'black-forest-labs/flux-pro', label: 'Black Forest Labs · FLUX Pro' },
-];
-
-const TEXT_MODELS: { value: string; label: string }[] = [
-  { value: 'google/gemini-3-flash-preview', label: 'Google · Gemini 3 Flash (Preview)' },
-  { value: 'google/gemini-3.1-flash-lite-preview', label: 'Google · Gemini 3.1 Flash Lite (Preview)' },
-  { value: 'google/gemini-3.5-flash', label: 'Google · Gemini 3.5 Flash' },
-  { value: 'google/gemini-3.1-pro-preview', label: 'Google · Gemini 3.1 Pro (Preview)' },
-  { value: 'google/gemini-2.5-pro', label: 'Google · Gemini 2.5 Pro' },
-  { value: 'google/gemini-2.5-flash', label: 'Google · Gemini 2.5 Flash' },
-  { value: 'google/gemini-2.5-flash-lite', label: 'Google · Gemini 2.5 Flash Lite' },
-  { value: 'openai/gpt-5', label: 'OpenAI · GPT-5' },
-  { value: 'openai/gpt-5-mini', label: 'OpenAI · GPT-5 Mini' },
-  { value: 'openai/gpt-5.4', label: 'OpenAI · GPT-5.4' },
-  { value: 'openai/gpt-5.4-mini', label: 'OpenAI · GPT-5.4 Mini' },
-  { value: 'openai/gpt-5.4-nano', label: 'OpenAI · GPT-5.4 Nano' },
-  { value: 'openai/gpt-5.5', label: 'OpenAI · GPT-5.5' },
-  { value: 'anthropic/claude-3.5-sonnet', label: 'Anthropic · Claude 3.5 Sonnet' },
-  { value: 'anthropic/claude-3.5-haiku', label: 'Anthropic · Claude 3.5 Haiku' },
-  { value: 'anthropic/claude-sonnet-4', label: 'Anthropic · Claude Sonnet 4' },
-  { value: 'x-ai/grok-2-1212', label: 'xAI · Grok 2 (1212)' },
-  { value: 'x-ai/grok-4', label: 'xAI · Grok 4' },
-];
+import { ModelCatalogDialog } from './ModelCatalogDialog';
 
 interface ModelSettings {
   primary_model: string;
@@ -106,7 +73,6 @@ interface SectionConfig {
   title: string;
   description: string;
   icon: React.ReactNode;
-  catalog: { value: string; label: string }[];
 }
 
 const SECTIONS: SectionConfig[] = [
@@ -115,27 +81,23 @@ const SECTIONS: SectionConfig[] = [
     title: 'Geração de Imagens',
     description: 'Modelos usados em toda geração visual de criativos.',
     icon: <ImagePlus className="h-4 w-4" />,
-    catalog: IMAGE_MODELS,
   },
   {
     key: 'text_reasoning',
     title: 'Texto e Raciocínio',
     description: 'Sugestões, briefings dinâmicos e extrações textuais.',
     icon: <MessageSquareText className="h-4 w-4" />,
-    catalog: TEXT_MODELS,
   },
   {
     key: 'vision_analysis',
     title: 'Análise de Imagens (Visão)',
     description: 'Análise de swipe files, screenshots de marca e logos.',
     icon: <Eye className="h-4 w-4" />,
-    catalog: TEXT_MODELS,
   },
 ];
 
-// Convert settings <-> ordered tier list
 interface TierItem {
-  uid: string; // stable id for dnd
+  uid: string;
   model: string;
   attempts: number;
 }
@@ -171,7 +133,7 @@ function SortableTier({ item, index, catalog, onChange }: SortableTierProps) {
     transition,
     zIndex: isDragging ? 10 : undefined,
   };
-  const isCustom = !catalog.some((m) => m.value === item.model);
+  const inCatalog = catalog.some((m) => m.value === item.model);
 
   return (
     <div
@@ -199,7 +161,7 @@ function SortableTier({ item, index, catalog, onChange }: SortableTierProps) {
         <div className="grid grid-cols-1 md:grid-cols-[1fr_120px] gap-2">
           <div className="space-y-1.5">
             <Select
-              value={isCustom ? '__custom__' : item.model}
+              value={inCatalog ? item.model : '__custom__'}
               onValueChange={(v) => {
                 if (v === '__custom__') return;
                 onChange({ model: v });
@@ -214,15 +176,24 @@ function SortableTier({ item, index, catalog, onChange }: SortableTierProps) {
                     {m.label}
                   </SelectItem>
                 ))}
-                {isCustom && <SelectItem value="__custom__">{item.model} (custom)</SelectItem>}
+                {!inCatalog && (
+                  <SelectItem value="__custom__">
+                    {item.model} (fora do catálogo)
+                  </SelectItem>
+                )}
               </SelectContent>
             </Select>
             <Input
               value={item.model}
               onChange={(e) => onChange({ model: e.target.value })}
               placeholder="provider/model-slug"
-              className="text-xs font-mono h-8"
+              className={cn('text-xs font-mono h-8', !inCatalog && 'border-amber-500/50')}
             />
+            {!inCatalog && (
+              <p className="text-[10px] text-amber-600">
+                Este modelo não está no catálogo habilitado. Habilite-o em "Catálogo de Modelos" ou troque acima.
+              </p>
+            )}
           </div>
           <div>
             <Input
@@ -244,8 +215,12 @@ function SortableTier({ item, index, catalog, onChange }: SortableTierProps) {
   );
 }
 
-function SectionCard({ config }: { config: SectionConfig }) {
-  // Stable UIDs per slot — survive reorder so dnd-kit keeps identity
+interface SectionCardProps {
+  config: SectionConfig;
+  catalog: { value: string; label: string }[];
+}
+
+function SectionCard({ config, catalog }: SectionCardProps) {
   const [uids] = useState<string[]>(() => [
     `${config.key}-a`,
     `${config.key}-b`,
@@ -373,6 +348,11 @@ function SectionCard({ config }: { config: SectionConfig }) {
         <div className="px-5 pb-5 pt-4 space-y-4 border-t">
           <p className="text-[11px] text-muted-foreground">
             Arraste pelo <GripVertical className="inline h-3 w-3 -mt-0.5" /> para reordenar a cascata.
+            {catalog.length === 0 && (
+              <span className="ml-2 text-amber-600">
+                Nenhum modelo habilitado no catálogo desta categoria.
+              </span>
+            )}
           </p>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
             <SortableContext items={tiers.map((t) => t.uid)} strategy={verticalListSortingStrategy}>
@@ -382,7 +362,7 @@ function SectionCard({ config }: { config: SectionConfig }) {
                     key={t.uid}
                     item={t}
                     index={i}
-                    catalog={config.catalog}
+                    catalog={catalog}
                     onChange={(patch) => updateTier(t.uid, patch)}
                   />
                 ))}
@@ -402,24 +382,91 @@ function SectionCard({ config }: { config: SectionConfig }) {
   );
 }
 
+interface ModelCatalogs {
+  image_generation: string[];
+  text_reasoning: string[];
+  vision_analysis: string[];
+}
+
+function slugToLabel(slug: string): string {
+  const [provider, ...rest] = slug.split('/');
+  const model = rest.join('/');
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  const providerLabel = cap(provider ?? slug);
+  const modelLabel = (model || slug)
+    .split('-')
+    .map((p) => (p.length <= 3 ? p.toUpperCase() : cap(p)))
+    .join(' ');
+  return `${providerLabel} · ${modelLabel}`;
+}
+
 export function AiModelsTab() {
+  const [catalogs, setCatalogs] = useState<ModelCatalogs>({
+    image_generation: [],
+    text_reasoning: [],
+    vision_analysis: [],
+  });
+  const [catalogsLoading, setCatalogsLoading] = useState(true);
+  const [catalogOpen, setCatalogOpen] = useState(false);
+
+  const loadCatalogs = useCallback(async () => {
+    const { data } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'model_catalogs')
+      .maybeSingle();
+    if (data?.value) {
+      const v = data.value as any;
+      setCatalogs({
+        image_generation: v.image_generation ?? [],
+        text_reasoning: v.text_reasoning ?? [],
+        vision_analysis: v.vision_analysis ?? [],
+      });
+    }
+    setCatalogsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    loadCatalogs();
+  }, [loadCatalogs]);
+
+  const buildCatalog = (key: SettingsKey) =>
+    catalogs[key].map((slug) => ({ value: slug, label: slugToLabel(slug) }));
+
   return (
     <div className="max-w-4xl space-y-6">
-      <div className="flex items-center gap-3">
-        <Sparkles className="h-5 w-5 text-primary" />
-        <div>
+      <div className="flex items-start gap-3">
+        <Sparkles className="h-5 w-5 text-primary mt-1" />
+        <div className="flex-1">
           <h2 className="text-xl font-bold">Modelos de IA</h2>
           <p className="text-sm text-muted-foreground">
             Configure a cascata de modelos via OpenRouter para cada categoria. O sistema tenta o primário e, em caso de falha, recorre ao fallback e depois ao terciário.
           </p>
         </div>
+        <Button variant="outline" size="sm" onClick={() => setCatalogOpen(true)}>
+          <ListChecks className="h-3.5 w-3.5 mr-2" />
+          Catálogo de Modelos
+        </Button>
       </div>
 
-      <div className="space-y-3">
-        {SECTIONS.map((s) => (
-          <SectionCard key={s.key} config={s} />
-        ))}
-      </div>
+      {catalogsLoading ? (
+        <div className="rounded-lg border bg-card p-5 flex items-center gap-3">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Carregando catálogo…</span>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {SECTIONS.map((s) => (
+            <SectionCard key={s.key} config={s} catalog={buildCatalog(s.key)} />
+          ))}
+        </div>
+      )}
+
+      <ModelCatalogDialog
+        open={catalogOpen}
+        onOpenChange={setCatalogOpen}
+        onSaved={loadCatalogs}
+      />
     </div>
   );
 }
