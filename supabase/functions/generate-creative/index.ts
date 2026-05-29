@@ -639,6 +639,7 @@ CRITICAL RULES:
           { role: "user", content: userContent },
         ],
         modalities: ["image", "text"],
+        timeoutMs: Math.max(20000, Math.min(remaining - 5000, 90000)),
       });
 
       lastStatus = result.status;
