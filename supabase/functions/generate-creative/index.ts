@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   buildModelCascade,
   callOpenRouter,
-  callOpenRouterText,
+  callOpenRouterWithCascade,
   extractImageUrl,
   loadModelSettings,
 } from "../_shared/openrouter.ts";
