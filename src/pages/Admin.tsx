@@ -160,6 +160,7 @@ export default function AdminPage() {
           {activeSection === 'formats' && <FormatsTab />}
           {activeSection === 'error-logs' && <ErrorLogsTab />}
           {activeSection === 'prompts' && role === 'owner' && <PromptsTab userId={user?.id} />}
+          {activeSection === 'ai-models' && role === 'owner' && <AiModelsTab />}
           {activeSection === 'permissions' && role === 'owner' && <PermissionsTab />}
         </main>
       </div>
