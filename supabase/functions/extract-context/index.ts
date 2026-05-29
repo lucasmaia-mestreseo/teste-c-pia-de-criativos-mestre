@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
 
     if (!firecrawlKey) throw new Error("Firecrawl não configurado");
     if (!perplexityKey) throw new Error("Perplexity não configurado");
-    if (!openrouterKey) throw new Error("Lovable AI não configurado");
+    if (!openrouterKey) throw new Error("OpenRouter não configurado");
 
     const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
