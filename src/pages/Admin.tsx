@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import {
   ArrowLeft, Check, X, Trash2, Loader2, Shield, Plus, Power, PowerOff,
   Save, Pencil, BarChart3, FileCode, FolderOpen, Users, Upload, ImageIcon,
-  Mail, AlertCircle, Search, Star, Download, ChevronLeft, ChevronRight, Lock, Bug
+  Mail, AlertCircle, Search, Star, Download, ChevronLeft, ChevronRight, Lock, Bug, Sparkles
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ALL_PERMISSIONS, PERMISSION_LABELS, type Permission } from '@/hooks/usePermissions';
