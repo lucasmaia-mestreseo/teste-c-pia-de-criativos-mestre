@@ -6,8 +6,25 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
-import { Loader2, Save, Sparkles, ImagePlus, MessageSquareText, Eye, ChevronDown } from 'lucide-react';
+import { Loader2, Save, Sparkles, ImagePlus, MessageSquareText, Eye, ChevronDown, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // Model catalogs (extend as needed; field is also free-text)
 const IMAGE_MODELS: { value: string; label: string }[] = [
@@ -53,6 +70,9 @@ interface ModelSettings {
 }
 
 type SettingsKey = 'image_generation' | 'text_reasoning' | 'vision_analysis';
+type TierId = 'primary' | 'fallback' | 'tertiary';
+const TIER_ORDER: TierId[] = ['primary', 'fallback', 'tertiary'];
+const TIER_LABELS = ['Primário', 'Fallback', 'Terciário'];
 
 const DEFAULTS: Record<SettingsKey, ModelSettings> = {
   image_generation: {
@@ -113,12 +133,136 @@ const SECTIONS: SectionConfig[] = [
   },
 ];
 
+// Convert settings <-> ordered tier list
+interface TierItem {
+  uid: string; // stable id for dnd
+  model: string;
+  attempts: number;
+}
+
+function settingsToTiers(s: ModelSettings, uids: string[]): TierItem[] {
+  return TIER_ORDER.map((t, i) => ({
+    uid: uids[i],
+    model: s[`${t}_model` as const],
+    attempts: s[`${t}_attempts` as const],
+  }));
+}
+
+function tiersToSettings(tiers: TierItem[]): ModelSettings {
+  const out = {} as ModelSettings;
+  TIER_ORDER.forEach((t, i) => {
+    out[`${t}_model` as const] = tiers[i].model;
+    out[`${t}_attempts` as const] = tiers[i].attempts;
+  });
+  return out;
+}
+
+interface SortableTierProps {
+  item: TierItem;
+  index: number;
+  catalog: { value: string; label: string }[];
+  onChange: (patch: Partial<TierItem>) => void;
+}
+
+function SortableTier({ item, index, catalog, onChange }: SortableTierProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.uid });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+  };
+  const isCustom = !catalog.some((m) => m.value === item.model);
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'flex gap-3 rounded-md border bg-background/40 p-3 transition-shadow',
+        isDragging && 'shadow-lg border-primary/50',
+      )}
+    >
+      <button
+        type="button"
+        className="shrink-0 text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none flex items-start pt-1"
+        {...attributes}
+        {...listeners}
+        aria-label="Arrastar para reordenar"
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+
+      <div className="flex-1 space-y-2">
+        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {TIER_LABELS[index]}
+        </Label>
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_120px] gap-2">
+          <div className="space-y-1.5">
+            <Select
+              value={isCustom ? '__custom__' : item.model}
+              onValueChange={(v) => {
+                if (v === '__custom__') return;
+                onChange({ model: v });
+              }}
+            >
+              <SelectTrigger className="text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {catalog.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>
+                    {m.label}
+                  </SelectItem>
+                ))}
+                {isCustom && <SelectItem value="__custom__">{item.model} (custom)</SelectItem>}
+              </SelectContent>
+            </Select>
+            <Input
+              value={item.model}
+              onChange={(e) => onChange({ model: e.target.value })}
+              placeholder="provider/model-slug"
+              className="text-xs font-mono h-8"
+            />
+          </div>
+          <div>
+            <Input
+              type="number"
+              min={0}
+              max={10}
+              value={item.attempts}
+              onChange={(e) =>
+                onChange({ attempts: Math.max(0, Math.min(10, parseInt(e.target.value) || 0)) })
+              }
+              className="text-xs"
+              title="Tentativas"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1 text-center">tentativas</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SectionCard({ config }: { config: SectionConfig }) {
-  const [settings, setSettings] = useState<ModelSettings>(DEFAULTS[config.key]);
-  const [initial, setInitial] = useState<ModelSettings>(DEFAULTS[config.key]);
+  // Stable UIDs per slot — survive reorder so dnd-kit keeps identity
+  const [uids] = useState<string[]>(() => [
+    `${config.key}-a`,
+    `${config.key}-b`,
+    `${config.key}-c`,
+  ]);
+  const [tiers, setTiers] = useState<TierItem[]>(() => settingsToTiers(DEFAULTS[config.key], uids));
+  const [initialSettings, setInitialSettings] = useState<ModelSettings>(DEFAULTS[config.key]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
+
+  const settings = tiersToSettings(tiers);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   useEffect(() => {
     (async () => {
@@ -127,16 +271,16 @@ function SectionCard({ config }: { config: SectionConfig }) {
         .select('value')
         .eq('key', config.key)
         .maybeSingle();
-      const merged = data?.value
+      const merged: ModelSettings = data?.value
         ? { ...DEFAULTS[config.key], ...(data.value as any) }
         : DEFAULTS[config.key];
-      setSettings(merged);
-      setInitial(merged);
+      setTiers(settingsToTiers(merged, uids));
+      setInitialSettings(merged);
       setLoading(false);
     })();
-  }, [config.key]);
+  }, [config.key, uids]);
 
-  const isDirty = JSON.stringify(settings) !== JSON.stringify(initial);
+  const isDirty = JSON.stringify(settings) !== JSON.stringify(initialSettings);
 
   const save = async () => {
     setSaving(true);
@@ -150,68 +294,22 @@ function SectionCard({ config }: { config: SectionConfig }) {
     if (error) {
       toast.error('Erro ao salvar: ' + error.message);
     } else {
-      setInitial(settings);
+      setInitialSettings(settings);
       toast.success(`${config.title} salvo.`);
     }
   };
 
-  const renderTier = (tier: 'primary' | 'fallback' | 'tertiary', label: string) => {
-    const modelKey = `${tier}_model` as const;
-    const attemptsKey = `${tier}_attempts` as const;
-    const currentModel = settings[modelKey];
-    const isCustom = !config.catalog.some((m) => m.value === currentModel);
+  const onDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const oldIdx = tiers.findIndex((t) => t.uid === active.id);
+    const newIdx = tiers.findIndex((t) => t.uid === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
+    setTiers((prev) => arrayMove(prev, oldIdx, newIdx));
+  };
 
-    return (
-      <div className="space-y-2 border-l-2 border-primary/20 pl-4">
-        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</Label>
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_120px] gap-2">
-          <div className="space-y-1.5">
-            <Select
-              value={isCustom ? '__custom__' : currentModel}
-              onValueChange={(v) => {
-                if (v === '__custom__') return;
-                setSettings((s) => ({ ...s, [modelKey]: v }));
-              }}
-            >
-              <SelectTrigger className="text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {config.catalog.map((m) => (
-                  <SelectItem key={m.value} value={m.value}>
-                    {m.label}
-                  </SelectItem>
-                ))}
-                {isCustom && <SelectItem value="__custom__">{currentModel} (custom)</SelectItem>}
-              </SelectContent>
-            </Select>
-            <Input
-              value={currentModel}
-              onChange={(e) => setSettings((s) => ({ ...s, [modelKey]: e.target.value }))}
-              placeholder="provider/model-slug"
-              className="text-xs font-mono h-8"
-            />
-          </div>
-          <div>
-            <Input
-              type="number"
-              min={0}
-              max={10}
-              value={settings[attemptsKey]}
-              onChange={(e) =>
-                setSettings((s) => ({
-                  ...s,
-                  [attemptsKey]: Math.max(0, Math.min(10, parseInt(e.target.value) || 0)),
-                }))
-              }
-              className="text-xs"
-              title="Tentativas"
-            />
-            <p className="text-[10px] text-muted-foreground mt-1 text-center">tentativas</p>
-          </div>
-        </div>
-      </div>
-    );
+  const updateTier = (uid: string, patch: Partial<TierItem>) => {
+    setTiers((prev) => prev.map((t) => (t.uid === uid ? { ...t, ...patch } : t)));
   };
 
   if (loading) {
@@ -224,7 +322,11 @@ function SectionCard({ config }: { config: SectionConfig }) {
   }
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="rounded-lg border bg-card overflow-hidden transition-colors hover:border-primary/40">
+    <Collapsible
+      open={open}
+      onOpenChange={setOpen}
+      className="rounded-lg border bg-card overflow-hidden transition-colors hover:border-primary/40"
+    >
       <CollapsibleTrigger asChild>
         <button
           type="button"
@@ -268,12 +370,25 @@ function SectionCard({ config }: { config: SectionConfig }) {
       </CollapsibleTrigger>
 
       <CollapsibleContent>
-        <div className="px-5 pb-5 pt-1 space-y-4 border-t">
-          <div className="space-y-4 pt-4">
-            {renderTier('primary', 'Primário')}
-            {renderTier('fallback', 'Fallback')}
-            {renderTier('tertiary', 'Terciário')}
-          </div>
+        <div className="px-5 pb-5 pt-4 space-y-4 border-t">
+          <p className="text-[11px] text-muted-foreground">
+            Arraste pelo <GripVertical className="inline h-3 w-3 -mt-0.5" /> para reordenar a cascata.
+          </p>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+            <SortableContext items={tiers.map((t) => t.uid)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-2">
+                {tiers.map((t, i) => (
+                  <SortableTier
+                    key={t.uid}
+                    item={t}
+                    index={i}
+                    catalog={config.catalog}
+                    onChange={(patch) => updateTier(t.uid, patch)}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
 
           <div className="flex justify-end">
             <Button onClick={save} disabled={saving || !isDirty} size="sm">
