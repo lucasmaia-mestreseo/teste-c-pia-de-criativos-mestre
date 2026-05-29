@@ -15,9 +15,9 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+    const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
 
-    if (!lovableKey) throw new Error("Lovable AI não configurado");
+    if (!openrouterKey) throw new Error("Lovable AI não configurado");
 
     const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -58,10 +58,10 @@ Deno.serve(async (req) => {
 
       for (let i = 0; i < validCount; i++) {
         // Step 1: Generate briefing
-        const briefingResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const briefingResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${lovableKey}`,
+            Authorization: `Bearer ${openrouterKey}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
@@ -144,10 +144,10 @@ Typography: ${(!ignoreBrandKit && brandKit?.typography) || "modern sans-serif"}
 Style: Clean, professional, high-conversion ad creative with clear text hierarchy.
 IMPORTANT: The headline and copy text MUST be rendered as readable text elements in the image, integrated into the visual layout like a real advertisement. Use the brand typography and colors for the text.`;
 
-        const imageResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const imageResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${lovableKey}`,
+            Authorization: `Bearer ${openrouterKey}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
