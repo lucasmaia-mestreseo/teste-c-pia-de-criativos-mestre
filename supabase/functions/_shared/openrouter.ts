@@ -6,8 +6,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-export interface ImageGenSettings {
-  provider: "openrouter";
+export type ModelSettingsKey = "image_generation" | "text_reasoning" | "vision_analysis";
+
+export interface ModelSettings {
   primary_model: string;
   fallback_model: string;
   tertiary_model: string;
@@ -16,37 +17,63 @@ export interface ImageGenSettings {
   tertiary_attempts: number;
 }
 
-const DEFAULT_IMAGE_SETTINGS: ImageGenSettings = {
-  provider: "openrouter",
-  primary_model: "openai/gpt-5.4-image-2",
-  fallback_model: "google/gemini-3.1-flash-image-preview",
-  tertiary_model: "x-ai/grok-imagine-image-quality",
-  primary_attempts: 2,
-  fallback_attempts: 1,
-  tertiary_attempts: 1,
+// Backwards-compat alias
+export type ImageGenSettings = ModelSettings & { provider?: string };
+
+const DEFAULTS: Record<ModelSettingsKey, ModelSettings> = {
+  image_generation: {
+    primary_model: "openai/gpt-5.4-image-2",
+    fallback_model: "google/gemini-3.1-flash-image-preview",
+    tertiary_model: "x-ai/grok-imagine-image-quality",
+    primary_attempts: 2,
+    fallback_attempts: 1,
+    tertiary_attempts: 1,
+  },
+  text_reasoning: {
+    primary_model: "google/gemini-3-flash-preview",
+    fallback_model: "openai/gpt-5.4-mini",
+    tertiary_model: "anthropic/claude-3.5-haiku",
+    primary_attempts: 2,
+    fallback_attempts: 1,
+    tertiary_attempts: 1,
+  },
+  vision_analysis: {
+    primary_model: "google/gemini-2.5-flash",
+    fallback_model: "google/gemini-3-flash-preview",
+    tertiary_model: "openai/gpt-5.4-mini",
+    primary_attempts: 2,
+    fallback_attempts: 1,
+    tertiary_attempts: 1,
+  },
 };
 
-export async function loadImageGenSettings(): Promise<ImageGenSettings> {
+export async function loadModelSettings(key: ModelSettingsKey): Promise<ModelSettings> {
+  const fallback = DEFAULTS[key];
   try {
     const url = Deno.env.get("SUPABASE_URL")!;
-    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const client = createClient(url, key);
+    const sk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const client = createClient(url, sk);
     const { data } = await client
       .from("app_settings")
       .select("value")
-      .eq("key", "image_generation")
+      .eq("key", key)
       .maybeSingle();
     if (data?.value) {
-      return { ...DEFAULT_IMAGE_SETTINGS, ...(data.value as Record<string, unknown>) } as ImageGenSettings;
+      return { ...fallback, ...(data.value as Record<string, unknown>) } as ModelSettings;
     }
   } catch (e) {
-    console.warn("loadImageGenSettings fallback to defaults:", e);
+    console.warn(`loadModelSettings(${key}) fallback to defaults:`, e);
   }
-  return DEFAULT_IMAGE_SETTINGS;
+  return fallback;
 }
 
-/** Build the ordered list of (model, max_attempts) tuples from settings. */
-export function buildModelCascade(s: ImageGenSettings): Array<{ model: string; level: "primary" | "fallback" | "tertiary" }> {
+/** @deprecated use loadModelSettings('image_generation') */
+export async function loadImageGenSettings(): Promise<ImageGenSettings> {
+  return loadModelSettings("image_generation");
+}
+
+/** Build the ordered list of (model, level) tuples from settings. */
+export function buildModelCascade(s: ModelSettings): Array<{ model: string; level: "primary" | "fallback" | "tertiary" }> {
   const out: Array<{ model: string; level: "primary" | "fallback" | "tertiary" }> = [];
   for (let i = 0; i < Math.max(1, s.primary_attempts); i++) out.push({ model: s.primary_model, level: "primary" });
   for (let i = 0; i < Math.max(0, s.fallback_attempts); i++) out.push({ model: s.fallback_model, level: "fallback" });
@@ -65,6 +92,8 @@ export interface CallOptions {
   modalities?: string[];
   responseFormat?: unknown;
   temperature?: number;
+  tools?: unknown[];
+  toolChoice?: unknown;
 }
 
 export interface CallResult {
@@ -88,6 +117,8 @@ export async function callOpenRouter(opts: CallOptions): Promise<CallResult> {
   if (opts.modalities) body.modalities = opts.modalities;
   if (opts.responseFormat) body.response_format = opts.responseFormat;
   if (typeof opts.temperature === "number") body.temperature = opts.temperature;
+  if (opts.tools) body.tools = opts.tools;
+  if (opts.toolChoice) body.tool_choice = opts.toolChoice;
 
   let res: Response;
   try {
@@ -120,10 +151,8 @@ export async function callOpenRouter(opts: CallOptions): Promise<CallResult> {
 export function extractImageUrl(data: any): string | undefined {
   const msg = data?.choices?.[0]?.message;
   if (!msg) return undefined;
-  // 1. OpenRouter image format
   const direct = msg.images?.[0]?.image_url?.url;
   if (direct) return direct;
-  // 2. Inline content parts
   const parts = msg.content;
   if (Array.isArray(parts)) {
     for (const part of parts) {
@@ -135,7 +164,62 @@ export function extractImageUrl(data: any): string | undefined {
   return undefined;
 }
 
-/** Convenience helper for text-only chat completions. */
+/** @deprecated use callOpenRouterWithCascade */
 export async function callOpenRouterText(model: string, messages: ChatMessage[], responseFormat?: unknown): Promise<CallResult> {
   return callOpenRouter({ model, messages, responseFormat });
+}
+
+export interface CascadeOptions {
+  settingsKey: ModelSettingsKey;
+  messages: ChatMessage[];
+  responseFormat?: unknown;
+  modalities?: string[];
+  temperature?: number;
+  tools?: unknown[];
+  toolChoice?: unknown;
+  /** When true, stop on the first 2xx response even if image extraction would fail later. */
+  acceptAnyOk?: boolean;
+}
+
+export interface CascadeResult extends CallResult {
+  modelUsed?: string;
+  levelUsed?: "primary" | "fallback" | "tertiary";
+  attempts?: number;
+}
+
+/**
+ * Run the configured cascade for a given settings key. Returns the first
+ * successful response, or the last error if every attempt fails. Honors
+ * 429 retry-after with a capped wait.
+ */
+export async function callOpenRouterWithCascade(opts: CascadeOptions): Promise<CascadeResult> {
+  const settings = await loadModelSettings(opts.settingsKey);
+  const cascade = buildModelCascade(settings);
+
+  let last: CallResult = { ok: false, status: 0, errorBody: "no attempt" };
+  let attempts = 0;
+
+  for (const { model, level } of cascade) {
+    attempts++;
+    const r = await callOpenRouter({
+      model,
+      messages: opts.messages,
+      modalities: opts.modalities,
+      responseFormat: opts.responseFormat,
+      temperature: opts.temperature,
+      tools: opts.tools,
+      toolChoice: opts.toolChoice,
+    });
+    if (r.ok) {
+      return { ...r, modelUsed: model, levelUsed: level, attempts };
+    }
+    last = r;
+    console.warn(`[${opts.settingsKey}] ${level} ${model} failed (${r.status}): ${r.errorBody?.slice(0, 200)}`);
+    if (r.status === 402) break; // credits exhausted — stop trying
+    if (r.status === 429) {
+      const ra = r.retryAfter ? parseInt(r.retryAfter, 10) : NaN;
+      await new Promise((res) => setTimeout(res, !Number.isNaN(ra) && ra > 0 ? Math.min(ra * 1000, 8000) : 1500));
+    }
+  }
+  return { ...last, attempts };
 }
