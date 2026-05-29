@@ -449,8 +449,10 @@ serve(async (req) => {
     }
 
     const creationMode = mode || 'swipe';
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    if (!Deno.env.get("OPENROUTER_API_KEY")) throw new Error("OPENROUTER_API_KEY not configured");
+
+    const imageSettings = await loadImageGenSettings();
+    const cascade = buildModelCascade(imageSettings);
 
     const hasLogo = !!(brandKit?.logoUrl);
     const hasPersonPhoto = !!(brandKit?.personPhotoUrl);
@@ -460,7 +462,7 @@ serve(async (req) => {
     let logoAnalysis: string | null = null;
     if (hasLogo) {
       console.log("Analyzing logo content...");
-      logoAnalysis = await analyzeLogoContent(brandKit.logoUrl, LOVABLE_API_KEY);
+      logoAnalysis = await analyzeLogoContent(brandKit.logoUrl);
       console.log("Logo analysis result:", logoAnalysis ? "success" : "failed");
     }
 
