@@ -606,6 +606,11 @@ CRITICAL RULES:
     }
 
     const MAX_ATTEMPTS = cascade.length;
+    // Edge-function hard limit is 150s. Reserve ~15s for upload/DB/auth work
+    // already done plus the final upload + insert below. Stop trying new
+    // attempts once we've spent ~125s so we can return a clean error.
+    const START_TS = Date.now();
+    const TOTAL_BUDGET_MS = 125000;
     let generatedImage: string | undefined;
     let lastModel = "";
     let lastLevel: "primary" | "fallback" | "tertiary" = "primary";
@@ -615,11 +620,17 @@ CRITICAL RULES:
     let lastRequestId: string | null | undefined = null;
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const elapsed = Date.now() - START_TS;
+      const remaining = TOTAL_BUDGET_MS - elapsed;
+      if (remaining < 20000) {
+        console.warn(`Stopping cascade: only ${remaining}ms of budget left before edge timeout.`);
+        break;
+      }
       const { model, level } = cascade[attempt - 1];
       lastModel = model;
       lastLevel = level;
 
-      console.log(`Attempt ${attempt}/${MAX_ATTEMPTS} with model ${model} (${level}) via OpenRouter`);
+      console.log(`Attempt ${attempt}/${MAX_ATTEMPTS} with model ${model} (${level}) via OpenRouter (budget ${remaining}ms)`);
 
       const result = await callOpenRouter({
         model,
