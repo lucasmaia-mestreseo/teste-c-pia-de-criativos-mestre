@@ -135,7 +135,7 @@ export function ModelCatalogDialog({ open, onOpenChange, onSaved }: Props) {
           next.vision_analysis = v?.vision_analysis ?? [];
           next.synced_at = v?.synced_at ?? null;
         } else {
-          tiers[row.key as CategoryKey] = row.value as ModelSettings;
+          tiers[row.key as CategoryKey] = row.value as unknown as ModelSettings;
         }
       }
       setEnabled(next);
