@@ -5,9 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Loader2, Save, Sparkles } from 'lucide-react';
+import { Loader2, Save, Sparkles, ImagePlus, MessageSquareText, Eye } from 'lucide-react';
 
-// Curated OpenRouter image-capable models
+// Model catalogs (extend as needed; field is also free-text)
 const IMAGE_MODELS: { value: string; label: string }[] = [
   { value: 'openai/gpt-5.4-image-2', label: 'OpenAI · GPT-5.4 Image 2' },
   { value: 'openai/gpt-5-image', label: 'OpenAI · GPT-5 Image' },
@@ -20,8 +20,28 @@ const IMAGE_MODELS: { value: string; label: string }[] = [
   { value: 'black-forest-labs/flux-pro', label: 'Black Forest Labs · FLUX Pro' },
 ];
 
-interface ImageGenSettings {
-  provider: string;
+const TEXT_MODELS: { value: string; label: string }[] = [
+  { value: 'google/gemini-3-flash-preview', label: 'Google · Gemini 3 Flash (Preview)' },
+  { value: 'google/gemini-3.1-flash-lite-preview', label: 'Google · Gemini 3.1 Flash Lite (Preview)' },
+  { value: 'google/gemini-3.5-flash', label: 'Google · Gemini 3.5 Flash' },
+  { value: 'google/gemini-3.1-pro-preview', label: 'Google · Gemini 3.1 Pro (Preview)' },
+  { value: 'google/gemini-2.5-pro', label: 'Google · Gemini 2.5 Pro' },
+  { value: 'google/gemini-2.5-flash', label: 'Google · Gemini 2.5 Flash' },
+  { value: 'google/gemini-2.5-flash-lite', label: 'Google · Gemini 2.5 Flash Lite' },
+  { value: 'openai/gpt-5', label: 'OpenAI · GPT-5' },
+  { value: 'openai/gpt-5-mini', label: 'OpenAI · GPT-5 Mini' },
+  { value: 'openai/gpt-5.4', label: 'OpenAI · GPT-5.4' },
+  { value: 'openai/gpt-5.4-mini', label: 'OpenAI · GPT-5.4 Mini' },
+  { value: 'openai/gpt-5.4-nano', label: 'OpenAI · GPT-5.4 Nano' },
+  { value: 'openai/gpt-5.5', label: 'OpenAI · GPT-5.5' },
+  { value: 'anthropic/claude-3.5-sonnet', label: 'Anthropic · Claude 3.5 Sonnet' },
+  { value: 'anthropic/claude-3.5-haiku', label: 'Anthropic · Claude 3.5 Haiku' },
+  { value: 'anthropic/claude-sonnet-4', label: 'Anthropic · Claude Sonnet 4' },
+  { value: 'x-ai/grok-2-1212', label: 'xAI · Grok 2 (1212)' },
+  { value: 'x-ai/grok-4', label: 'xAI · Grok 4' },
+];
+
+interface ModelSettings {
   primary_model: string;
   fallback_model: string;
   tertiary_model: string;
@@ -30,76 +50,126 @@ interface ImageGenSettings {
   tertiary_attempts: number;
 }
 
-const DEFAULTS: ImageGenSettings = {
-  provider: 'openrouter',
-  primary_model: 'openai/gpt-5.4-image-2',
-  fallback_model: 'google/gemini-3.1-flash-image-preview',
-  tertiary_model: 'x-ai/grok-imagine-image-quality',
-  primary_attempts: 2,
-  fallback_attempts: 1,
-  tertiary_attempts: 1,
+type SettingsKey = 'image_generation' | 'text_reasoning' | 'vision_analysis';
+
+const DEFAULTS: Record<SettingsKey, ModelSettings> = {
+  image_generation: {
+    primary_model: 'openai/gpt-5.4-image-2',
+    fallback_model: 'google/gemini-3.1-flash-image-preview',
+    tertiary_model: 'x-ai/grok-imagine-image-quality',
+    primary_attempts: 2,
+    fallback_attempts: 1,
+    tertiary_attempts: 1,
+  },
+  text_reasoning: {
+    primary_model: 'google/gemini-3-flash-preview',
+    fallback_model: 'openai/gpt-5.4-mini',
+    tertiary_model: 'anthropic/claude-3.5-haiku',
+    primary_attempts: 2,
+    fallback_attempts: 1,
+    tertiary_attempts: 1,
+  },
+  vision_analysis: {
+    primary_model: 'google/gemini-2.5-flash',
+    fallback_model: 'google/gemini-3-flash-preview',
+    tertiary_model: 'openai/gpt-5.4-mini',
+    primary_attempts: 2,
+    fallback_attempts: 1,
+    tertiary_attempts: 1,
+  },
 };
 
-export function AiModelsTab() {
-  const [settings, setSettings] = useState<ImageGenSettings>(DEFAULTS);
+interface SectionConfig {
+  key: SettingsKey;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  catalog: { value: string; label: string }[];
+}
+
+const SECTIONS: SectionConfig[] = [
+  {
+    key: 'image_generation',
+    title: 'Geração de Imagens',
+    description: 'Modelos usados em toda geração visual de criativos.',
+    icon: <ImagePlus className="h-4 w-4" />,
+    catalog: IMAGE_MODELS,
+  },
+  {
+    key: 'text_reasoning',
+    title: 'Texto e Raciocínio',
+    description: 'Sugestões, briefings dinâmicos e extrações textuais.',
+    icon: <MessageSquareText className="h-4 w-4" />,
+    catalog: TEXT_MODELS,
+  },
+  {
+    key: 'vision_analysis',
+    title: 'Análise de Imagens (Visão)',
+    description: 'Análise de swipe files, screenshots de marca e logos.',
+    icon: <Eye className="h-4 w-4" />,
+    catalog: TEXT_MODELS,
+  },
+];
+
+interface SectionCardProps {
+  config: SectionConfig;
+}
+
+function SectionCard({ config }: SectionCardProps) {
+  const [settings, setSettings] = useState<ModelSettings>(DEFAULTS[config.key]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('app_settings')
         .select('value')
-        .eq('key', 'image_generation')
+        .eq('key', config.key)
         .maybeSingle();
-      if (!error && data?.value) {
-        setSettings({ ...DEFAULTS, ...(data.value as any) });
+      if (data?.value) {
+        setSettings({ ...DEFAULTS[config.key], ...(data.value as any) });
       }
       setLoading(false);
     })();
-  }, []);
+  }, [config.key]);
 
   const save = async () => {
     setSaving(true);
+    // Upsert in case the row doesn't exist yet
     const { error } = await supabase
       .from('app_settings')
-      .update({ value: settings as any, updated_at: new Date().toISOString() })
-      .eq('key', 'image_generation');
+      .upsert(
+        { key: config.key, value: settings as any, updated_at: new Date().toISOString() },
+        { onConflict: 'key' },
+      );
     setSaving(false);
     if (error) {
       toast.error('Erro ao salvar: ' + error.message);
     } else {
-      toast.success('Configurações de modelos salvas.');
+      toast.success(`${config.title} salvo.`);
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="rounded-lg border bg-card p-8 flex justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
-  const renderTier = (
-    tier: 'primary' | 'fallback' | 'tertiary',
-    label: string,
-    description: string,
-  ) => {
+  const renderTier = (tier: 'primary' | 'fallback' | 'tertiary', label: string) => {
     const modelKey = `${tier}_model` as const;
     const attemptsKey = `${tier}_attempts` as const;
     const currentModel = settings[modelKey];
-    const isCustom = !IMAGE_MODELS.some((m) => m.value === currentModel);
+    const isCustom = !config.catalog.some((m) => m.value === currentModel);
 
     return (
-      <div className="rounded-lg border bg-card p-5 space-y-4">
-        <div>
-          <h3 className="text-sm font-bold">{label}</h3>
-          <p className="text-xs text-muted-foreground mt-1">{description}</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_140px] gap-3">
-          <div className="space-y-2">
-            <Label className="text-xs">Modelo</Label>
+      <div className="space-y-2 border-l-2 border-primary/20 pl-4">
+        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</Label>
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_120px] gap-2">
+          <div className="space-y-1.5">
             <Select
               value={isCustom ? '__custom__' : currentModel}
               onValueChange={(v) => {
@@ -107,29 +177,26 @@ export function AiModelsTab() {
                 setSettings((s) => ({ ...s, [modelKey]: v }));
               }}
             >
-              <SelectTrigger>
+              <SelectTrigger className="text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {IMAGE_MODELS.map((m) => (
+                {config.catalog.map((m) => (
                   <SelectItem key={m.value} value={m.value}>
                     {m.label}
                   </SelectItem>
                 ))}
-                {isCustom && (
-                  <SelectItem value="__custom__">{currentModel} (custom)</SelectItem>
-                )}
+                {isCustom && <SelectItem value="__custom__">{currentModel} (custom)</SelectItem>}
               </SelectContent>
             </Select>
             <Input
               value={currentModel}
               onChange={(e) => setSettings((s) => ({ ...s, [modelKey]: e.target.value }))}
               placeholder="provider/model-slug"
-              className="text-xs font-mono"
+              className="text-xs font-mono h-8"
             />
           </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Tentativas</Label>
+          <div>
             <Input
               type="number"
               min={0}
@@ -141,7 +208,10 @@ export function AiModelsTab() {
                   [attemptsKey]: Math.max(0, Math.min(10, parseInt(e.target.value) || 0)),
                 }))
               }
+              className="text-xs"
+              title="Tentativas"
             />
+            <p className="text-[10px] text-muted-foreground mt-1 text-center">tentativas</p>
           </div>
         </div>
       </div>
@@ -149,26 +219,48 @@ export function AiModelsTab() {
   };
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="rounded-lg border bg-card p-5 space-y-5">
+      <div className="flex items-start gap-3">
+        <div className="p-2 rounded-md bg-primary/10 text-primary">{config.icon}</div>
+        <div className="flex-1">
+          <h3 className="text-sm font-bold">{config.title}</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">{config.description}</p>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {renderTier('primary', 'Primário')}
+        {renderTier('fallback', 'Fallback')}
+        {renderTier('tertiary', 'Terciário')}
+      </div>
+
+      <div className="flex justify-end">
+        <Button onClick={save} disabled={saving} size="sm">
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Save className="h-3.5 w-3.5 mr-2" />}
+          Salvar
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export function AiModelsTab() {
+  return (
+    <div className="max-w-5xl space-y-6">
       <div className="flex items-center gap-3">
         <Sparkles className="h-5 w-5 text-primary" />
         <div>
           <h2 className="text-xl font-bold">Modelos de IA</h2>
           <p className="text-sm text-muted-foreground">
-            Configure a cascata de modelos para geração de imagens via OpenRouter. O sistema tenta o primário; se falhar, passa para o fallback e depois para o terciário.
+            Configure a cascata de modelos via OpenRouter para cada categoria. O sistema tenta o primário e, em caso de falha, recorre ao fallback e depois ao terciário.
           </p>
         </div>
       </div>
 
-      {renderTier('primary', 'Modelo Primário', 'Primeira escolha para todas as gerações de imagem.')}
-      {renderTier('fallback', 'Modelo Fallback', 'Acionado quando o primário esgota as tentativas.')}
-      {renderTier('tertiary', 'Modelo Terciário', 'Última tentativa antes de retornar erro ao usuário.')}
-
-      <div className="flex justify-end">
-        <Button onClick={save} disabled={saving}>
-          {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-          Salvar configurações
-        </Button>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {SECTIONS.map((s) => (
+          <SectionCard key={s.key} config={s} />
+        ))}
       </div>
     </div>
   );
