@@ -41,7 +41,7 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
   const [projectsOpen, setProjectsOpen] = useState('');
 
   const canCreateProject = can('create_project');
-  const canAdmin = role === 'owner' || role === 'admin';
+  const canAdmin = role === 'owner' || role === 'admin' || role === 'manager';
 
   const userInitials = profile?.name
     ?.split(' ')
