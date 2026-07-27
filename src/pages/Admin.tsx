@@ -102,13 +102,13 @@ const roleBadgeColor = (r: AppRole | null) => {
 
 type Section = 'projects' | 'users' | 'usage' | 'analytics' | 'prompts' | 'formats' | 'permissions' | 'error-logs' | 'ai-models';
 
-const SIDEBAR_ITEMS: { id: Section; label: string; icon: React.ReactNode; ownerOnly?: boolean }[] = [
+const SIDEBAR_ITEMS: { id: Section; label: string; icon: React.ReactNode; ownerOnly?: boolean; adminOnly?: boolean }[] = [
   { id: 'projects', label: 'Projetos', icon: <FolderOpen className="h-4 w-4" /> },
   { id: 'users', label: 'Usuários', icon: <Users className="h-4 w-4" /> },
   { id: 'usage', label: 'Uso do Sistema', icon: <BarChart3 className="h-4 w-4" /> },
   { id: 'analytics', label: 'Análises', icon: <LineChartIcon className="h-4 w-4" /> },
-  { id: 'formats', label: 'Formatos', icon: <ImageIcon className="h-4 w-4" /> },
-  { id: 'error-logs', label: 'Logs de Erros', icon: <Bug className="h-4 w-4" /> },
+  { id: 'formats', label: 'Formatos', icon: <ImageIcon className="h-4 w-4" />, adminOnly: true },
+  { id: 'error-logs', label: 'Logs de Erros', icon: <Bug className="h-4 w-4" />, adminOnly: true },
   { id: 'prompts', label: 'Prompts', icon: <FileCode className="h-4 w-4" />, ownerOnly: true },
   { id: 'ai-models', label: 'Modelos de IA', icon: <Sparkles className="h-4 w-4" />, ownerOnly: true },
   { id: 'permissions', label: 'Permissões', icon: <Lock className="h-4 w-4" />, ownerOnly: true },
@@ -119,12 +119,18 @@ export default function AdminPage() {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<Section>('projects');
 
-  const canManageUsers = role === 'owner' || role === 'admin';
+  const canAccessAdmin = role === 'owner' || role === 'admin' || role === 'manager';
+  const isAdminOrOwner = role === 'owner' || role === 'admin';
+  const isOwner = role === 'owner';
 
   if (authLoading) return null;
-  if (!canManageUsers) return <Navigate to="/" replace />;
+  if (!canAccessAdmin) return <Navigate to="/" replace />;
 
-  const visibleItems = SIDEBAR_ITEMS.filter((i) => !i.ownerOnly || role === 'owner');
+  const visibleItems = SIDEBAR_ITEMS.filter((i) => {
+    if (i.ownerOnly) return isOwner;
+    if (i.adminOnly) return isAdminOrOwner;
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-background">
