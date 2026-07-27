@@ -496,6 +496,10 @@ export type Database = {
       }
       is_approved: { Args: { _user_id: string }; Returns: boolean }
       max_role_rank: { Args: { _user_id: string }; Returns: number }
+      user_can_access_project: {
+        Args: { _project: string; _user: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "owner" | "admin" | "manager" | "analyst"
