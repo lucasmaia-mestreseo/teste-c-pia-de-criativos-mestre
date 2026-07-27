@@ -1,75 +1,92 @@
+# Acesso do cargo "Gerente" ao painel administrativo
 
-## Painel de Análises (Admin)
+## Objetivo
+Permitir que usuários com cargo `manager` acessem, no `/admin`:
+- **Análises** — todas as consultas (Time e Clientes)
+- **Projetos** — criar, editar, ativar/desativar, remover
+- **Usuários** — convidar, aprovar/revogar aprovação, remover **apenas analistas** e alterar cargo **apenas dentro de `analyst`**
 
-Nova seção no Admin com duas sub-telas navegáveis por abas/rotas: **Análise de Time** e **Análise de Clientes**. Dados vêm de `generated_creatives` cruzado com `projects` (nome) e `profiles` (nome do analista via `created_by`).
+Owner e admin mantêm poderes atuais. Toda validação precisa existir tanto no cliente quanto no backend (RLS + edge functions) — o cliente é só UX; a segurança fica no banco.
 
-Visível somente para `owner`/`admin` (mesma regra dos outros tabs restritos).
+## Regras de negócio (matriz)
 
----
+| Ação                                        | owner | admin | manager | analyst |
+|--                                           |--     |--     |--       |--       |
+| Ver /admin                                  | ✅    | ✅    | ✅ (novo) | ❌     |
+| Ver Análises / Uso do Sistema               | ✅    | ✅    | ✅ (novo) | ❌     |
+| Projetos: criar/editar/ativar/remover       | ✅    | ✅    | ✅ (novo) | ❌     |
+| Usuários: convidar                          | ✅    | ✅    | ✅ (novo) | ❌     |
+| Usuários: aprovar/revogar                   | ✅    | ✅    | somente `analyst` ou sem cargo | ❌ |
+| Usuários: remover                           | ✅    | ✅ (não owner) | somente `analyst` | ❌ |
+| Alterar cargo                               | qualquer | qualquer exceto owner | apenas para/de `analyst` | ❌ |
+| Prompts, Modelos de IA, Permissões          | ✅    | ❌    | ❌      | ❌      |
+| Formatos, Logs de Erros                     | ✅    | ✅    | ❌ (mantido restrito a admin+) | ❌ |
 
-### 1. Estrutura de navegação
+Justificativa: gerente não pode escalar privilégios (nunca criar admin/manager/owner) nem mexer em quem já tem privilégio.
 
-- Adicionar item **"Análises"** na navegação do `src/pages/Admin.tsx` (owner/admin).
-- Duas sub-abas internas:
-  - `Análise de Time`
-  - `Análise de Clientes`
-- Componentes novos em `src/components/admin/`:
-  - `AnalyticsTeamTab.tsx`
-  - `AnalyticsClientsTab.tsx`
-  - `AnalyticsFilters.tsx` (compartilhado: período + projeto + usuário)
+## Mudanças no banco (migração)
 
-### 2. Filtros compartilhados (`AnalyticsFilters`)
+1. Nova função `public.can_manage_users(_actor uuid)` → `owner|admin|manager`.
+2. Nova função `public.can_manage_user_target(_actor uuid, _target uuid)` — booleana:
+   - `owner` sempre pode
+   - `admin` pode qualquer alvo que não seja `owner`
+   - `manager` só pode alvos cujo maior cargo seja `analyst` **ou** que ainda não tenham cargo
+3. Nova função `public.can_assign_role(_actor uuid, _role app_role)`:
+   - `owner`: qualquer
+   - `admin`: `admin|manager|analyst`
+   - `manager`: apenas `analyst`
+4. Recriar policies para incluir `manager` sem afrouxar:
+   - `projects`: já usa `has_permission(edit_project/create_project)` + `delete` restrito a `has_any_admin_role`. Trocar delete/insert/update para permitir também `manager` via nova função `has_project_admin(uuid)` que devolve true para owner/admin/manager. Isso substitui a dependência de flags de permissões (que hoje o gerente pode não ter).
+   - `profiles UPDATE/DELETE`: passar de `has_any_admin_role` para `can_manage_user_target(auth.uid(), user_id)`.
+   - `user_roles INSERT/UPDATE/DELETE`: passar para `can_manage_user_target(auth.uid(), user_id) AND can_assign_role(auth.uid(), role)` (o `WITH CHECK` no INSERT/UPDATE bloqueia gerente tentando gravar cargo ≠ analyst).
+   - `user_invitations INSERT/SELECT/DELETE`: passar para `can_manage_users(auth.uid())`.
+   - `error_logs SELECT`: manter só admin/owner (não pedido).
+   - `app_settings`, `role_permissions`, `template_prompts`: sem mudança (owner-only mantido).
+5. `is_approved` continua sendo o gate para leituras gerais — gerente já é aprovado.
 
-- **Período**: botões rápidos `Hoje | 7D | 30D | 90D | Personalizado`. Personalizado abre `DateRangePicker` (shadcn Calendar em `mode="range"`).
-- **Projeto**: combobox com busca (padrão do TopBar) listando projetos ativos.
-- **Usuário**: combobox com busca listando perfis (`profiles.name`).
-- Estado local por tab; padrão inicial `30D`, projeto = todos, usuário = todos.
+## Mudanças nas edge functions
 
-### 3. Fonte de dados
+Cada função que hoje chama `has_any_admin_role` precisa aceitar `manager` quando a ação é permitida a gerente, e bloquear quando não é:
 
-Uma query base em `generated_creatives` por tab, filtrando `created_at` no intervalo + `project_id` (se selecionado) + `created_by` (se selecionado). Join manual client-side:
+- `invite-user` → trocar guard para `can_manage_users(caller)` (aceita manager). Continua forçando `@agenciamestre.com` e cargo inicial `analyst`.
+- `admin-list-users` → `can_manage_users(caller)`.
+- `admin-resend-confirmation` → `can_manage_users(caller)` (usada em fluxo de convite/aprovação).
+- `admin-delete-user` → validar `can_manage_user_target(caller, targetUserId)`; retornar 403 se gerente tentar apagar admin/owner/manager.
+- `admin-reset-password` → manter restrito a admin/owner (não pedido a gerente).
 
-- `projects`: `id, name, active` (já cacheado via `useProjects`).
-- `profiles`: `user_id, name` (novo hook `useProfilesLite`).
+Todos continuam derivando o `caller.id` do JWT (nunca do body) e usando o service role só depois da checagem.
 
-Sem migração de banco — todos os dados já existem. Agregação feita no cliente com `useMemo` (volume esperado: baixo, filtrado por período).
+## Mudanças no frontend
 
-### 4. Tela: Análise de Time
+`src/pages/Admin.tsx`:
+- `canManageUsers = role === 'owner' || role === 'admin' || role === 'manager'`.
+- `SIDEBAR_ITEMS`: adicionar flag `adminOnly` para `formats`, `error-logs`; `analytics`, `projects`, `users`, `usage` ficam visíveis para gerente. `prompts`, `ai-models`, `permissions` seguem `ownerOnly`.
+- Sidebar filtra por role.
+- `handleRoleChange`: se `currentRole === 'manager'`, só permitir alvo com cargo atual `analyst`/sem cargo **e** novo cargo `analyst`. Toast de erro caso contrário.
+- `availableRoles`: para gerente, `['analyst']`.
+- `handleRemoveUser` / `handleApprove`: bloquear se alvo tem cargo ≠ analyst e ator é gerente.
+- Botão "Acesso Total"/restrito por projeto continua desabilitado para gerente quando alvo é admin/owner.
 
-Três gráficos usando `recharts` (já no projeto via shadcn):
+`src/hooks/usePermissions.ts`: expor helper `isPrivileged` (owner/admin/manager) para futuras conferências, opcional.
 
-1. **Criativos por dia** — `LineChart` (ou `BarChart`) com uma barra/ponto por dia no período selecionado. Bucket por dia local; dias sem dados = 0.
-2. **Top 10 clientes** — `BarChart` horizontal: eixo Y = nome do projeto, eixo X = contagem de criativos no período.
-3. **Top 10 analistas** — `BarChart` horizontal: eixo Y = nome do analista (`profiles.name`), eixo X = contagem.
+## Blindagem / validação de segurança
 
-Cabeçalho com KPIs simples: total de criativos, analistas ativos, projetos ativos no período.
+- Revisar cada política reescrita rodando `supabase--linter` após a migração.
+- Testes manuais que devem passar:
+  1. Gerente logado abre `/admin` → vê apenas Projetos, Usuários, Uso do Sistema, Análises.
+  2. Gerente tenta `supabase.from('user_roles').insert({ role: 'admin' })` direto pelo client → RLS `WITH CHECK` recusa.
+  3. Gerente tenta alterar cargo de um admin via dropdown → bloqueado no cliente e, se forçado via SQL, `can_manage_user_target` recusa.
+  4. Gerente chama `admin-delete-user` com id de um admin → 403.
+  5. Analista tenta abrir `/admin` → redireciona para `/`.
+- Confirmação com dupla-checagem cliente+servidor: cliente esconde, servidor recusa. Nenhuma decisão de segurança sai do cliente.
 
-### 5. Tela: Análise de Clientes
+## Arquivos afetados
 
-- **Criativos por dia** — mesmo gráfico da tela de time, respeitando os filtros.
-- **Saúde dos clientes** — lista/tabela de **todos os projetos ativos** (`projects.active = true`) com a data do último criativo (`max(created_at)` em `generated_creatives` por `project_id`, sem aplicar o filtro de período — precisa da visão histórica pra classificar).
-
-Classificação por dias desde o último criativo:
-- `≤ 14 dias` → badge verde **Dentro do esperado**
-- `> 14 e ≤ 30 dias` → badge amarelo **Atenção**
-- `> 30 dias ou nenhum criativo` → badge vermelho **Crítico / Abandonado**
-
-Colunas: Projeto | Último criativo (data + "há X dias" ou "nunca") | Status. Ordenação padrão: mais críticos primeiro. Agrupar visualmente em três seções colapsáveis por status, com contagem no header.
-
-Observação: nesta tela o filtro de período afeta apenas o gráfico "Criativos por dia"; o filtro de projeto filtra a tabela; o filtro de usuário afeta o gráfico (não a tabela de saúde).
-
-### 6. Detalhes técnicos
-
-- Queries via `@tanstack/react-query` com `queryKey` incluindo período/projeto/usuário para cache correto.
-- Datas: usar `date-fns` (já no projeto): `startOfDay`, `subDays`, `format`, `differenceInDays`.
-- Gráficos: `recharts` (`ResponsiveContainer`, `BarChart`, `LineChart`, `XAxis`, `YAxis`, `Tooltip`, `CartesianGrid`) com cores do design system (`hsl(var(--primary))`, `hsl(var(--muted-foreground))`).
-- Sem hardcode de cor; nada de `text-white`/`bg-black`.
-- Restrição de acesso: reaproveitar checagem `role === 'owner' || role === 'admin'` já usada no Admin.
-
-### 7. Arquivos
-
-- `src/pages/Admin.tsx` — novo item de menu "Análises" + roteamento das sub-abas.
-- `src/components/admin/AnalyticsFilters.tsx` — novo.
-- `src/components/admin/AnalyticsTeamTab.tsx` — novo.
-- `src/components/admin/AnalyticsClientsTab.tsx` — novo.
-- `src/hooks/useAnalytics.ts` — novo (queries `generated_creatives` por período + hook `useProfilesLite`).
+| Ação      | Arquivo |
+|--         |--       |
+| Migração  | Novas funções + recriação das policies de `projects`, `profiles`, `user_roles`, `user_invitations` |
+| Editar    | `supabase/functions/invite-user/index.ts` |
+| Editar    | `supabase/functions/admin-list-users/index.ts` |
+| Editar    | `supabase/functions/admin-resend-confirmation/index.ts` |
+| Editar    | `supabase/functions/admin-delete-user/index.ts` |
+| Editar    | `src/pages/Admin.tsx` (guard, sidebar, handleRoleChange, availableRoles, botões condicionais) |

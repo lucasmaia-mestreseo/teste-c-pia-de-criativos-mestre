@@ -23,8 +23,8 @@ Deno.serve(async (req) => {
     const { data: { user } } = await anonClient.auth.getUser();
     if (!user) throw new Error("Não autenticado");
 
-    const { data: isAdmin } = await anonClient.rpc("has_any_admin_role", { _user_id: user.id });
-    if (!isAdmin) throw new Error("Sem permissão");
+    const { data: canManage } = await anonClient.rpc("can_manage_users", { _actor: user.id });
+    if (!canManage) throw new Error("Sem permissão");
 
     const { email } = await req.json();
     if (!email || typeof email !== "string") throw new Error("Email é obrigatório");

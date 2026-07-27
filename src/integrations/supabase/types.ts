@@ -471,12 +471,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_assign_role: {
+        Args: { _actor: string; _role: Database["public"]["Enums"]["app_role"] }
+        Returns: boolean
+      }
+      can_manage_user_target: {
+        Args: { _actor: string; _target: string }
+        Returns: boolean
+      }
+      can_manage_users: { Args: { _actor: string }; Returns: boolean }
       has_any_admin_role: { Args: { _user_id: string }; Returns: boolean }
       has_permission: {
         Args: { _permission: string; _user_id: string }
         Returns: boolean
       }
       has_project_access: { Args: { _user_id: string }; Returns: boolean }
+      has_project_admin: { Args: { _actor: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -485,6 +495,7 @@ export type Database = {
         Returns: boolean
       }
       is_approved: { Args: { _user_id: string }; Returns: boolean }
+      max_role_rank: { Args: { _user_id: string }; Returns: number }
     }
     Enums: {
       app_role: "owner" | "admin" | "manager" | "analyst"
