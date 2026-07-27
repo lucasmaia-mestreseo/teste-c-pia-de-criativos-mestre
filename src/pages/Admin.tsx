@@ -501,10 +501,22 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
     }
   };
 
+  const isManagerOnly = currentRole === 'manager';
+  const canActOnTarget = (targetRole: AppRole | null | undefined) => {
+    if (currentRole === 'owner') return true;
+    if (currentRole === 'admin') return targetRole !== 'owner';
+    if (currentRole === 'manager') return !targetRole || targetRole === 'analyst';
+    return false;
+  };
+
   const handleApprove = async (userId: string, approved: boolean) => {
     const target = users.find((u) => u.user_id === userId);
     if (!target?.has_profile) {
       toast.error('Usuário precisa confirmar o email antes de ser aprovado');
+      return;
+    }
+    if (!canActOnTarget(target?.role)) {
+      toast.error('Você não tem permissão para alterar este usuário');
       return;
     }
     await supabase.from('profiles').update({ approved }).eq('user_id', userId);
@@ -542,6 +554,16 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
       toast.error('Apenas owners podem atribuir o nível owner');
       return;
     }
+    if (isManagerOnly) {
+      if (!canActOnTarget(target?.role)) {
+        toast.error('Gerentes só podem alterar usuários analistas');
+        return;
+      }
+      if (newRole !== 'analyst') {
+        toast.error('Gerentes só podem atribuir o cargo analista');
+        return;
+      }
+    }
     await supabase.from('user_roles').delete().eq('user_id', userId);
     await supabase.from('user_roles').insert({ user_id: userId, role: newRole as any });
     toast.success('Nível alterado!');
@@ -552,6 +574,10 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
     const target = users.find((u) => u.user_id === userId);
     if (target?.role === 'owner') { toast.error('Não é possível remover um owner'); return; }
     if (userId === currentUser?.id) { toast.error('Você não pode remover a si mesmo'); return; }
+    if (!canActOnTarget(target?.role)) {
+      toast.error('Gerentes só podem remover analistas');
+      return;
+    }
     setDeleteTarget(target || null);
     setDeleteConfirmName('');
   };
