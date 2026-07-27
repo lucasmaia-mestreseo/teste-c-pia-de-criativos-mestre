@@ -711,7 +711,11 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Select value={u.role || ''} onValueChange={(v) => handleRoleChange(u.user_id, v as AppRole)}>
+                  <Select
+                    value={u.role || ''}
+                    onValueChange={(v) => handleRoleChange(u.user_id, v as AppRole)}
+                    disabled={!canActOnTarget(u.role)}
+                  >
                     <SelectTrigger className="w-[130px] h-8 text-xs bg-secondary">
                       <SelectValue placeholder="Definir nível" />
                     </SelectTrigger>
@@ -724,7 +728,7 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
-                    {!u.email_confirmed && (
+                    {!u.email_confirmed && canActOnTarget(u.role) && (
                       <Button
                         size="icon"
                         variant="ghost"
@@ -739,20 +743,22 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
                         )}
                       </Button>
                     )}
-                    {!u.approved && u.email_confirmed && u.has_profile && (
+                    {!u.approved && u.email_confirmed && u.has_profile && canActOnTarget(u.role) && (
                       <Button size="icon" variant="ghost" onClick={() => handleApprove(u.user_id, true)} title="Aprovar">
                         <Check className="h-4 w-4 text-green-400" />
                       </Button>
                     )}
-                    {u.approved && (
+                    {u.approved && canActOnTarget(u.role) && (
                       <Button size="icon" variant="ghost" onClick={() => handleApprove(u.user_id, false)} title="Revogar">
                         <X className="h-4 w-4 text-orange-400" />
                       </Button>
                     )}
-                    <Button size="icon" variant="ghost" onClick={() => openEdit(u)} title="Editar">
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    {u.role !== 'owner' && u.user_id !== currentUser?.id && (
+                    {canActOnTarget(u.role) && (
+                      <Button size="icon" variant="ghost" onClick={() => openEdit(u)} title="Editar">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {u.role !== 'owner' && u.user_id !== currentUser?.id && canActOnTarget(u.role) && (
                       <Button size="icon" variant="ghost" onClick={() => handleRemoveUser(u.user_id)} title="Desativar">
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
