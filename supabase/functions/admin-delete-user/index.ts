@@ -41,10 +41,11 @@ Deno.serve(async (req) => {
       .select("role")
       .eq("user_id", caller.id);
 
-    const callerIsAdmin = (callerRoles || []).some(
-      (r: any) => r.role === "owner" || r.role === "admin"
-    );
-    if (!callerIsAdmin) {
+    const callerRoleSet = new Set((callerRoles || []).map((r: any) => r.role));
+    const callerIsOwner = callerRoleSet.has("owner");
+    const callerIsAdmin = callerIsOwner || callerRoleSet.has("admin");
+    const callerIsManager = callerIsAdmin || callerRoleSet.has("manager");
+    if (!callerIsManager) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -59,14 +60,21 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Prevent deleting owners
+    // Enforce hierarchy on target
     const { data: targetRoles } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", userId);
 
-    if ((targetRoles || []).some((r: any) => r.role === "owner")) {
+    const targetRoleSet = new Set((targetRoles || []).map((r: any) => r.role));
+    if (targetRoleSet.has("owner")) {
       return new Response(JSON.stringify({ error: "Cannot delete an owner" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!callerIsAdmin && (targetRoleSet.has("admin") || targetRoleSet.has("manager"))) {
+      return new Response(JSON.stringify({ error: "Gerentes só podem remover analistas" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
