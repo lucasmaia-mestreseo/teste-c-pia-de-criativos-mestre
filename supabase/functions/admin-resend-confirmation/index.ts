@@ -36,10 +36,10 @@ Deno.serve(async (req) => {
     }
 
     const callerId = claimsData.claims.sub;
-    const { data: isAdmin } = await anonClient.rpc("has_any_admin_role", {
-      _user_id: callerId,
+    const { data: canManage } = await anonClient.rpc("can_manage_users", {
+      _actor: callerId,
     });
-    if (!isAdmin) {
+    if (!canManage) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
