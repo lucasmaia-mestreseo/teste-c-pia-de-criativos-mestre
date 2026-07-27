@@ -639,7 +639,9 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
 
   const availableRoles: AppRole[] = currentRole === 'owner'
     ? ['owner', 'admin', 'manager', 'analyst']
-    : ['admin', 'manager', 'analyst'];
+    : currentRole === 'admin'
+      ? ['admin', 'manager', 'analyst']
+      : ['analyst'];
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
