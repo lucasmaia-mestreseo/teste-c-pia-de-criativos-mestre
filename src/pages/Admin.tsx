@@ -21,6 +21,8 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { AiModelsTab } from '@/components/admin/AiModelsTab';
+import { AnalyticsTab } from '@/components/admin/AnalyticsTab';
+import { LineChart as LineChartIcon } from 'lucide-react';
 
 // ─── Types ───
 
@@ -98,12 +100,13 @@ const roleBadgeColor = (r: AppRole | null) => {
   }
 };
 
-type Section = 'projects' | 'users' | 'usage' | 'prompts' | 'formats' | 'permissions' | 'error-logs' | 'ai-models';
+type Section = 'projects' | 'users' | 'usage' | 'analytics' | 'prompts' | 'formats' | 'permissions' | 'error-logs' | 'ai-models';
 
 const SIDEBAR_ITEMS: { id: Section; label: string; icon: React.ReactNode; ownerOnly?: boolean }[] = [
   { id: 'projects', label: 'Projetos', icon: <FolderOpen className="h-4 w-4" /> },
   { id: 'users', label: 'Usuários', icon: <Users className="h-4 w-4" /> },
   { id: 'usage', label: 'Uso do Sistema', icon: <BarChart3 className="h-4 w-4" /> },
+  { id: 'analytics', label: 'Análises', icon: <LineChartIcon className="h-4 w-4" /> },
   { id: 'formats', label: 'Formatos', icon: <ImageIcon className="h-4 w-4" /> },
   { id: 'error-logs', label: 'Logs de Erros', icon: <Bug className="h-4 w-4" /> },
   { id: 'prompts', label: 'Prompts', icon: <FileCode className="h-4 w-4" />, ownerOnly: true },
@@ -158,6 +161,7 @@ export default function AdminPage() {
           {activeSection === 'projects' && <ProjectsTab />}
           {activeSection === 'users' && <UsersTab currentUser={user} currentRole={role} />}
           {activeSection === 'usage' && <UsageTab />}
+          {activeSection === 'analytics' && <AnalyticsTab />}
           {activeSection === 'formats' && <FormatsTab />}
           {activeSection === 'error-logs' && <ErrorLogsTab />}
           {activeSection === 'prompts' && role === 'owner' && <PromptsTab userId={user?.id} />}
