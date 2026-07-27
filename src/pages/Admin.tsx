@@ -168,11 +168,11 @@ export default function AdminPage() {
           {activeSection === 'users' && <UsersTab currentUser={user} currentRole={role} />}
           {activeSection === 'usage' && <UsageTab />}
           {activeSection === 'analytics' && <AnalyticsTab />}
-          {activeSection === 'formats' && <FormatsTab />}
-          {activeSection === 'error-logs' && <ErrorLogsTab />}
-          {activeSection === 'prompts' && role === 'owner' && <PromptsTab userId={user?.id} />}
-          {activeSection === 'ai-models' && role === 'owner' && <AiModelsTab />}
-          {activeSection === 'permissions' && role === 'owner' && <PermissionsTab />}
+          {activeSection === 'formats' && isAdminOrOwner && <FormatsTab />}
+          {activeSection === 'error-logs' && isAdminOrOwner && <ErrorLogsTab />}
+          {activeSection === 'prompts' && isOwner && <PromptsTab userId={user?.id} />}
+          {activeSection === 'ai-models' && isOwner && <AiModelsTab />}
+          {activeSection === 'permissions' && isOwner && <PermissionsTab />}
         </main>
       </div>
     </div>
