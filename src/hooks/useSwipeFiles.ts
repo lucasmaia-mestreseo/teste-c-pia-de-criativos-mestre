@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { toSignedUrl } from '@/lib/storageUrl';
 
 export function useSwipeFiles(projectId: string | null) {
   return useQuery({
@@ -12,7 +13,10 @@ export function useSwipeFiles(projectId: string | null) {
         .eq('project_id', projectId!)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return Promise.all((data ?? []).map(async (row) => ({
+        ...row,
+        image_url: await toSignedUrl(row.image_url),
+      })));
     },
   });
 }
@@ -44,9 +48,9 @@ export function useUploadSwipeFile() {
         .single();
       if (error) throw error;
 
-      // Fire-and-forget: trigger analysis in background
+      // Fire-and-forget: trigger analysis in background using a signed URL
       const swipeFileId = data.id;
-      const swipeFileUrl = data.image_url;
+      const swipeFileUrl = await toSignedUrl(data.image_url);
       supabase.functions.invoke('analyze-swipe', {
         body: { swipeFileUrl, swipeFileId },
       }).then(() => {
