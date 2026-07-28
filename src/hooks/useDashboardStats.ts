@@ -38,6 +38,7 @@ export function useDashboardStats() {
     queryKey: ['dashboard-recent', user?.id],
     enabled: !!user,
     queryFn: async () => {
+      const { toSignedUrl } = await import('@/lib/storageUrl');
       const { data, error } = await supabase
         .from('generated_creatives')
         .select('id, image_url, project_id, created_at, format, favorite, prompt')
@@ -45,7 +46,10 @@ export function useDashboardStats() {
         .order('created_at', { ascending: false })
         .limit(10);
       if (error) throw error;
-      return data;
+      return Promise.all((data ?? []).map(async (row) => ({
+        ...row,
+        image_url: await toSignedUrl(row.image_url),
+      })));
     },
   });
 
