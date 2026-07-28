@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callOpenRouterWithCascade } from "../_shared/openrouter.ts";
+import { requireApproved } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,6 +14,9 @@ serve(async (req) => {
   }
 
   try {
+    const authed = await requireApproved(req, corsHeaders);
+    if (authed instanceof Response) return authed;
+
     const { url, image } = await req.json();
     if (!url && !image) throw new Error("URL ou screenshot é obrigatório");
 
