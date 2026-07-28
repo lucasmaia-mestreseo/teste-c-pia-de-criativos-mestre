@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.99.0";
 import { buildModelCascade, callOpenRouter, callOpenRouterWithCascade, extractImageUrl, loadModelSettings } from "../_shared/openrouter.ts";
+import { requireProjectAccess } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,15 +21,18 @@ Deno.serve(async (req) => {
 
     if (!openrouterKey) throw new Error("OpenRouter não configurado");
 
+    const body = await req.json();
+    const { projectId, types, format, ignoreBrandKit, ignoreContext, customPrompt } = body;
+    if (!projectId || !types?.length) throw new Error("projectId e types são obrigatórios");
+
+    const authed = await requireProjectAccess(req, projectId, corsHeaders);
+    if (authed instanceof Response) return authed;
+    const user = { id: authed.userId };
+
     const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user } } = await anonClient.auth.getUser();
-    if (!user) throw new Error("Não autenticado");
 
-    const { projectId, types, format, ignoreBrandKit, ignoreContext, customPrompt } = await req.json();
-    // types: Array<{ type: 'conservative' | 'innovative' | 'radical', count: number }>
-    if (!projectId || !types?.length) throw new Error("projectId e types são obrigatórios");
     const selectedFormat = format || "1:1";
 
     // Fetch project context and brand kit
