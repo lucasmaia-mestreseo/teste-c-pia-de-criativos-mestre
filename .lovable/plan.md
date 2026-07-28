@@ -1,42 +1,24 @@
+## Melhorar visual do modal de detalhes do criativo
 
-# Restaurar Acesso ao Dashboard (403 em profiles/user_roles)
+Arquivo: `src/components/GeneratePanel.tsx` (modal `Dialog` do preview).
 
-## Diagnóstico confirmado
+### Mudanças
 
-Os logs de rede mostram que, após o login, as chamadas para `profiles` e `user_roles` estão retornando **403** com a mensagem:
+1. **Setas sobrepostas à imagem**
+   - Remover os botões `ChevronLeft`/`ChevronRight` do flex row lateral.
+   - Envolver a `<img>` em um container `relative` e posicionar as setas com `absolute left-2` e `absolute right-2`, `top-1/2 -translate-y-1/2`.
+   - Estilo: fundo semi-transparente (`bg-background/60 hover:bg-background/80 backdrop-blur-sm`), arredondado, sombra sutil — só aparecem sobre a imagem, liberando o espaço horizontal.
 
-```
-permission denied for function can_manage_users
-```
+2. **Respiro e espaçamentos do DialogContent**
+   - Aumentar padding do `DialogContent` (de `p-3` para `p-6`) e usar `gap-6` entre imagem e coluna de ações.
+   - Limitar largura total (`max-w-5xl`) para não colar nas bordas em telas grandes.
+   - Coluna de ações: `min-w-[200px]`, `pt-0` (remover `pt-8`), alinhar ao topo com `self-start` e adicionar `pr-1` para respirar da borda direita.
+   - Adicionar `pl-1` ou espaçamento uniforme para não colar botões na borda do modal.
 
-Isso acontece porque, na última migração de segurança, o `EXECUTE` de várias funções `SECURITY DEFINER` foi revogado do papel `authenticated`. Só que algumas dessas funções (como `can_manage_users`, `can_manage_user_target`, `has_project_admin`, `has_any_admin_role`, `user_can_access_project`, `is_approved`, `has_role`, `has_permission`, `max_role_rank`, `has_project_access`) são chamadas **dentro das políticas RLS** de `profiles` e `user_roles`. Sem permissão de executá-las, o PostgREST bloqueia a leitura → o `AuthContext` não consegue carregar o profile → `AuthGuard` fica sem dados → tela em branco.
+3. **Ajustes menores de polimento**
+   - Aumentar levemente o tamanho dos botões (mantendo `size="sm"`) e usar `gap-2` na coluna.
+   - Colocar o contador `x / y` acima do prompt com `text-muted-foreground text-xs`.
+   - Garantir que o `x` de fechar do Dialog não colida com o novo padding.
 
-Funções `SECURITY DEFINER` chamadas em políticas RLS **precisam** de `EXECUTE` para o papel que dispara a policy (`authenticated`, e às vezes `anon`). Elas não expõem risco porque só retornam booleanos calculados internamente.
-
-## Correção
-
-Migração única que restaura `EXECUTE` para `authenticated` em todas as funções auxiliares usadas por RLS, mantendo revogado apenas o que for genuinamente sensível:
-
-- `GRANT EXECUTE ... TO authenticated` em:
-  - `public.has_role(uuid, app_role)`
-  - `public.has_any_admin_role(uuid)`
-  - `public.is_approved(uuid)`
-  - `public.has_permission(uuid, text)`
-  - `public.has_project_access(uuid)`
-  - `public.has_project_admin(uuid)`
-  - `public.can_manage_users(uuid)`
-  - `public.can_manage_user_target(uuid, uuid)`
-  - `public.can_assign_role(uuid, app_role)`
-  - `public.max_role_rank(uuid)`
-  - `public.user_can_access_project(uuid, uuid)`
-- Manter `REVOKE ... FROM anon` (anônimos não precisam).
-
-## Verificação
-
-1. Recarregar a app logado → dashboard deve listar projetos.
-2. Conferir na aba Network que `GET /rest/v1/profiles` e `GET /rest/v1/user_roles` retornam 200.
-3. Abrir `/admin` como owner → deve carregar.
-
-## Nota sobre o alerta do scanner
-
-O aviso `SUPA_authenticated_security_definer_function_executable` vai voltar a aparecer nessas funções, mas nesse caso é **falso-positivo**: são helpers de RLS que precisam ser executáveis. Depois de aplicar, marco como `ignore` com essa justificativa no scanner.
+### Fora de escopo
+- Nenhuma mudança em lógica, permissões, download, favoritar, navegação por teclado ou dados.
