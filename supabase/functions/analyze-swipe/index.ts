@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callOpenRouterWithCascade } from "../_shared/openrouter.ts";
+import { requireApproved } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,9 +15,36 @@ serve(async (req) => {
   }
 
   try {
+    const authed = await requireApproved(req, corsHeaders);
+    if (authed instanceof Response) return authed;
+
     const { swipeFileUrl, swipeFileId } = await req.json();
     if (!swipeFileUrl || !swipeFileId) {
       throw new Error("swipeFileUrl and swipeFileId are required");
+    }
+
+    // Verify the swipe file belongs to a project the user can access
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const { data: sf } = await admin
+      .from("swipe_files")
+      .select("project_id")
+      .eq("id", swipeFileId)
+      .maybeSingle();
+    if (!sf) {
+      return new Response(JSON.stringify({ error: "Not found" }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const { data: allowed } = await admin.rpc("user_can_access_project", {
+      _user: authed.userId, _project: sf.project_id,
+    });
+    if (!allowed) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const result = await callOpenRouterWithCascade({
