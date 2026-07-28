@@ -11,13 +11,10 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const { requireProjectAccess } = await import("../_shared/auth.ts");
     const { projectId } = await req.json();
-    if (!projectId) {
-      return new Response(JSON.stringify({ error: "projectId is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const authed = await requireProjectAccess(req, projectId, corsHeaders);
+    if (authed instanceof Response) return authed;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
