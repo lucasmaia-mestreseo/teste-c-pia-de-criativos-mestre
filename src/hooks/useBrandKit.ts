@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { signFields } from '@/lib/storageUrl';
 
 export function useBrandKit(projectId: string | null) {
   return useQuery({
@@ -12,7 +13,12 @@ export function useBrandKit(projectId: string | null) {
         .eq('project_id', projectId!)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      if (!data) return data;
+      return signFields(
+        data as any,
+        ['logo_url', 'person_grid_url', 'design_screenshot_url'],
+        ['photos', 'people_photos'],
+      );
     },
   });
 }
