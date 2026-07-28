@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.99.0";
+import { requireProjectAccess } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,14 +30,15 @@ Deno.serve(async (req) => {
 
     if (!firecrawlKey) throw new Error("Firecrawl não configurado");
 
+    const { url, projectId } = await req.json();
+    if (!url || !projectId) throw new Error("URL e projectId são obrigatórios");
+
+    const authed = await requireProjectAccess(req, projectId, corsHeaders);
+    if (authed instanceof Response) return authed;
+
     const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user } } = await anonClient.auth.getUser();
-    if (!user) throw new Error("Não autenticado");
-
-    const { url, projectId } = await req.json();
-    if (!url || !projectId) throw new Error("URL e projectId são obrigatórios");
 
     let formattedUrl = url.trim();
     if (!formattedUrl.startsWith("http")) formattedUrl = `https://${formattedUrl}`;
