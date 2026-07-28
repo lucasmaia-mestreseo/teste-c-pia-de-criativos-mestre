@@ -141,17 +141,27 @@ export default function GeneratePanel({ projectId, generating, onUseAsReference 
 
       {/* Image Modal with Navigation */}
       <Dialog open={selectedIndex !== null} onOpenChange={() => setSelectedIndex(null)}>
-        <DialogContent className="max-w-[90vw] w-auto p-3">
+        <DialogContent className="max-w-5xl w-auto p-6">
           {modalCreative && (
-            <div className="flex gap-4 items-center">
-              <button onClick={handlePrev} disabled={selectedIndex === 0} className="p-2 rounded-full hover:bg-secondary disabled:opacity-20 disabled:cursor-default transition-colors flex-shrink-0">
-                <ChevronLeft className="h-6 w-6 text-foreground" />
-              </button>
-              <img src={modalCreative.image_url} alt={modalCreative.prompt} className="max-h-[80vh] max-w-[65vw] object-contain rounded-md" />
-              <button onClick={handleNext} disabled={selectedIndex === items.length - 1} className="p-2 rounded-full hover:bg-secondary disabled:opacity-20 disabled:cursor-default transition-colors flex-shrink-0">
-                <ChevronRight className="h-6 w-6 text-foreground" />
-              </button>
-              <div className="flex flex-col gap-2 min-w-[180px] max-w-[220px] pt-8 max-h-[80vh] overflow-y-auto">
+            <div className="flex gap-6 items-start">
+              <div className="relative flex-shrink-0">
+                <img src={modalCreative.image_url} alt={modalCreative.prompt} className="max-h-[80vh] max-w-[65vw] object-contain rounded-md block" />
+                <button
+                  onClick={handlePrev}
+                  disabled={selectedIndex === 0}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-background/60 hover:bg-background/80 backdrop-blur-sm shadow-md disabled:opacity-0 disabled:pointer-events-none transition-all"
+                >
+                  <ChevronLeft className="h-5 w-5 text-foreground" />
+                </button>
+                <button
+                  onClick={handleNext}
+                  disabled={selectedIndex === items.length - 1}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-background/60 hover:bg-background/80 backdrop-blur-sm shadow-md disabled:opacity-0 disabled:pointer-events-none transition-all"
+                >
+                  <ChevronRight className="h-5 w-5 text-foreground" />
+                </button>
+              </div>
+              <div className="flex flex-col gap-2 min-w-[200px] max-w-[220px] pr-6 max-h-[80vh] overflow-y-auto self-start">
                 {can('download_creative') && (
                   <Button size="sm" variant="outline" onClick={() => handleDownload(modalCreative.image_url, `creative-${modalCreative.id}.png`)}>
                     <Download className="h-3.5 w-3.5 mr-1" /> Download
@@ -175,13 +185,14 @@ export default function GeneratePanel({ projectId, generating, onUseAsReference 
                     <ImagePlus className="h-3.5 w-3.5 mr-1" /> Referência
                   </Button>
                 )}
+                <p className="text-[10px] text-muted-foreground mt-2">{(selectedIndex ?? 0) + 1} / {items.length}</p>
                 <ExpandablePrompt text={modalCreative.prompt} />
-                <p className="text-[10px] text-muted-foreground">{(selectedIndex ?? 0) + 1} / {items.length}</p>
               </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
+
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
