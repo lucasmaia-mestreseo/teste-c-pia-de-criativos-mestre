@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { toSignedUrl } from '@/lib/storageUrl';
 
 export function useGeneratedCreatives(projectId: string | null) {
   return useQuery({
@@ -12,7 +13,10 @@ export function useGeneratedCreatives(projectId: string | null) {
         .eq('project_id', projectId!)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return Promise.all((data ?? []).map(async (row) => ({
+        ...row,
+        image_url: await toSignedUrl(row.image_url),
+      })));
     },
   });
 }

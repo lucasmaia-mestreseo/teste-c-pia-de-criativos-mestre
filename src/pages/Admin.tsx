@@ -985,10 +985,16 @@ function PromptsTab({ userId }: { userId?: string }) {
   const [category, setCategory] = useState<'style' | 'internal'>('style');
 
   useEffect(() => {
-    supabase.from('template_prompts').select('id, prompt, style_prompt, base_image_url').then(({ data }) => {
-      setPrompts((data as any) || []);
+    (async () => {
+      const { toSignedUrl } = await import('@/lib/storageUrl');
+      const { data } = await supabase.from('template_prompts').select('id, prompt, style_prompt, base_image_url');
+      const rows = await Promise.all(((data as any) || []).map(async (p: any) => ({
+        ...p,
+        base_image_url: p.base_image_url ? await toSignedUrl(p.base_image_url) : null,
+      })));
+      setPrompts(rows);
       setLoading(false);
-    });
+    })();
   }, []);
 
   const handleSave = async (id: string) => {

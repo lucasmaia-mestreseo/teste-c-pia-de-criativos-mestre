@@ -40,7 +40,11 @@ serve(async (req) => {
   }
 
   try {
+    const { requireProjectAccess } = await import("../_shared/auth.ts");
     const { photos, projectId } = await req.json();
+
+    const authed = await requireProjectAccess(req, projectId, corsHeaders);
+    if (authed instanceof Response) return authed;
 
     if (!photos || photos.length === 0) {
       throw new Error("Nenhuma foto de pessoa fornecida");

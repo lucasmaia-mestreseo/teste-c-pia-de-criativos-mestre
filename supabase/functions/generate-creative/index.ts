@@ -436,20 +436,14 @@ serve(async (req) => {
   }
 
   try {
+    const { requireProjectAccess } = await import("../_shared/auth.ts");
     const { prompt, format, swipeFileId, swipeFileUrl, projectId, brandKit, elementOverrides, mode, templateId, templateFields, attachedImages, ignoreContext, ignoreBrandKit, logoPosition, logoSize, personPosition } = await req.json();
 
-    // Extract authenticated user
-    const authHeader = req.headers.get("Authorization");
-    let authenticatedUserId: string | null = null;
-    if (authHeader) {
-      const anonClient = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_ANON_KEY")!,
-        { global: { headers: { Authorization: authHeader } } }
-      );
-      const { data: { user } } = await anonClient.auth.getUser();
-      authenticatedUserId = user?.id ?? null;
-    }
+    const authed = await requireProjectAccess(req, projectId, corsHeaders);
+    if (authed instanceof Response) return authed;
+    const authenticatedUserId = authed.userId;
+
+    // Convert templateBaseImageUrl to signed URL later (bucket is private)
 
     const creationMode = mode || 'swipe';
     if (!Deno.env.get("OPENROUTER_API_KEY")) throw new Error("OPENROUTER_API_KEY not configured");
@@ -489,6 +483,16 @@ serve(async (req) => {
       const compositionPrompt = tpRow?.prompt || '';
       const stylePrompt = tpRow?.style_prompt || '';
       templateBaseImageUrl = tpRow?.base_image_url || null;
+      // Sign private-bucket URL for external AI access
+      if (templateBaseImageUrl) {
+        const m = templateBaseImageUrl.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/([^?]+)/);
+        if (m) {
+          const { data: signed } = await dbClient.storage.from(m[1]).createSignedUrl(decodeURIComponent(m[2]), 3600);
+          if (signed?.signedUrl) templateBaseImageUrl = signed.signedUrl;
+        }
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _skip = 0;
       const fieldLines = Object.entries(templateFields)
         .filter(([_, v]) => v && (v as string).trim())
         .map(([k, v]) => `- ${k}: ${v}`)
