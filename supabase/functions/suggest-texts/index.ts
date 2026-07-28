@@ -10,6 +10,10 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const { requireApproved } = await import("../_shared/auth.ts");
+    const authed = await requireApproved(req, corsHeaders);
+    if (authed instanceof Response) return authed;
+
     const { context, texts } = await req.json();
     if (!context || !texts?.length) {
       return new Response(JSON.stringify({ error: "context and texts are required" }), {
