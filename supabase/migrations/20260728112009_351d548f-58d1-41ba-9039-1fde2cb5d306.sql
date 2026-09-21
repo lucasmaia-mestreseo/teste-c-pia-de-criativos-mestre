@@ -1,1 +1,0 @@
-REVOKE EXECUTE ON FUNCTION public.auto_owner_fabioricotta() FROM PUBLIC, anon, authenticated;

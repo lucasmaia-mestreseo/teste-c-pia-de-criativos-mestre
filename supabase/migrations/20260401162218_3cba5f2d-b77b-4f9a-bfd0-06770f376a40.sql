@@ -1,1 +1,0 @@
-ALTER TABLE public.template_prompts ADD COLUMN base_image_url text;

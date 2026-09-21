@@ -1,1 +1,0 @@
-ALTER TABLE public.template_prompts ADD COLUMN style_prompt text NOT NULL DEFAULT '';

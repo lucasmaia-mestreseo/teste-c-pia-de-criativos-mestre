@@ -1,1 +1,0 @@
-ALTER TABLE public.brand_kits ADD COLUMN person_grid_url text;

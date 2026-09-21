@@ -1,16 +1,1 @@
-project_id = "kzemqnsiyhxbfpaozqme"
-
-[functions.generate-creative]
-verify_jwt = false
-
-[functions.extract-branding]
-verify_jwt = false
-
-[functions.analyze-swipe]
-verify_jwt = false
-
-[functions.suggest-texts]
-verify_jwt = false
-
-[functions.suggest-creatives]
-verify_jwt = false
+project_id = "ksxyttclcoypjwkxdhhf"
