@@ -18,11 +18,11 @@ Deno.serve(async (req) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
     const perplexityKey = Deno.env.get("PERPLEXITY_API_KEY");
-    const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
+    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
 
     if (!firecrawlKey) throw new Error("Firecrawl não configurado");
     if (!perplexityKey) throw new Error("Perplexity não configurado");
-    if (!openrouterKey) throw new Error("OpenRouter não configurado");
+    if (!lovableKey) throw new Error("LOVABLE_API_KEY não configurada");
 
     const { url, projectId } = await req.json();
     if (!url || !projectId) throw new Error("URL e projectId são obrigatórios");
@@ -39,11 +39,12 @@ Deno.serve(async (req) => {
 
     console.log("Extracting context from URL:", formattedUrl);
 
-    // 1. Firecrawl: get markdown content
-    const fcResponse = await fetch("https://api.firecrawl.dev/v1/scrape", {
+    // 1. Firecrawl (via Lovable connector gateway): get markdown content
+    const fcResponse = await fetch("https://connector-gateway.lovable.dev/firecrawl/v2/scrape", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${firecrawlKey}`,
+        Authorization: `Bearer ${lovableKey}`,
+        "X-Connection-Api-Key": firecrawlKey,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -56,24 +57,27 @@ Deno.serve(async (req) => {
     if (!fcResponse.ok) throw new Error(fcData.error || "Erro no Firecrawl");
     const siteContent = fcData.data?.markdown || fcData.markdown || "";
 
-    // 2. Perplexity: research the company
+    // 2. Perplexity Search (via Lovable connector gateway): research the company
     const domain = new URL(formattedUrl).hostname.replace("www.", "");
-    const pxResponse = await fetch("https://api.perplexity.ai/chat/completions", {
+    const pxResponse = await fetch("https://connector-gateway.lovable.dev/perplexity/search", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${perplexityKey}`,
+        Authorization: `Bearer ${lovableKey}`,
+        "X-Connection-Api-Key": perplexityKey,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "sonar",
-        messages: [
-          { role: "system", content: "Você é um pesquisador de mercado. Responda em português." },
-          { role: "user", content: `Pesquise sobre a empresa "${domain}". Quais são seus produtos/serviços principais, público-alvo, posicionamento de mercado, diferenciais competitivos e tom de comunicação? Seja detalhado.` },
-        ],
+        query: `empresa ${domain}: produtos, serviços, público-alvo, posicionamento de mercado, diferenciais competitivos`,
+        max_results: 8,
       }),
     });
     const pxData = await pxResponse.json();
-    const research = pxData.choices?.[0]?.message?.content || "";
+    if (!pxResponse.ok) {
+      console.warn("Perplexity search failed:", pxResponse.status, JSON.stringify(pxData).slice(0, 300));
+    }
+    const research = (pxData.results || [])
+      .map((r: any) => `- ${r.title}: ${r.snippet} (${r.url})`)
+      .join("\n");
 
     // 3. Fetch prompts
     const { data: prompts } = await anonClient
