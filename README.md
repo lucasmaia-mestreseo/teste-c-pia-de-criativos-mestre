@@ -1,73 +1,48 @@
-# Welcome to your Lovable project
+# Teste - Cópia de Criativos Mestre
 
-## Project info
+Vamos construir este sistema utilizando o Lovable e, especificamente, vamos contar com o Lovable Cloud para a conexão com banco de dados e APIs de geração de imagens.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+Este sistema tem como objetivo ser um centro de geração de criativos em imagens para anúncios. Ele deve clonar outros criativos, modificando alguns aspectos.
 
-## How can I edit this code?
+Seu nome será "Clonador Mestre".
 
-There are several ways of editing your application.
+E nossas imagens vão utilizar o Nano Banana 2, que é o melhor modelo de IA para geração de imagens.
 
-**Use Lovable**
+Alguns requisitos do nosso sistema:
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+Precisa permitir projetos diferentes
 
-Changes made via Lovable will be committed automatically to this repo.
+Para cada projeto, preciso permitir um conjunto de atribuições gráficas (Cores, tipografia, logo, fotos da empresa e pessoas) como se fosse o seu brand kit
 
-**Use your preferred IDE**
+Acervo de criativos base ou, o famoso “swipe file”, onde guardo todas as inspirações do projeto
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Tela de upload para subir criativos originais, guardando na pasta de swipe file
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+Tela para gerar novos criativos, baseado sempre em um criativo existente no swipe file. Nesta tela, fazer uma espécie de chat, onde posso entrar com um prompt específico, também vou ter um seletor para escolher o tamanho do criativo (9:16, 4:5, 1:1, 16:9)
 
-Follow these steps:
+Sempre ao gerar um novo criativo, devo respeitar o brand kit da marca, com cores, tipografia, logo da empresa e fotos, caso seja especificado para uso.
+
+Galeria de resultados para exibir os criativos gerados no projeto, com a opção de download individual ou ainda exclusão
+
+Histórico, onde salvo todos os criativos gerados no banco de dados para consulta futura
+
+This project was built with [Lovable](https://lovable.dev).
+
+## Build with Lovable
+
+Continue developing this project in the [Lovable editor](https://lovable.dev/projects/8086dc90-7c79-4cf3-955d-6f63c8bb5d5b).
+
+- **Ship faster**: describe what you want to build and Lovable handles the code.
+- **Stay in sync**: every change made in Lovable is committed straight to this repository.
+- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+
+## Development
+
+Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
+git clone <this-repository-url>
+cd <repository-name>
 npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
