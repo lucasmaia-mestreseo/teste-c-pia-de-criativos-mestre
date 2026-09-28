@@ -18,11 +18,11 @@ Deno.serve(async (req) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
     const perplexityKey = Deno.env.get("PERPLEXITY_API_KEY");
-    const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
+    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
 
     if (!firecrawlKey) throw new Error("Firecrawl não configurado");
     if (!perplexityKey) throw new Error("Perplexity não configurado");
-    if (!openrouterKey) throw new Error("OpenRouter não configurado");
+    if (!lovableKey) throw new Error("LOVABLE_API_KEY não configurada");
 
     const { url, projectId } = await req.json();
     if (!url || !projectId) throw new Error("URL e projectId são obrigatórios");
