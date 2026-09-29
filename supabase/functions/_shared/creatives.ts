@@ -2,7 +2,7 @@
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-/** Columns that existed before migration 20260929120000. */
+/** Columns that existed before migration 20260929003555 (redimensionar/custos/revisão). */
 const BASE_COLUMNS = ["project_id", "swipe_file_id", "image_url", "prompt", "format", "created_by"] as const;
 
 function isMissingColumnError(error: { code?: string; message?: string } | null): boolean {
@@ -21,7 +21,7 @@ export async function insertCreative(db: SupabaseClient, row: Record<string, unk
   if (!error) return { id: data?.id ?? null };
   if (!isMissingColumnError(error)) throw error;
 
-  console.warn("generated_creatives: migration 20260929120000 pendente — salvando só as colunas originais.", error.message);
+  console.warn("generated_creatives: migration 20260929003555 pendente — salvando só as colunas originais.", error.message);
   const base: Record<string, unknown> = {};
   for (const k of BASE_COLUMNS) if (k in row) base[k] = row[k];
   const retry = await db.from("generated_creatives").insert(base).select("id").single();

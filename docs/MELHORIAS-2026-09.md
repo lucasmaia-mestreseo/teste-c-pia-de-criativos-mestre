@@ -28,24 +28,20 @@ Arquitetura geral: [ARQUITETURA.md](./ARQUITETURA.md)
 
 ## Como colocar no ar
 
-1. **Aplicar a migration**:
-   `supabase/migrations/20260929120000_resize_unfold_costs_review.sql`.
-   - No Lovable: peça no chat *"aplique a migration
-     supabase/migrations/20260929120000_resize_unfold_costs_review.sql"*, ou rode o
-     SQL no editor SQL do Cloud.
-   - A migration é idempotente (`IF NOT EXISTS`) e pode ser rodada de novo sem problema.
+1. **Migration** — ✅ **aplicada na cópia de teste** pela Lovable em 29/09/2026:
+   - `supabase/migrations/20260929003555_d9a43e99-….sql` (colunas, tabela `ai_usage`, RLS);
+   - `supabase/migrations/20260929003622_804d4087-….sql` (`GRANT` da `ai_usage`).
+   - No projeto de produção, peça à Lovable para aplicar o mesmo SQL do primeiro
+     arquivo (ele é idempotente — `IF NOT EXISTS` — e pode rodar de novo sem problema).
    - **Se o código chegar antes da migration**, a geração continua funcionando: o
      helper `_shared/creatives.ts` detecta as colunas ausentes e salva só as colunas
      originais. Até a migration ser aplicada, porém, ficam sem funcionar: revisão
      (selos), custos, agrupamento do Desdobramento e cache do logo.
 2. **Conferir o segredo `OPENROUTER_API_KEY`** no projeto. Na cópia de teste ele
    não foi salvo (ver `roadmap.md`), por isso nada de IA funciona lá ainda.
-3. **Levar o código**: fazer merge do branch em `main` e dar push. A Lovable
-   sincroniza o código e publica as Edge Functions, incluindo as novas
-   `transform-creative` e `review-creative`.
-4. **Regenerar os tipos (opcional)**: `src/integrations/supabase/types.ts` foi
-   atualizado à mão com as colunas novas. Se a Lovable regenerar o arquivo depois
-   da migration, o resultado deve ser equivalente.
+3. **Código** — ✅ está em `main` no GitHub; a Lovable sincroniza e publica as Edge
+   Functions, incluindo as novas `transform-creative` e `review-creative`.
+4. **Tipos** — ✅ a Lovable regenerou `src/integrations/supabase/types.ts` após a migration.
 
 ### Como testar depois de publicar
 
@@ -222,7 +218,7 @@ mesmas permissões dos outros painéis.
 
 ---
 
-## Banco de dados (migration `20260929120000`)
+## Banco de dados (migrations `20260929003555` e `20260929003622`)
 
 - `generated_creatives`: + `kind`, `parent_creative_id`, `source_image_url`,
   `model_used`, `cost_usd`, `briefing`, `generation_meta`, `review`, `review_status`
