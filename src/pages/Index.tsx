@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, lazy, Suspense } from 'react';
+import { Loader2 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import TopBar from '@/components/TopBar';
 import GeneratePanel from '@/components/GeneratePanel';
@@ -15,7 +16,8 @@ import DynamicResultsPanel from '@/components/DynamicResultsPanel';
 import CreativesPanel from '@/components/CreativesPanel';
 import UnfoldPanel from '@/components/UnfoldPanel';
 import UnfoldResultsPanel from '@/components/UnfoldResultsPanel';
-import KvStudio from '@/components/kv/KvStudio';
+// Criação de KVs is heavy (38-page template, PDF/vector tools): loaded only when opened
+const KvStudio = lazy(() => import('@/components/kv/KvStudio'));
 import ProjectOnboarding from '@/components/ProjectOnboarding';
 import { useProject } from '@/hooks/useProject';
 import { toast } from 'sonner';
@@ -171,7 +173,11 @@ const Index = () => {
               {activePanel === 'history' && <HistoryPanel projectId={projectId} />}
               {activePanel === 'dynamic' && <DynamicResultsPanel projectId={projectId} generating={dynamicGenerating} onUseAsReference={handleUseAsReference} />}
               {activePanel === 'creatives' && <CreativesPanel projectId={projectId} onUseAsReference={handleUseAsReference} />}
-              {activePanel === 'kv' && <KvStudio projectId={projectId!} />}
+              {activePanel === 'kv' && (
+                <Suspense fallback={<div className="h-full flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
+                  <KvStudio projectId={projectId!} />
+                </Suspense>
+              )}
               {activePanel === 'unfold' && <UnfoldResultsPanel projectId={projectId!} pending={unfoldPending} onUseAsReference={handleUseAsReference} />}
             </div>
           </>

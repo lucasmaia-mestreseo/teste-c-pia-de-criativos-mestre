@@ -40,6 +40,7 @@ Abra http://localhost:8080. O app entra logado como um dono fictício, com proje
 ## Documentação técnica
 
 - [Arquitetura](docs/ARQUITETURA.md) — como a plataforma funciona (telas, Edge Functions, IA, banco).
+- [Novidades 29/09](docs/NOVIDADES-2026-09-29.md) — Criação de KVs (manual de marca com IA), Copy do anúncio, Variações A/B e acabamento visual.
 - [Melhorias 2026-09](docs/MELHORIAS-2026-09.md) — Ferramentas, Redimensionar, Desdobramento, Revisão, Custos e correções; inclui o passo a passo de publicação.
 
 This project was built with [Lovable](https://lovable.dev).

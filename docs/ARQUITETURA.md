@@ -1,7 +1,7 @@
 # Arquitetura — Criativos Mestre
 
-Visão geral de como a plataforma funciona. Para o histórico de mudanças, veja
-[MELHORIAS-2026-09.md](./MELHORIAS-2026-09.md).
+Visão geral de como a plataforma funciona. Histórico de mudanças:
+[MELHORIAS-2026-09.md](./MELHORIAS-2026-09.md) e [NOVIDADES-2026-09-29.md](./NOVIDADES-2026-09-29.md).
 
 ## Camadas
 
@@ -39,11 +39,13 @@ Painéis do projeto (`src/pages/Index.tsx`):
 | `generate` — Gerar | `GenerationControls` (modos Prompt livre / Modelos / Swipe) | `GeneratePanel` |
 | `dynamic` — Dinâmica | `DynamicGeneratePanel` | `DynamicResultsPanel` |
 | `unfold` — Desdobramento | `UnfoldPanel` | `UnfoldResultsPanel` |
+| `kv` — Criação de KVs | — | `KvStudio` (materiais → resumo → manual de 38 páginas) |
 | `creatives` — Criativos | — | `CreativesPanel` (galeria completa) |
 | `brandkit`, `context`, `history` | — | painéis de configuração |
 
 O modal de qualquer criativo inclui `CreativeInsights`: revisão automática,
-botão **Redimensionar**, origem, modelo e custo.
+**Redimensionar**, **Copy** do anúncio, **Variações** A/B e **Comparar A/B**, origem,
+modelo e custo.
 
 ## Modelos de IA
 
@@ -70,7 +72,10 @@ Helpers principais:
 |---|---|
 | `generate-creative` | Gera criativo (modos swipe / templates / free) com brand kit + contexto do projeto |
 | `generate-dynamic-creative` | Aba Dinâmica: IA de texto escreve o briefing → IA de imagem gera |
-| `transform-creative` | **Novo.** `resize` (Redimensionar), `unfold` (Desdobramento), `fix` (corrigir após revisão) |
+| `transform-creative` | `resize` (Redimensionar), `unfold` (Desdobramento), `fix` (corrigir após revisão), `variant` (variação A/B) |
+| `kv-analyze` | Criação de KVs: materiais do cliente → dados do manual de marca |
+| `ad-copy` | Copy do anúncio por plataforma (Meta, Instagram, LinkedIn, Google) |
+| `suggest-variants` | Propõe variações A/B de um criativo |
 | `review-creative` | **Novo.** Revisão automática por IA de visão |
 | `analyze-swipe` | Detecta textos/logos/pessoas de um swipe file |
 | `suggest-texts` / `suggest-creatives` | Sugestões de copy e de ideias |

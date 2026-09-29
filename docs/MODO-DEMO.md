@@ -15,6 +15,9 @@ npm run dev:demo   # abre em http://localhost:8080
   custos de IA.
 - **Gerar, Dinâmica, Redimensionar, Desdobramento, Revisão e Corrigir funcionam**, mas
   devolvem imagens de exemplo depois de ~2 s. Nenhuma chamada sai do navegador.
+- Na **Criação de KVs**, o botão **Usar materiais de exemplo (demo)** carrega um
+  brandbook em PDF e um logo gerados no navegador — dá para testar o manual inteiro sem
+  arquivos do cliente. **Copy do anúncio** e **Variações A/B** também são simulados.
 - Tudo o que você fizer fica salvo no navegador (localStorage). Para voltar ao início,
   clique em **recomeçar** no selo amarelo "MODO DEMO" (ou abra `/?reset-demo`).
 

@@ -7,7 +7,7 @@
  */
 import { supabase } from '@/integrations/supabase/client';
 import type { ManualSpec } from './spec';
-import { buildTokens } from './fillTemplate';
+import { buildTokens } from './tokens';
 
 const BUCKET = 'generated-creatives';
 const folder = (projectId: string) => `${projectId}/manuals`;

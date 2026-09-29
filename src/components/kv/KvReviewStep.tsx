@@ -9,7 +9,7 @@ import ColorPickerWithHex from '@/components/ColorPickerWithHex';
 import { AlertTriangle, ArrowLeft, Check, Crosshair, Info, Plus, Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ManualSpec, PaletteColor } from '@/kv/spec';
-import { buildTokens } from '@/kv/fillTemplate';
+import { buildTokens } from '@/kv/tokens';
 import { contrast } from '@/kv/color';
 import { loadPreviewFont, POPULAR_FONTS, WEB_SAFE_FONTS } from '@/kv/fonts';
 import { monoVariant, type Box } from '@/kv/imageTools';

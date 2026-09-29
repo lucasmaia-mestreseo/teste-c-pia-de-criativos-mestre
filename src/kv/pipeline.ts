@@ -8,7 +8,7 @@ import {
 } from './imageTools';
 import { fontFamilyOf, readPdf } from './pdfTools';
 import type { ManualAssets, ManualSpec } from './spec';
-import { buildTokens } from './fillTemplate';
+import { buildTokens } from './tokens';
 
 export type ImageRole = 'auto' | 'logo' | 'logo_tagline' | 'simbolo' | 'foto' | 'peca';
 
