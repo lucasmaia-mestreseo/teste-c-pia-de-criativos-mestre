@@ -24,17 +24,23 @@
     --muted: 0 0% 16%;
     --muted-foreground: 0 0% 53.3%;
 
-    --accent: 58 100% 67.5%;
-    --accent-foreground: 0 0% 6.7%;
+    /* "accent" is the hover surface of menus/ghost buttons — not the brand yellow
+       (it used to paint every hovered menu item and outline button yellow) */
+    --accent: 0 0% 17%;
+    --accent-foreground: 0 0% 94%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 20%;
-    --input: 0 0% 20%;
+    --border: 0 0% 18%;
+    --input: 0 0% 19%;
     --ring: 58 100% 67.5%;
 
-    --radius: 0.5rem;
+    --radius: 0.625rem;
+
+    /* motion */
+    --ease-out: cubic-bezier(.22, 1, .36, 1);
+    --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
 
     --sidebar-background: 0 0% 8%;
     --sidebar-foreground: 0 0% 91.8%;
@@ -52,9 +58,22 @@
     @apply border-border;
   }
 
+  html { scroll-behavior: smooth; }
+
   body {
     @apply bg-background text-foreground;
     font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  ::selection { background: hsl(var(--primary) / 0.35); color: hsl(var(--foreground)); }
+
+  /* every interactive element eases instead of snapping */
+  a, button, [role="tab"], [role="menuitem"], [role="option"] {
+    transition-timing-function: var(--ease-out);
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -72,24 +91,12 @@
   background-position: 0 0, 0 8px, 8px -8px, -8px 0;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: hsl(0 0% 11%);
-}
-
-::-webkit-scrollbar-thumb {
-  background: hsl(0 0% 25%);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: hsl(0 0% 35%);
-}
+/* Custom scrollbar — thin and quiet, brighter on hover */
+* { scrollbar-width: thin; scrollbar-color: hsl(0 0% 24%) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(0 0% 22%); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: hsl(0 0% 32%); border: 2px solid transparent; background-clip: padding-box; }
 
 /* Glitch animation for generation */
 @keyframes glitch-pulse {
@@ -172,3 +179,38 @@
 .auth-float { animation: auth-float 6s ease-in-out infinite; }
 @keyframes auth-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -10px; } }
 @media (prefers-reduced-motion: reduce) { .auth-float { animation: none; } }
+
+
+/* ═══ Motion utilities ═══ */
+/* interactive card: lifts a little and warms the border on hover */
+.card-hover { transition: transform .25s var(--ease-out), box-shadow .25s var(--ease-out), border-color .25s var(--ease-out); }
+.card-hover:hover { transform: translateY(-2px); box-shadow: 0 14px 30px -14px rgb(0 0 0 / .7); border-color: hsl(var(--primary) / .35); }
+/* frosted surface for bars and floating panels */
+.glass { background: hsl(var(--card) / .72); backdrop-filter: blur(12px) saturate(140%); -webkit-backdrop-filter: blur(12px) saturate(140%); }
+/* staggered children entrance: add .stagger to a list; children fade up in sequence */
+.stagger > * { animation: fade-up .45s var(--ease-out) both; }
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 40ms; }
+.stagger > *:nth-child(3) { animation-delay: 80ms; }
+.stagger > *:nth-child(4) { animation-delay: 120ms; }
+.stagger > *:nth-child(5) { animation-delay: 160ms; }
+.stagger > *:nth-child(6) { animation-delay: 200ms; }
+.stagger > *:nth-child(7) { animation-delay: 240ms; }
+.stagger > *:nth-child(8) { animation-delay: 280ms; }
+.stagger > *:nth-child(9) { animation-delay: 320ms; }
+.stagger > *:nth-child(10) { animation-delay: 360ms; }
+.stagger > *:nth-child(11) { animation-delay: 400ms; }
+.stagger > *:nth-child(12) { animation-delay: 440ms; }
+@keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+/* primary action with a soft light sweep (e.g. Gerar Criativo) */
+.btn-shine { position: relative; overflow: hidden; }
+.btn-shine::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 35%, rgb(255 255 255 / .35) 50%, transparent 65%); transform: translateX(-120%); transition: transform .8s var(--ease-out); pointer-events: none; }
+.btn-shine:hover:not(:disabled)::after { transform: translateX(120%); }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .card-hover, .card-hover:hover { transition: none; transform: none; }
+  .stagger > * { animation: none; }
+  .btn-shine::after { display: none; }
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import ExpandablePrompt from '@/components/ExpandablePrompt';
+import CountUp from '@/components/CountUp';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useDeleteCreative, useToggleFavorite } from '@/hooks/useGeneratedCreatives';
@@ -96,7 +97,7 @@ export default function DashboardPanel({ onSelectProject, onUseAsReference }: Da
 
   return (
     <div className="p-8 overflow-y-auto h-full space-y-8">
-      <div>
+      <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
         <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
           <Zap className="h-6 w-6 text-primary fill-primary" />
           Dashboard
@@ -105,8 +106,9 @@ export default function DashboardPanel({ onSelectProject, onUseAsReference }: Da
       </div>
 
       {/* Stats cards */}
-      <div className="grid grid-cols-2 gap-4">
-        <Card className="bg-card border-border">
+      <div className="grid grid-cols-2 gap-4 stagger">
+        <Card className="card-hover relative overflow-hidden bg-gradient-to-br from-card to-secondary/40 border-border">
+          <div aria-hidden className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-primary/10 blur-2xl" />
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Image className="h-4 w-4" />
@@ -114,10 +116,11 @@ export default function DashboardPanel({ onSelectProject, onUseAsReference }: Da
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-primary">{total}</p>
+            <p className="text-3xl font-bold text-primary"><CountUp value={total ?? 0} /></p>
           </CardContent>
         </Card>
-        <Card className="bg-card border-border">
+        <Card className="card-hover relative overflow-hidden bg-gradient-to-br from-card to-secondary/40 border-border">
+          <div aria-hidden className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-primary/10 blur-2xl" />
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
@@ -125,7 +128,7 @@ export default function DashboardPanel({ onSelectProject, onUseAsReference }: Da
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-primary">{last7Days}</p>
+            <p className="text-3xl font-bold text-primary"><CountUp value={last7Days ?? 0} /></p>
           </CardContent>
         </Card>
       </div>
@@ -204,12 +207,12 @@ export default function DashboardPanel({ onSelectProject, onUseAsReference }: Da
         {recentProjects.length === 0 ? (
           <p className="text-muted-foreground text-sm">Nenhum projeto com criativos ainda.</p>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2 stagger">
             {recentProjects.map((p) => (
               <button
                 key={p.id}
                 onClick={() => onSelectProject(p.id)}
-                className="w-full flex items-center justify-between p-3 rounded-lg border border-transparent bg-secondary hover:border-primary/50 hover:text-primary transition-all text-left"
+                className="group w-full flex items-center justify-between p-3 rounded-lg border border-transparent bg-secondary hover:border-primary/40 hover:text-primary hover:translate-x-0.5 transition-all duration-200 text-left"
               >
                 <span className="font-medium text-sm">{p.name}</span>
                 <span className="text-xs text-muted-foreground">

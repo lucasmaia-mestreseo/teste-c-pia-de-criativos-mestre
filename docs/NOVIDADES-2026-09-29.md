@@ -176,3 +176,12 @@ que só existe no modo demo.
 - **Não testado com IA real** (a cópia segue sem `OPENROUTER_API_KEY`): a qualidade da
   análise depende do modelo configurado em Admin → Modelos de IA → `text_reasoning`
   (precisa aceitar imagens; os padrões aceitam).
+
+## Reforço de UI e animações (manhã de 29/09)
+
+Objetivo: deixar o uso da plataforma mais leve e fluido, sem pesar no carregamento.
+
+- **Base (shadcn):** botões com resposta ao clique (`active:scale`) e brilho sutil no primário; diálogos e alertas com fundo desfocado, cantos maiores e entrada/saída mais suave; inputs, selects e textareas com hover e foco discretos; abas com transição de conteúdo; toasts em vidro no canto inferior direito.
+- **Tokens (`src/index.css`):** hover neutro (menus não ficam mais amarelos ao passar o mouse), bordas levemente mais suaves, raio 10px, curvas de easing (`--ease-out`, `--ease-spring`), scrollbar fina, seleção de texto na cor da marca. Utilitários novos: `.card-hover`, `.glass`, `.stagger` (entrada em cascata) e `.btn-shine`.
+- **Telas:** barra superior em vidro; sublinhado deslizante no seletor de modo de criação; troca de modo com fade; botão "Gerar" com brilho; Dashboard com números animados (`CountUp`) e cards em cascata; menu do Admin com pílula deslizante e troca de seção animada.
+- **Acessibilidade:** tudo respeita `prefers-reduced-motion` (animações desligadas para quem prefere).

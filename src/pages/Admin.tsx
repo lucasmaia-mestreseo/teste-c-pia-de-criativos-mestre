@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { useAuth, type AppRole } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -152,20 +153,29 @@ export default function AdminPage() {
               key={item.id}
               onClick={() => setActiveSection(item.id)}
               className={cn(
-                'w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all text-left border border-transparent',
+                'relative w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 text-left',
                 activeSection === item.id
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:border-primary/50 hover:text-primary'
+                  ? 'text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
               )}
             >
-              {item.icon}
-              {item.label}
+              {activeSection === item.id && (
+                <motion.span
+                  layoutId="admin-nav-pill"
+                  className="absolute inset-0 rounded-md bg-primary shadow-[0_0_18px_-6px_hsl(var(--primary)/0.6)]"
+                  transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-3">
+                {item.icon}
+                {item.label}
+              </span>
             </button>
           ))}
         </aside>
 
         {/* Content */}
-        <main className="flex-1 p-6">
+        <main key={activeSection} className="flex-1 p-6 min-w-0 animate-in fade-in slide-in-from-bottom-1 duration-300">
           {activeSection === 'projects' && <ProjectsTab />}
           {activeSection === 'users' && <UsersTab currentUser={user} currentRole={role} />}
           {activeSection === 'usage' && <UsageTab />}

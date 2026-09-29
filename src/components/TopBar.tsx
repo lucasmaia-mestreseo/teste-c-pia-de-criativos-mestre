@@ -97,7 +97,7 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
   ];
 
   return (
-    <header className="h-12 border-b bg-card flex items-center px-3 gap-2 flex-shrink-0">
+    <header className="glass relative z-30 h-12 border-b border-white/[0.06] flex items-center px-3 gap-2 flex-shrink-0">
       {/* Back to the tools hub */}
       <button
         onClick={() => navigate('/')}

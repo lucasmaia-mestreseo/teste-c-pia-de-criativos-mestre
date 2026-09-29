@@ -1,4 +1,5 @@
 import { Pencil, LayoutTemplate, FolderOpen } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 export type CreationMode = 'free' | 'templates' | 'swipe';
@@ -25,14 +26,15 @@ export default function CreationModeSelector({ mode, onChange }: CreationModeSel
             key={m.id}
             onClick={() => onChange(m.id)}
             className={cn(
-              'flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 text-xs font-medium transition-colors border-b-2',
-              active
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
+              'relative flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 text-xs font-medium transition-colors duration-200',
+              active ? 'text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/40'
             )}
           >
-            <Icon className="h-3.5 w-3.5" />
+            <Icon className={cn('h-3.5 w-3.5 transition-transform duration-300', active && 'scale-110')} />
             {m.label}
+            {active && (
+              <motion.span layoutId="creation-mode-underline" className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-primary" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />
+            )}
           </button>
         );
       })}

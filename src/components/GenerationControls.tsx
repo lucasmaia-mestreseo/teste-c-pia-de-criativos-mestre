@@ -209,7 +209,8 @@ export default function GenerationControls({
 
       {/* Scrollable content */}
       <div className="flex-1 min-h-0 overflow-y-auto">
-        {/* Mode-specific content */}
+        {/* Mode-specific content (keyed: each mode fades in) */}
+        <div key={creationMode} className="animate-in fade-in slide-in-from-bottom-1 duration-300">
         {creationMode === 'swipe' && (
           <>
             <SwipeFilePanel
@@ -260,15 +261,16 @@ export default function GenerationControls({
             onChange={onTemplateDataChange}
           />
         )}
+        </div>
 
         {/* Advanced Settings — tight spacing, no gap */}
         <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
           <CollapsibleTrigger className="flex items-center gap-1.5 w-full px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
             <Settings2 className="h-3.5 w-3.5" />
             Configurações Avançadas
-            <ChevronDown className={cn('h-3 w-3 ml-auto transition-transform', advancedOpen && 'rotate-180')} />
+            <ChevronDown className={cn('h-3 w-3 ml-auto transition-transform duration-300', advancedOpen && 'rotate-180')} />
           </CollapsibleTrigger>
-          <CollapsibleContent className="px-4 pb-3 space-y-3">
+          <CollapsibleContent className="px-4 pb-3 space-y-3 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-top-1 data-[state=open]:duration-300">
             {/* Logo toggle */}
             {hasLogo && (
               <div className="space-y-2">
@@ -383,7 +385,7 @@ export default function GenerationControls({
             ))}
           </SelectContent>
         </Select>
-        <Button onClick={handleGenerate} disabled={generating || !canGenerate()} className="flex-1 h-9 text-sm">
+        <Button onClick={handleGenerate} disabled={generating || !canGenerate()} className={cn('flex-1 h-9 text-sm btn-shine', generating && 'animate-pulse')}>
           {generating ? (
             <><Loader2 className="h-4 w-4 animate-spin mr-1.5" /> Gerando...</>
           ) : (
