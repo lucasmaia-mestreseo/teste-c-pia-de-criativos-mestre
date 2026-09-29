@@ -6,6 +6,7 @@ import {
   parseToolCall,
 } from "../_shared/openrouter.ts";
 import { requireProjectAccess } from "../_shared/auth.ts";
+import { insertCreative } from "../_shared/creatives.ts";
 import { corsHeaders, handleOptions, jsonResponse } from "../_shared/http.ts";
 import { adminClient, imageToBytes, signStorageUrl, uploadGeneratedImage } from "../_shared/storage.ts";
 
@@ -192,7 +193,7 @@ ${logoUrl ? "\nLOGO: The brand logo is attached. Place it COMPLETE (never croppe
         const bytes = await imageToBytes(image.image);
         const imageUrl = await uploadGeneratedImage(db, "generated-creatives", projectId, bytes, "dynamic-");
 
-        const { data: inserted, error: insertError } = await db.from("generated_creatives").insert({
+        const inserted = await insertCreative(db, {
           project_id: projectId,
           created_by: userId,
           prompt: `[${type}] ${briefing.titulo || ""}`,
@@ -209,10 +210,12 @@ ${logoUrl ? "\nLOGO: The brand logo is attached. Place it COMPLETE (never croppe
             ignoreBrandKit: !!ignoreBrandKit,
             ignoreContext: !!ignoreContext,
           },
-        }).select("id").single();
-        if (insertError) console.error("Insert error:", insertError);
+        }).catch((insertError) => {
+          console.error("Insert error:", insertError);
+          return { id: null };
+        });
 
-        results.push({ type, briefing, imageUrl, creativeId: inserted?.id ?? null });
+        results.push({ type, briefing, imageUrl, creativeId: inserted.id });
       }
     }
 

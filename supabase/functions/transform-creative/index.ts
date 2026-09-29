@@ -1,5 +1,6 @@
 import { generateImageWithCascade, imageFailurePayload } from "../_shared/openrouter.ts";
 import { requireProjectAccess } from "../_shared/auth.ts";
+import { insertCreative } from "../_shared/creatives.ts";
 import { corsHeaders, handleOptions, jsonResponse } from "../_shared/http.ts";
 import { adminClient, imageToBytes, parseStorageUrl, signStorageUrl, uploadGeneratedImage } from "../_shared/storage.ts";
 
@@ -85,7 +86,7 @@ Deno.serve(async (req) => {
     if (creativeId) {
       const { data } = await db
         .from("generated_creatives")
-        .select("id, project_id, image_url, format, prompt, source_image_url")
+        .select("*") // "*" keeps working even before the new columns exist
         .eq("id", creativeId)
         .maybeSingle();
       if (!data || data.project_id !== projectId) return jsonResponse({ error: "Criativo não encontrado" }, 404);
@@ -154,7 +155,7 @@ Deno.serve(async (req) => {
     const imageUrl = await uploadGeneratedImage(db, "generated-creatives", projectId, bytes, `${operation}-`);
 
     const label = operation === "fix" ? "Correção" : operation === "resize" ? "Redimensionado" : "Desdobramento";
-    const { data: inserted, error } = await db.from("generated_creatives").insert({
+    const inserted = await insertCreative(db, {
       project_id: projectId,
       created_by: userId,
       image_url: imageUrl,
@@ -169,8 +170,7 @@ Deno.serve(async (req) => {
       model_used: result.model,
       cost_usd: result.costUsd,
       generation_meta: { operation, sourceFormat, targetFormat, instructions },
-    }).select("id").single();
-    if (error) throw error;
+    });
 
     return jsonResponse({ success: true, creativeId: inserted.id, imageUrl, model: result.model, costUsd: result.costUsd });
   } catch (e) {

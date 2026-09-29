@@ -26,16 +26,18 @@ Arquitetura geral: [ARQUITETURA.md](./ARQUITETURA.md)
 
 ---
 
-## Como colocar no ar (ordem importa)
+## Como colocar no ar
 
-1. **Aplicar a migration primeiro**:
+1. **Aplicar a migration**:
    `supabase/migrations/20260929120000_resize_unfold_costs_review.sql`.
-   As funções novas gravam colunas que só existem depois dela. Se o código for ao ar
-   antes, **a geração de criativos falha** ao salvar no banco.
    - No Lovable: peça no chat *"aplique a migration
      supabase/migrations/20260929120000_resize_unfold_costs_review.sql"*, ou rode o
      SQL no editor SQL do Cloud.
    - A migration é idempotente (`IF NOT EXISTS`) e pode ser rodada de novo sem problema.
+   - **Se o código chegar antes da migration**, a geração continua funcionando: o
+     helper `_shared/creatives.ts` detecta as colunas ausentes e salva só as colunas
+     originais. Até a migration ser aplicada, porém, ficam sem funcionar: revisão
+     (selos), custos, agrupamento do Desdobramento e cache do logo.
 2. **Conferir o segredo `OPENROUTER_API_KEY`** no projeto. Na cópia de teste ele
    não foi salvo (ver `roadmap.md`), por isso nada de IA funciona lá ainda.
 3. **Levar o código**: fazer merge do branch em `main` e dar push. A Lovable

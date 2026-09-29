@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
 
     const { data: creative } = await db
       .from("generated_creatives")
-      .select("id, project_id, image_url, prompt, format, kind, briefing, generation_meta, parent_creative_id, source_image_url")
+      .select("*") // "*" keeps working even before the new columns exist
       .eq("id", creativeId)
       .maybeSingle();
     if (!creative || creative.project_id !== projectId) return jsonResponse({ error: "Criativo não encontrado" }, 404);

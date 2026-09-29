@@ -7,6 +7,7 @@ import {
 import { corsHeaders, handleOptions, jsonResponse } from "../_shared/http.ts";
 import { adminClient, imageToBytes, parseStorageUrl, signProjectStorageUrl, signStorageUrl, uploadGeneratedImage } from "../_shared/storage.ts";
 import { requireProjectAccess } from "../_shared/auth.ts";
+import { insertCreative } from "../_shared/creatives.ts";
 
 type Track = { functionName: string; projectId: string; userId: string };
 
@@ -657,7 +658,7 @@ CRITICAL RULES:
     const totalCost = (result.costUsd || 0);
 
     // Save to database
-    const { data: inserted, error: dbError } = await db.from("generated_creatives").insert({
+    const inserted = await insertCreative(db, {
       project_id: projectId,
       swipe_file_id: swipeFileId || null,
       image_url: publicUrl,
@@ -679,8 +680,7 @@ CRITICAL RULES:
         personPosition: personPosition || null,
         attempts: result.attempts,
       },
-    }).select("id").single();
-    if (dbError) throw dbError;
+    });
 
     return jsonResponse({ success: true, imageUrl: publicUrl, creativeId: inserted.id, model: result.model, costUsd: totalCost });
   } catch (e) {
