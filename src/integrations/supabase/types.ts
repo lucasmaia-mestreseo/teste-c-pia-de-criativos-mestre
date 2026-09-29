@@ -249,8 +249,8 @@ export type Database = {
           parent_creative_id: string | null
           project_id: string
           prompt: string
-          review_status: string | null
           review: Json | null
+          review_status: string | null
           source_image_url: string | null
           swipe_file_id: string | null
         }
@@ -269,8 +269,8 @@ export type Database = {
           parent_creative_id?: string | null
           project_id: string
           prompt: string
-          review_status?: string | null
           review?: Json | null
+          review_status?: string | null
           source_image_url?: string | null
           swipe_file_id?: string | null
         }
@@ -289,8 +289,8 @@ export type Database = {
           parent_creative_id?: string | null
           project_id?: string
           prompt?: string
-          review_status?: string | null
           review?: Json | null
+          review_status?: string | null
           source_image_url?: string | null
           swipe_file_id?: string | null
         }
