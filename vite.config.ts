@@ -14,9 +14,14 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
+    alias: [
+      // MODO DEMO (npm run dev:demo): swap the real Supabase client for an
+      // in-browser simulation with fictitious data — no login, no AI calls.
+      ...(mode === "demo"
+        ? [{ find: /^@\/integrations\/supabase\/client$/, replacement: path.resolve(__dirname, "./src/demo/demoClient.ts") }]
+        : []),
+      { find: "@", replacement: path.resolve(__dirname, "./src") },
+    ],
     dedupe: ["react", "react-dom", "react/jsx-runtime"],
   },
   optimizeDeps: {

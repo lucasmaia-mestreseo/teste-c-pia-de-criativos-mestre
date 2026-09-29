@@ -26,6 +26,17 @@ Galeria de resultados para exibir os criativos gerados no projeto, com a opção
 
 Histórico, onde salvo todos os criativos gerados no banco de dados para consulta futura
 
+## Modo demo (sem login, sem IA)
+
+Para testar as telas localmente sem conta e sem gastar créditos:
+
+```sh
+npm install
+npm run dev:demo
+```
+
+Abra http://localhost:8080. O app entra logado como um dono fictício, com projetos e criativos de exemplo; as "gerações" devolvem imagens de exemplo. Detalhes em [docs/MODO-DEMO.md](docs/MODO-DEMO.md).
+
 ## Documentação técnica
 
 - [Arquitetura](docs/ARQUITETURA.md) — como a plataforma funciona (telas, Edge Functions, IA, banco).

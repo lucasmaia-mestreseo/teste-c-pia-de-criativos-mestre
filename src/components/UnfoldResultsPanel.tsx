@@ -93,7 +93,7 @@ export default function UnfoldResultsPanel({ projectId, pending = 0, onUseAsRefe
         <section key={g.source} className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              {signedSources?.[gi]?.startsWith('http') && (
+              {/^(https?|data):/.test(signedSources?.[gi] ?? '') && (
                 <img src={signedSources[gi]} alt="Peça-mãe" className="h-10 w-10 rounded border object-contain bg-secondary" />
               )}
               <div>
