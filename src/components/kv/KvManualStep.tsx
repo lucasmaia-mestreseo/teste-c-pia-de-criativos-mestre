@@ -157,14 +157,14 @@ const PAGE_TITLES = [
 function ApplyDialog({ open, onOpenChange, projectId, spec, logo, photos, onDone }: {
   open: boolean; onOpenChange: (o: boolean) => void; projectId: string; spec: ManualSpec; logo: string | null; photos: string[]; onDone: () => void;
 }) {
-  const [opts, setOpts] = useState({ colors: true, typography: true, logo: !!logo, photos: photos.length > 0, voice: true });
+  const [opts, setOpts] = useState({ colors: true, typography: true, logo: !!logo, photos: photos.length > 0, voice: true, guidelines: true });
   const [busy, setBusy] = useState(false);
   const apply = async () => {
     setBusy(true);
     try {
       const done = await applyToProject(projectId, spec, {
         colors: opts.colors, typography: opts.typography, logoDataUrl: opts.logo ? logo : null,
-        photos: opts.photos ? photos : [], voice: opts.voice,
+        photos: opts.photos ? photos : [], voice: opts.voice, guidelines: opts.guidelines,
       });
       onDone();
       toast.success('Identidade do cliente atualizada', { description: `${done.join(', ')}. Os próximos criativos já seguem o manual.` });
@@ -194,6 +194,7 @@ function ApplyDialog({ open, onOpenChange, projectId, spec, logo, photos, onDone
           <Row k="logo" label="Logotipo" hint="Versão colorida, com fundo removido e recorte justo" disabled={!logo} />
           <Row k="photos" label="Fotografias" hint={`${photos.length} foto(s) escolhida(s) no resumo`} disabled={!photos.length} />
           <Row k="voice" label="Tom de voz e público" hint="Somado ao Contexto do projeto, sem apagar o que já existe" />
+          <Row k="guidelines" label="Diretrizes visuais para a IA" hint="Regras de cor, CTA e imagem no Contexto — a geração de criativos passa a segui-las" />
         </div>
         <Button onClick={apply} disabled={busy} className="w-full gap-2">
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />} Aplicar

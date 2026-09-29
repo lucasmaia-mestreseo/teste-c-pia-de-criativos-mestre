@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Plus, X, Upload, Save, Loader2, Globe, Image, Grid3x3 } from 'lucide-react';
 import { toast } from 'sonner';
 import ColorPickerWithHex from '@/components/ColorPickerWithHex';
+import BrandManualBanner from '@/components/kv/BrandManualBanner';
 import { invokeWithRetry } from '@/lib/invokeWithRetry';
 import {
   AlertDialog,
@@ -296,6 +297,8 @@ const BrandKitPanel = forwardRef<BrandKitPanelHandle, BrandKitPanelProps>(({ pro
           <Save className="h-4 w-4 mr-1" /> Salvar
         </Button>
       </div>
+
+      {projectId && <BrandManualBanner projectId={projectId} />}
 
       {/* Upload progress */}
       {uploadProgress && (

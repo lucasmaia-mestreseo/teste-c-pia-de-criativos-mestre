@@ -77,6 +77,8 @@ export interface ApplyOptions {
   logoDataUrl: string | null;
   photos: string[]; // JPEG data URLs
   voice: boolean;
+  /** Visual rules (colors, CTA, imagery) into the project context used by every generation. */
+  guidelines?: boolean;
 }
 
 async function dataUrlToBlob(url: string): Promise<Blob> {
@@ -133,19 +135,44 @@ export async function applyToProject(projectId: string, spec: ManualSpec, opts: 
     if (error) throw error;
   }
 
-  if (opts.voice) {
-    const voice = [spec.resumo.tomDeVoz, spec.resumo.publico && `Público: ${spec.resumo.publico}`].filter(Boolean).join('\n\n');
+  if (opts.voice || opts.guidelines) {
     const { data: project } = await supabase.from('projects').select('context, voice_guide').eq('id', projectId).maybeSingle();
     const upd: { voice_guide?: string; context?: string } = {};
-    if (voice) upd.voice_guide = project?.voice_guide ? `${project.voice_guide}\n\n— Do manual de marca —\n${voice}` : voice;
-    if (!project?.context && spec.resumo.direcaoVisual) {
-      upd.context = [`${spec.marca}: ${spec.posicionamento}`, spec.textoDeApoio, `Direção visual: ${spec.resumo.direcaoVisual}`].filter(Boolean).join('\n');
+    if (opts.voice) {
+      const voice = [spec.resumo.tomDeVoz, spec.resumo.publico && `Público: ${spec.resumo.publico}`].filter(Boolean).join('\n\n');
+      if (voice) upd.voice_guide = project?.voice_guide ? `${project.voice_guide}\n\n— Do manual de marca —\n${voice}` : voice;
+      if (voice) done.push('tom de voz');
+    }
+    if (opts.guidelines) {
+      // Previous guidelines block is replaced, not duplicated, when a manual is applied again.
+      const base = (project?.context ?? '').replace(/\n*— Diretrizes do manual de marca —[\s\S]*$/, '').trim();
+      const intro = base || [`${spec.marca}: ${spec.posicionamento}`, spec.textoDeApoio].filter(Boolean).join('\n');
+      upd.context = `${intro}\n\n${manualGuidelines(spec)}`;
+      done.push('diretrizes visuais');
     }
     if (Object.keys(upd).length) {
       const { error } = await supabase.from('projects').update(upd).eq('id', projectId);
       if (error) throw error;
-      done.push('tom de voz');
     }
   }
   return done;
+}
+
+/**
+ * The manual's rules in a compact form for the image prompts (the project
+ * context is injected into every generation, truncated at ~2500 chars).
+ */
+export function manualGuidelines(spec: ManualSpec): string {
+  const tk = buildTokens(spec);
+  const ink = tk.ctaInk === '#FFFFFF' ? 'texto branco' : `texto escuro ${tk.ctaInk}`;
+  const lines = [
+    '— Diretrizes do manual de marca —',
+    spec.resumo.direcaoVisual && `Direção visual: ${spec.resumo.direcaoVisual}`,
+    `Cores: ${spec.cores.principal.nome} ${tk.brand900} domina; ${spec.cores.apoio.nome} ${tk.brand600} apoia; ${spec.cores.acento.nome} ${tk.accent700} só em CTA e destaques.${spec.cores.nota ? ` ${spec.cores.nota}` : ''}`,
+    `CTA: fundo ${tk.accent700} com ${ink}, caixa alta, ex.: "${spec.cta.principal}".`,
+    `Tipografia: ${spec.tipografia.primaria}${spec.tipografia.secundaria && spec.tipografia.secundaria !== spec.tipografia.primaria ? ` e ${spec.tipografia.secundaria}` : ''}.`,
+    spec.imagens.fazer.length && `Imagens — fazer: ${spec.imagens.fazer.join('; ')}.`,
+    spec.imagens.naoFazer.length && `Imagens — evitar: ${spec.imagens.naoFazer.join('; ')}.`,
+  ].filter(Boolean) as string[];
+  return lines.join('\n');
 }

@@ -134,3 +134,15 @@ describe('fonts', () => {
     expect(googleEquivalent('Montserrat')).toBeNull();
   });
 });
+
+describe('manual guidelines for the creative prompts', () => {
+  it('summarizes color roles, CTA rule and imagery', async () => {
+    const { manualGuidelines } = await import('@/kv/manualStorage');
+    const g = manualGuidelines(spec);
+    expect(g).toContain('— Diretrizes do manual de marca —');
+    expect(g).toContain('#0B2A4A domina');
+    expect(g).toMatch(/CTA: fundo #F0962E com texto escuro/);
+    expect(g).toContain('Imagens — evitar: Rosto cortado');
+    expect(g.length).toBeLessThan(1500);
+  });
+});
