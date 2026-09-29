@@ -9,6 +9,7 @@ import { useProjects, useCreateProject } from '@/hooks/useProjects';
 import { useRenameProject } from '@/hooks/useProject';
 import { usePermissions } from '@/hooks/usePermissions';
 import UserMenu from '@/components/UserMenu';
+import { ReleaseNotesButton } from '@/components/ReleaseNotes';
 import { Palette, Clock, Plus, Zap, FileText, Sparkles, Image, Check, ChevronsUpDown, Pencil, Layers, ChevronLeft, BookOpenCheck, Clapperboard } from 'lucide-react';
 import { VIDEO_ENABLED } from '@/lib/tools';
 import { toast } from 'sonner';
@@ -243,6 +244,7 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
 
       {!selectedProjectId && <div className="flex-1" />}
 
+      <ReleaseNotesButton compact />
       <UserMenu />
     </header>
   );

@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import AuthGuard from "@/components/AuthGuard";
+import { ReleaseNotesProvider } from "@/components/ReleaseNotes";
 import Index from "./pages/Index.tsx";
 import Home from "./pages/Home.tsx";
 import Auth from "./pages/Auth.tsx";
@@ -22,6 +23,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <ReleaseNotesProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/pending-approval" element={<PendingApproval />} />
@@ -68,6 +70,7 @@ const App = () => (
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </ReleaseNotesProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

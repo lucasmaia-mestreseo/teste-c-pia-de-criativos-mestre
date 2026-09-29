@@ -6,6 +6,7 @@ import { ptBR } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import UserMenu from '@/components/UserMenu';
+import { ReleaseNotesButton } from '@/components/ReleaseNotes';
 import ToolArt from '@/components/ToolArt';
 import { TOOLS, type ToolDefinition } from '@/lib/tools';
 import { useProjects } from '@/hooks/useProjects';
@@ -51,6 +52,7 @@ export default function Home() {
         <Zap className="h-4 w-4 text-primary fill-primary" />
         <span className="text-sm font-bold tracking-tight">Criativos Mestre</span>
         <div className="flex-1" />
+        <ReleaseNotesButton />
         <UserMenu />
       </header>
 
