@@ -68,6 +68,13 @@ export default function KvMaterialsStep({ materials, onMaterialsChange, notes, o
     }
   };
 
+  // MODO DEMO only (stripped from production builds: MODE is a build-time constant)
+  const loadSamples = async () => {
+    const { sampleBrandbook, sampleLogo } = await import('@/demo/kvSamples');
+    await addFiles([sampleBrandbook(), await sampleLogo()]);
+    if (!notes.trim()) onNotesChange('Marca: Horizonte Engenharia. Construtora de galpões industriais. Azul domina, laranja só em chamadas; vermelho nunca. Público: diretores de indústria.');
+  };
+
   const setRole = (id: string, role: ImageRole) =>
     onMaterialsChange(materials.map((m) => (m.id === id && m.kind === 'image' ? { ...m, role } : m)));
   const remove = (id: string) => onMaterialsChange(materials.filter((m) => m.id !== id));
@@ -103,6 +110,11 @@ export default function KvMaterialsStep({ materials, onMaterialsChange, notes, o
           accept=".pdf,image/*,.svg,.txt,.md,.csv,.json"
           onChange={(e) => { if (e.target.files?.length) addFiles(e.target.files); e.target.value = ''; }} />
 
+        {import.meta.env.MODE === 'demo' && materials.length === 0 && (
+          <Button variant="secondary" size="sm" onClick={loadSamples} disabled={!!loading} className="gap-1.5 mr-2">
+            <Wand2 className="h-3.5 w-3.5" /> Usar materiais de exemplo (demo)
+          </Button>
+        )}
         {brandKit && (brandKit.logo_url || brandKit.photos?.length || brandKit.people_photos?.length) ? (
           <Button variant="outline" size="sm" onClick={importFromBrandKit} disabled={!!loading} className="gap-1.5">
             <Palette className="h-3.5 w-3.5" /> Importar logo e fotos do Brand Kit do projeto

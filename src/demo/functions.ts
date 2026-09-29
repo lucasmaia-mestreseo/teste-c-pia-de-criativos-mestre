@@ -282,7 +282,11 @@ const handlers: Record<string, Handler> = {
     const family = (b.fontsFound?.[0] as string | undefined)?.replace(/\s+(Regular|Bold|Light|Medium|SemiBold|Black|Italic).*$/i, '') || 'Montserrat';
     const images = (b.images ?? []).map((img: any) => {
       const label = String(img.label).toLowerCase();
-      if (/logo|marcado como logo/.test(label)) return { id: img.id, tipo: 'logo', foco: { x: 0.5, y: 0.5 } };
+      if (/logo|marcado como logo/.test(label)) {
+        // the sample logo (kvSamples) has its symbol on the left
+        const simboloBox = /exemplo/.test(label) ? { x0: 0.03, y0: 0.2, x1: 0.3, y1: 0.75 } : undefined;
+        return { id: img.id, tipo: 'logo', foco: { x: 0.5, y: 0.5 }, simboloBox };
+      }
       if (/s[ií]mbolo/.test(label)) return { id: img.id, tipo: 'simbolo', foco: { x: 0.5, y: 0.5 } };
       if (/foto|marcado como foto/.test(label)) return { id: img.id, tipo: 'foto', foco: { x: 0.5, y: 0.38 } };
       if (/página/.test(label)) return { id: img.id, tipo: 'pagina', foco: { x: 0.5, y: 0.5 }, fotos: [{ x0: 0.52, y0: 0.18, x1: 0.95, y1: 0.82 }] };
