@@ -76,3 +76,43 @@ export async function sampleLogo(): Promise<File> {
   const blob: Blob = await new Promise((r) => c.toBlob((b) => r(b!), 'image/png'));
   return new File([blob], 'logo-horizonte (exemplo).png', { type: 'image/png' });
 }
+
+/** A briefing exported from Google Forms (same questions the agency sends to clients). */
+export function sampleBriefingCsv(): File {
+  const q = [
+    'Carimbo de data/hora', 'Endereço de e-mail',
+    'Vocês possuem um manual de identidade visual da marca?',
+    'Em caso afirmativo, por favor, enviar o arquivo.',
+    'Qual é o principal problema que o seu cliente resolve ao escolher a Horizonte? O que precisamos mostrar nas imagens para que ele sinta que o problema dele será resolvido?',
+    'Qual persona decisora este design precisa impactar?',
+    'Como os produtos e a tecnologia devem aparecer no criativo?',
+    'Escolha até 3 atributos que definem a linguagem visual ideal para as entregas do time de criação:',
+    'A Horizonte possui banco de imagens próprio?',
+    'Existe alguma restrição de conformidade ou Brand Safety a ser evitada?',
+    'Qual referências ativas podem inspirar o estilo visual dos materiais gráficos?',
+    'Para os anúncios em banners, é preferível usar:',
+    'Há algo que não pode ser executado de nenhuma forma? (Ex: Termos que não devem ser usados, testes anteriores que geraram feedback negativo dos leads?)',
+    'Existe alguma cor que NÃO devemos usar de jeito nenhum?',
+    'Quais são as características que a marca NÃO busca transmitir?',
+    'Há mais alguma observação visual importante (que não mencionamos acima)?',
+  ];
+  const a = [
+    '2026/09/22 10:14:05 AM GMT-3', 'marketing@horizonte.example',
+    'Sim, irei enviar abaixo',
+    'https://drive.google.com/u/0/open?usp=forms_web&id=EXEMPLO123',
+    'Obra industrial atrasada e fora do orçamento. Mostrar canteiro organizado, cronograma cumprido e equipe com EPI.',
+    'Diretores industriais e gestores de compras de indústrias médias',
+    'Galpões prontos em destaque, com a estrutura metálica aparente; tecnologia como drones de vistoria e BIM',
+    'Técnico, confiável, sólido',
+    'Não temos fotos próprias em quantidade, preferimos bancos de imagem profissionais',
+    'Não mostrar pessoas sem EPI nem trabalho em altura sem linha de vida',
+    'Linha de comunicação de grandes construtoras industriais',
+    'Mescla de fotos reais e produto em destaque',
+    'Não usar "barato" nem "menor preço". Só fazemos anúncios em redes sociais; não temos landing pages.',
+    'Vermelho',
+    'Improvisado, amador, barato',
+    'Temos duas linhas de serviço: Horizonte Galpões e Horizonte Reformas, que usam o mesmo logo com descritor.',
+  ];
+  const csv = [q, a].map((row) => row.map((v) => `"${v.replace(/"/g, '""')}"`).join(',')).join('\n');
+  return new File([csv], '[Horizonte] Briefing para criação de materiais gráficos (exemplo).csv', { type: 'text/csv' });
+}

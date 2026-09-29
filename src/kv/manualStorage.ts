@@ -21,14 +21,15 @@ export interface SavedManual {
 
 const slug = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'manual';
 
-export async function saveManual(projectId: string, spec: ManualSpec, html: string): Promise<SavedManual> {
+/** The JSON saved next to the HTML: the spec, plus the plan and briefings that shaped it (read back by `openSaved`). */
+export async function saveManual(projectId: string, spec: ManualSpec, html: string, extra: { plano?: unknown; briefings?: unknown } = {}): Promise<SavedManual> {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const base = `${slug(spec.marca)}-${stamp}`;
   const htmlPath = `${folder(projectId)}/${base}.html`;
   const specPath = `${folder(projectId)}/${base}.json`;
   const up1 = await supabase.storage.from(BUCKET).upload(htmlPath, new Blob([html], { type: 'text/html' }), { contentType: 'text/html', upsert: true });
   if (up1.error) throw up1.error;
-  const up2 = await supabase.storage.from(BUCKET).upload(specPath, new Blob([JSON.stringify(spec, null, 2)], { type: 'application/json' }), { contentType: 'application/json', upsert: true });
+  const up2 = await supabase.storage.from(BUCKET).upload(specPath, new Blob([JSON.stringify({ ...spec, ...extra }, null, 2)], { type: 'application/json' }), { contentType: 'application/json', upsert: true });
   if (up2.error) throw up2.error;
   return { name: base, createdAt: new Date().toISOString(), htmlPath, specPath };
 }

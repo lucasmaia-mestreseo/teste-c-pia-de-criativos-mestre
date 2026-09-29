@@ -7,7 +7,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       // the app is dark-only: following the OS theme showed white toasts on light systems
       theme="dark"
-      position="bottom-right"
+      position="top-right"
+      offset={64}
       gap={10}
       className="toaster group"
       toastOptions={{

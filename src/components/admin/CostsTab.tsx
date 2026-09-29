@@ -27,6 +27,7 @@ const FEATURE_LABELS: Record<string, string> = {
   'suggest-variants': 'Sugestão de variações',
   'ad-copy': 'Copy do anúncio',
   'kv-analyze': 'Criação de KVs',
+  'kv-plan': 'Criação de KVs · estratégia',
   'review-creative': 'Revisão automática',
   'analyze-swipe': 'Análise de swipe',
   'suggest-texts': 'Sugestão de textos',

@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils';
 import type { FillResult } from '@/kv/fillTemplate';
 import type { ManualSpec } from '@/kv/spec';
 import { applyToProject, saveManual } from '@/kv/manualStorage';
+import { outline, type ManualPlan } from '@/kv/structure';
+import type { Briefing } from '@/kv/briefing';
 
 interface Props {
   projectId: string;
@@ -17,11 +19,15 @@ interface Props {
   result: FillResult;
   logoForKit: string | null;
   photosForKit: string[];
+  /** Title of each page, in order (the structure may differ from the standard 38). */
+  pageTitles: string[];
+  plan: ManualPlan | null;
+  briefings: Briefing[];
   onBack: () => void;
   onSaved: () => void;
 }
 
-export default function KvManualStep({ projectId, spec, result, logoForKit, photosForKit, onBack, onSaved }: Props) {
+export default function KvManualStep({ projectId, spec, result, logoForKit, photosForKit, pageTitles, plan, briefings, onBack, onSaved }: Props) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -31,6 +37,8 @@ export default function KvManualStep({ projectId, spec, result, logoForKit, phot
   const qc = useQueryClient();
 
   const failures = result.log.filter((l) => !l.ok);
+  const pages = pageTitles.length ? pageTitles : PAGE_TITLES;
+  const extras = plan ? outline(plan).filter((e) => e.tipo === 'extra' || e.tipo === 'contexto').length : 0;
   const fileBase = `Manual-${spec.marca.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '') || 'Marca'}`;
 
   // page tracker inside the iframe
@@ -76,7 +84,7 @@ export default function KvManualStep({ projectId, spec, result, logoForKit, phot
   const save = async () => {
     setSaving(true);
     try {
-      await saveManual(projectId, spec, result.html);
+      await saveManual(projectId, spec, result.html, { plano: plan ?? undefined, briefings: briefings.length ? briefings : undefined });
       setSaved(true);
       onSaved();
       toast.success('Manual salvo no projeto');
@@ -91,8 +99,11 @@ export default function KvManualStep({ projectId, spec, result, logoForKit, phot
     <div className="space-y-4">
       {/* toolbar */}
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Editar resumo</Button>
-        <div className="flex-1" />
+        <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Ajustar</Button>
+        <div className="flex-1 min-w-0 text-xs text-muted-foreground truncate">
+          <b className="text-foreground">{spec.marca}</b> · {pages.length} páginas
+          {extras > 0 && <> · <span className="text-primary font-medium">{extras} sob medida para o briefing</span></>}
+        </div>
         <Button size="sm" variant="outline" onClick={() => setApplyOpen(true)} className="gap-1.5"><Wand2 className="h-3.5 w-3.5" /> Aplicar à identidade do cliente</Button>
         <Button size="sm" variant="outline" onClick={downloadHtml} className="gap-1.5"><Code2 className="h-3.5 w-3.5" /> HTML</Button>
         <Button size="sm" variant="outline" onClick={save} disabled={saving || saved} className="gap-1.5">
@@ -127,14 +138,17 @@ export default function KvManualStep({ projectId, spec, result, logoForKit, phot
       </div>
 
       {/* preview */}
-      <div className="grid lg:grid-cols-[120px_1fr] gap-3">
+      <div className="grid lg:grid-cols-[170px_1fr] gap-3">
         <div className="hidden lg:flex flex-col gap-1 max-h-[75vh] overflow-y-auto pr-1">
-          {Array.from({ length: 38 }, (_, i) => i + 1).map((n) => (
-            <button key={n} onClick={() => goTo(n)}
-              className={cn('text-left text-[11px] px-2 py-1 rounded-md transition', page === n ? 'bg-primary text-primary-foreground font-semibold' : 'hover:bg-secondary text-muted-foreground')}>
-              {String(n).padStart(2, '0')} · {PAGE_TITLES[n - 1]}
-            </button>
-          ))}
+          {pages.map((title, i) => {
+            const n = i + 1;
+            return (
+              <button key={n} onClick={() => goTo(n)} title={title}
+                className={cn('text-left text-[11px] px-2 py-1 rounded-md transition-colors duration-200 truncate', page === n ? 'bg-primary text-primary-foreground font-semibold' : 'hover:bg-secondary text-muted-foreground')}>
+                {String(n).padStart(2, '0')} · {title}
+              </button>
+            );
+          })}
         </div>
         <motion.div initial={{ opacity: 0, scale: 0.99 }} animate={{ opacity: 1, scale: 1 }} className="rounded-2xl overflow-hidden border bg-[#3a3a3a] shadow-2xl">
           <iframe ref={iframeRef} title="Manual" srcDoc={result.html} className="w-full h-[75vh] block" />

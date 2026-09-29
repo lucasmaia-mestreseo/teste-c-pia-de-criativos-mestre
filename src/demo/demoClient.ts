@@ -234,8 +234,9 @@ if (typeof document !== 'undefined') {
     if (document.getElementById('demo-badge')) return;
     const el = document.createElement('div');
     el.id = 'demo-badge';
-    el.innerHTML = '<strong>MODO DEMO</strong> · dados fictícios, sem IA real · <a href="?reset-demo" style="text-decoration:underline">recomeçar</a>';
-    el.setAttribute('style', 'position:fixed;right:12px;bottom:12px;z-index:9999;background:hsl(58 100% 67.5%);color:#111;font:12px Inter,Arial,sans-serif;padding:6px 10px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.35)');
+    el.innerHTML = '<strong>DEMO</strong> · <a href="?reset-demo" style="text-decoration:underline">recomeçar</a>';
+    el.title = 'Modo demo: dados fictícios, sem IA real';
+    el.setAttribute('style', 'position:fixed;right:12px;top:54px;z-index:9999;opacity:.9;background:hsl(58 100% 67.5%);color:#111;font:12px Inter,Arial,sans-serif;padding:3px 10px;border-radius:999px;font-size:11px;box-shadow:0 4px 14px rgba(0,0,0,.35)');
     document.body.appendChild(el);
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);

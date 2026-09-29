@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Download, Loader2, Trash2, Layers, ImagePlus } from 'lucide-react';
+import { ArrowRight, Download, Trash2, Layers, ImagePlus } from 'lucide-react';
+import EmptyState from '@/components/EmptyState';
 import { toast } from 'sonner';
 import { useGeneratedCreatives, useDeleteCreative } from '@/hooks/useGeneratedCreatives';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -15,7 +16,8 @@ type CreativeRow = NonNullable<ReturnType<typeof useGeneratedCreatives>['data']>
 
 interface UnfoldResultsPanelProps {
   projectId: string;
-  pending?: number;
+  /** Formats being generated right now (placeholders in their shape). */
+  pending?: string[];
   onUseAsReference?: (imageUrl: string, projectId?: string) => void;
 }
 
@@ -32,7 +34,7 @@ async function downloadImage(url: string, name: string) {
 
 const fileSafe = (format: string) => format.replace(':', 'x');
 
-export default function UnfoldResultsPanel({ projectId, pending = 0, onUseAsReference }: UnfoldResultsPanelProps) {
+export default function UnfoldResultsPanel({ projectId, pending = [], onUseAsReference }: UnfoldResultsPanelProps) {
   const { data: creatives } = useGeneratedCreatives(projectId);
   const deleteCreative = useDeleteCreative();
   const { can } = usePermissions();
@@ -48,7 +50,9 @@ export default function UnfoldResultsPanel({ projectId, pending = 0, onUseAsRefe
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(c);
     }
-    return Array.from(map.entries()).map(([source, items]) => ({ source, items }));
+    // tall → wide, the order people read formats in
+    const ratio = (f: string) => { const [w, h] = f.split(':').map(Number); return w && h ? w / h : 1; };
+    return Array.from(map.entries()).map(([source, items]) => ({ source, items: [...items].sort((a, b) => ratio(a.format) - ratio(b.format)) }));
   }, [creatives]);
 
   // Source URLs are stored in public format; sign them for display.
@@ -73,50 +77,63 @@ export default function UnfoldResultsPanel({ projectId, pending = 0, onUseAsRefe
   };
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto p-3 space-y-5">
-      {pending > 0 && (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-          Gerando {pending} formato{pending > 1 ? 's' : ''}…
+    <div className="flex flex-col h-full overflow-y-auto p-4 sm:p-6 space-y-5">
+      {groups.length === 0 && pending.length === 0 && (
+        <div className="flex-1 flex items-center justify-center">
+          <EmptyState icon={Layers} title="Os formatos aparecem aqui">
+            Escolha a peça-mãe à esquerda e marque os formatos. Cada versão chega ao lado da peça de origem, já revisada pela IA.
+          </EmptyState>
         </div>
       )}
 
-      {groups.length === 0 && pending === 0 && (
-        <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground gap-2">
-          <Layers className="h-8 w-8 opacity-40" />
-          <p className="text-sm">Nenhum desdobramento ainda.</p>
-          <p className="text-xs max-w-xs">Suba uma peça-mãe à esquerda e escolha os formatos. As versões aparecem aqui, agrupadas pela peça de origem.</p>
-        </div>
+      {pending.length > 0 && (
+        <section className="rounded-2xl border border-primary/30 bg-card p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-500">
+          <p className="text-xs font-semibold flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> Desdobrando {pending.length} formato{pending.length > 1 ? 's' : ''}…
+          </p>
+          <div className="flex flex-wrap gap-4 items-end">
+            {pending.map((fmt) => (
+              <div key={fmt} className="flex flex-col items-center gap-1.5">
+                <div className="generating-pulse rounded-lg bg-secondary h-44" style={{ aspectRatio: fmt.replace(':', ' / ') }} />
+                <span className="text-[10px] font-semibold text-muted-foreground">{fmt}</span>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {groups.map((g, gi) => (
-        <section key={g.source} className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {/^(https?|data):/.test(signedSources?.[gi] ?? '') && (
-                <img src={signedSources[gi]} alt="Peça-mãe" className="h-10 w-10 rounded border object-contain bg-secondary" />
-              )}
-              <div>
-                <p className="text-xs font-semibold">Peça-mãe</p>
-                <p className="text-[10px] text-muted-foreground">
-                  {g.items.length} formato{g.items.length > 1 ? 's' : ''} · {new Date(g.items[0].created_at).toLocaleString('pt-BR')}
-                </p>
-              </div>
+        <section key={g.source} className="rounded-2xl border bg-card p-4 space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold">{g.items.length} formato{g.items.length > 1 ? 's' : ''} a partir da peça-mãe</p>
+              <p className="text-[11px] text-muted-foreground">{new Date(g.items[0].created_at).toLocaleString('pt-BR')}</p>
             </div>
             {can('download_creative') && (
-              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => downloadGroup(g.items)}>
-                <Download className="h-3 w-3 mr-1" /> Baixar todos
+              <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5" onClick={() => downloadGroup(g.items)}>
+                <Download className="h-3.5 w-3.5" /> Baixar todos
               </Button>
             )}
           </div>
-          <div className="flex flex-wrap gap-3 items-end">
+          <div className="flex gap-4 items-end overflow-x-auto no-scrollbar pb-1">
+            {/^(https?|data):/.test(signedSources?.[gi] ?? '') && (
+              <>
+                <div className="flex flex-col items-center gap-1.5 flex-none">
+                  <div className="rounded-lg overflow-hidden border-2 border-dashed border-muted-foreground/30 h-44 flex items-center checkerboard">
+                    <img src={signedSources[gi]} alt="Peça-mãe" className="h-full w-auto object-contain" />
+                  </div>
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Peça-mãe</span>
+                </div>
+                <ArrowRight className="h-5 w-5 text-primary flex-none self-center mb-5" />
+              </>
+            )}
             {g.items.map((c) => (
-              <button key={c.id} onClick={() => setOpenId(c.id)} className="group flex flex-col items-center gap-1">
-                <div className="relative rounded-md overflow-hidden border bg-secondary h-40 flex items-center">
-                  <img src={c.image_url} alt={c.format} className="h-full w-auto object-contain group-hover:opacity-90" />
+              <button key={c.id} onClick={() => setOpenId(c.id)} className="group flex flex-col items-center gap-1.5 flex-none">
+                <div className="relative rounded-lg overflow-hidden border bg-secondary h-44 flex items-center transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-xl group-hover:border-primary/40">
+                  <img src={c.image_url} alt={c.format} className="h-full w-auto object-contain" />
                   <ReviewBadge creative={c} />
                 </div>
-                <span className="text-[10px] font-medium text-muted-foreground">{c.format}</span>
+                <span className="text-[10px] font-bold text-muted-foreground group-hover:text-primary transition-colors">{c.format}</span>
               </button>
             ))}
           </div>

@@ -265,7 +265,9 @@ const handlers: Record<string, Handler> = {
     await sleep(3500);
     const project = table('projects').find((p) => p.id === b.projectId);
     const notes: string = b.notes || '';
-    const named = notes.match(/(?:marca|cliente)\s*[:\-–]\s*([^\n.,;]{2,40})/i)?.[1]?.trim();
+    // "[Horizonte] Briefing para…" (Forms file name) names the client
+    const fromBriefing = String(b.briefing || '').match(/Briefing do cliente — \[([^\]]{2,40})\]/)?.[1];
+    const named = fromBriefing || notes.match(/(?:marca|cliente)\s*[:\-–]\s*([^\n.,;]{2,40})/i)?.[1]?.trim();
     const marca = named || project?.name || 'Marca';
     const cands: { hex: string; share: number; source: string }[] = b.paletteCandidates ?? [];
     // chroma: HSL saturation is unstable near white/black
@@ -343,6 +345,123 @@ const handlers: Record<string, Handler> = {
         },
         inferencias: ['Modo demo: análise simulada a partir das cores medidas e das fontes encontradas.', b.fontsFound?.length ? `Tipografia tirada das fontes embutidas (${family}).` : 'Tipografia padrão (sem PDF com fontes).'],
         pendencias: ['Logo em vetor (SVG/AI) para máxima nitidez.', 'Fotos próprias da marca em alta resolução.'],
+      },
+    };
+  },
+
+  // Simulated strategy: reads the briefing answers with simple rules (the real one is Claude via OpenRouter).
+  'kv-plan': async (b) => {
+    await sleep(3000);
+    const text: string = b.briefing || '';
+    const qa: { pergunta: string; resposta: string }[] = [];
+    for (const m of text.matchAll(/^\d+\.\s+(.+)\n→\s+([\s\S]*?)(?=\n\d+\.\s|\n###|\n\(Anexos|$)/gm)) qa.push({ pergunta: m[1].trim(), resposta: m[2].trim() });
+    const find = (re: RegExp) => qa.find((x) => re.test(x.pergunta))?.resposta ?? '';
+    const isNo = (s: string) => /^n[aã]o\.?$/i.test(s.trim());
+    const split = (s: string) => s.split(/,|;|\se\s/).map((x) => x.trim()).filter(Boolean);
+    const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+    const marca = b.spec?.marca || 'a marca';
+
+    const problema = find(/problema/i);
+    const persona = find(/persona|p[uú]blico/i);
+    const produtos = find(/produtos e a tecnologia|produto/i);
+    const atributos = split(find(/atributos/i)).slice(0, 4).map(cap);
+    const naoTransmitir = split(find(/N[ÃA]O busca transmitir|n[aã]o quer/i)).slice(0, 5).map(cap);
+    const banco = find(/banco de imagens/i);
+    const brandSafety = find(/Brand Safety|conformidade/i);
+    const proibido = find(/n[aã]o pode ser executado/i);
+    const corProibida = find(/cor que N[ÃA]O/i);
+    const referencias = find(/refer[eê]ncias/i);
+    const formato = find(/banners, [eé] prefer[ií]vel/i);
+    const obs = find(/observa[cç][aã]o visual/i);
+    const semLp = /n[aã]o (temos|usamos|fazemos) (landing|lp)|sem landing|s[oó] fazemos an[uú]ncios/i.test(text + (b.notes || ''));
+    const subMarcas = obs.match(/(?:linhas?|sub-?marcas?)[^:]*:\s*([^.]+)/i)?.[1]?.split(/\s+e\s+|,/).map((s: string) => s.trim().replace(/,? que .*$/, '')).filter(Boolean) ?? [];
+
+    const restricoes = [
+      corProibida && !isNo(corProibida) ? `Nunca usar ${corProibida.toLowerCase()} — nem em detalhes.` : '',
+      brandSafety && !isNo(brandSafety) ? brandSafety : '',
+      ...(proibido && !isNo(proibido) ? proibido.split(/\.\s*/).filter((s) => s && !/landing/i.test(s)).map((s) => `${s.replace(/\.$/, '')}.`) : []),
+    ].filter(Boolean);
+
+    const lpIds = ['lp', 'lp-logo', 'lp-margens', 'lp-tipo-desktop-1', 'lp-tipo-desktop-2', 'lp-tipo-mobile-1', 'lp-tipo-mobile-2', 'lp-tipo-auxiliar', 'lp-equivalencia-pesos', 'lp-cta', 'lp-exemplo', 'lp-exemplo-topo', 'lp-exemplo-continuacao'];
+    const extras: any[] = [];
+    if (persona) extras.push({
+      id: 'persona', titulo: 'Persona decisora', depoisDe: 'estrategia', layout: 'persona',
+      intro: `Todo criativo da ${marca} fala primeiro com quem decide a compra. O que cada perfil precisa ver para confiar:`,
+      itens: split(persona.replace(/\s+de\s+ind[uú]strias.*$/i, '')).slice(0, 2).map((p) => ({
+        titulo: cap(p), texto: problema ? `Chega com o problema: ${problema.split('.')[0].toLowerCase()}.` : '',
+        lista: ['Prova concreta (prazo, obra entregue)', 'Clareza técnica, sem exagero', atributos[1] ? `Sinais de que a marca é ${atributos[1].toLowerCase()}` : 'Sinais de confiança'],
+      })),
+    });
+    if (produtos) extras.push({
+      id: 'produto-tecnologia', titulo: 'Produto e tecnologia no criativo', depoisDe: 'estrategia', layout: 'cards',
+      intro: produtos,
+      itens: [
+        { titulo: 'O resultado em destaque', texto: 'A obra pronta é o herói: estrutura aparente, luz de dia, ângulo que mostra escala.', lista: [] },
+        { titulo: 'A tecnologia como prova', texto: 'Drone e BIM aparecem como garantia de controle, nunca como enfeite.', lista: [] },
+        { titulo: 'Gente no processo', texto: 'Equipe com EPI completo, em ação — reforça segurança e organização.', lista: [] },
+      ],
+    });
+    if (subMarcas.length >= 2) extras.push({
+      id: 'arquitetura-marca', titulo: 'Linhas de serviço', depoisDe: 'logo-usos-indevidos', layout: 'cards',
+      intro: `A ${marca} assina todas as linhas com o mesmo logotipo; o descritor identifica a linha sem criar uma nova marca.`,
+      itens: subMarcas.slice(0, 3).map((s: string) => ({ titulo: s, texto: 'Mesmo logotipo e paleta. O descritor vem abaixo da assinatura, em caixa alta, na cor de apoio.', lista: [] })),
+      nota: 'Nunca crie um símbolo ou cor exclusiva para uma linha: a força está em parecer uma única empresa.',
+    });
+    if (banco && /n[aã]o/i.test(banco)) extras.push({
+      id: 'banco-imagens', titulo: 'Banco de imagens: como escolher', depoisDe: 'imagens-exemplos', layout: 'fazer_nao_fazer',
+      intro: 'Sem acervo próprio, as fotos vêm de bancos profissionais. Estes critérios mantêm o conjunto com cara de marca — e não de banco de imagem.',
+      fazer: ['Busque: "industrial warehouse construction", "steel structure", "engineer safety helmet"', 'Luz natural de dia, céu limpo, cores frias próximas da paleta', 'Equipe com EPI completo e postura de trabalho real', 'Canteiro organizado, máquinas limpas, escala da obra visível'],
+      naoFazer: [...restricoes.filter((r) => /EPI|altura/i.test(r)), 'Pessoas posando para a câmera ou apertando mãos', 'Filtros quentes ou saturados fora da paleta', ...naoTransmitir.slice(0, 1).map((n) => `Qualquer coisa que pareça ${n.toLowerCase()}`)].slice(0, 5),
+    });
+    if (restricoes.length) extras.push({
+      id: 'restricoes', titulo: 'Restrições e brand safety', depoisDe: 'estrategia', layout: 'checklist',
+      intro: 'Confira antes de publicar qualquer peça. Um item reprovado derruba a peça inteira.',
+      itens: restricoes.slice(0, 6).map((r) => ({ titulo: r.split(/[—.]/)[0].trim(), texto: r.includes('—') ? r.split('—')[1].trim() : '', lista: [] })),
+    });
+
+    const notas: any[] = [];
+    if (corProibida && !isNo(corProibida)) notas.push({ id: 'cores-primarias', texto: `Use **somente** as cores do brandbook. **${cap(corProibida)} é proibido** em qualquer peça — inclusive em ícones, alertas e selos. O laranja é acento: CTA e grifos, nunca fundo inteiro.` });
+    if (naoTransmitir.length) notas.push({ id: 'cta', texto: `CTAs com verbo e promessa concreta ("PEÇA SEU ORÇAMENTO", "VEJA OBRAS ENTREGUES"). Nada que soe ${naoTransmitir.map((n) => n.toLowerCase()).join(', ')} — nunca "barato", "promoção" ou "menor preço".` });
+    if (subMarcas.length >= 2) notas.push({ id: 'logotipo', texto: `A assinatura é a mesma para ${subMarcas.join(' e ')}. O descritor da linha entra abaixo do logo, sem alterar proporção nem cor.` });
+    if (formato) notas.push({ id: 'banners-margens', texto: `Formato preferido pelo cliente: ${formato.toLowerCase()}. Com foto, o texto fica na área segura e nunca sobre o rosto ou o produto.` });
+
+    const cobertura = qa.map((x) => {
+      const p = x.pergunta;
+      const r = x.resposta;
+      if (/manual de identidade|enviar o arquivo/i.test(p)) return { pergunta: p, resposta: r, aplicacao: /anexad/i.test(r) ? 'Arquivo citado por link: se não foi enviado nos materiais, peça o PDF.' : 'Manual informado; cores e fontes vêm dele.', paginas: ['cores-primarias', 'tipografia'], status: /anexad/i.test(r) ? 'parcial' : 'aplicado' };
+      if (/problema/i.test(p)) return { pergunta: p, resposta: r, aplicacao: 'Vira o problema central do Contexto e orienta o que mostrar nas imagens.', paginas: ['contexto', 'imagens-regras'], status: 'aplicado' };
+      if (/persona/i.test(p)) return { pergunta: p, resposta: r, aplicacao: 'Página de persona com o que cada decisor precisa ver.', paginas: ['persona', 'contexto'], status: 'aplicado' };
+      if (/produtos/i.test(p)) return { pergunta: p, resposta: r, aplicacao: 'Página sob medida de produto e tecnologia no criativo.', paginas: ['produto-tecnologia'], status: 'aplicado' };
+      if (/atributos/i.test(p)) return { pergunta: p, resposta: r, aplicacao: 'Atributos no Contexto e na direção visual.', paginas: ['contexto'], status: 'aplicado' };
+      if (/banco de imagens/i.test(p)) return { pergunta: p, resposta: r, aplicacao: 'Critérios e termos de busca para bancos profissionais.', paginas: ['banco-imagens'], status: 'aplicado' };
+      if (/Brand Safety|conformidade/i.test(p)) return isNo(r) ? { pergunta: p, resposta: r, aplicacao: 'Sem restrições formais — nada muda.', paginas: [], status: 'sem_acao' } : { pergunta: p, resposta: r, aplicacao: 'Checklist de restrições e critério de imagem.', paginas: ['restricoes', 'banco-imagens'], status: 'aplicado' };
+      if (/refer[eê]ncias/i.test(p)) return { pergunta: p, resposta: r, aplicacao: 'Referência genérica: vale pedir 2 ou 3 exemplos concretos ao cliente.', paginas: ['contexto'], status: 'parcial' };
+      if (/banners/i.test(p)) return { pergunta: p, resposta: r, aplicacao: 'Orientação das margens de banners reescrita com o formato preferido.', paginas: ['banners-margens'], status: 'aplicado' };
+      if (/n[aã]o pode ser executado/i.test(p)) return { pergunta: p, resposta: r, aplicacao: `${semLp ? 'Capítulo de landing pages removido. ' : ''}Termos proibidos no checklist e na orientação de CTA.`, paginas: ['restricoes', 'cta'], status: 'aplicado' };
+      if (/cor que/i.test(p)) return isNo(r) ? { pergunta: p, resposta: r, aplicacao: 'Nenhuma cor proibida.', paginas: [], status: 'sem_acao' } : { pergunta: p, resposta: r, aplicacao: 'Proibição explícita na página de cores e no checklist.', paginas: ['cores-primarias', 'restricoes'], status: 'aplicado' };
+      if (/N[ÃA]O busca transmitir/i.test(p)) return { pergunta: p, resposta: r, aplicacao: 'Entra no Contexto ("não quer parecer") e na orientação de CTA.', paginas: ['contexto', 'cta'], status: 'aplicado' };
+      if (/observa[cç][aã]o/i.test(p)) return subMarcas.length >= 2 ? { pergunta: p, resposta: r, aplicacao: 'Página de linhas de serviço e regra de assinatura no logotipo.', paginas: ['arquitetura-marca', 'logotipo'], status: 'aplicado' } : { pergunta: p, resposta: r, aplicacao: 'Sem observações adicionais.', paginas: [], status: 'sem_acao' };
+      return { pergunta: p, resposta: r, aplicacao: 'Considerado no diagnóstico.', paginas: ['contexto'], status: 'parcial' };
+    });
+
+    track('kv-plan', b.projectId, 'anthropic/claude-sonnet-4.5', 0.061, 'brand_manual');
+    return {
+      success: true,
+      plan: {
+        diagnostico: {
+          problema, persona, atributos, naoTransmitir, restricoes,
+          tomDeVoz: atributos.length ? `${atributos.join(', ')}: fala de engenheiro para gestor — dados, prazos e segurança, sem exagero.` : '',
+        },
+        estrategia: { incluir: qa.length > 0, titulo: 'Estratégia de comunicação', texto: `Antes das regras de aplicação, o que o briefing da ${marca} nos contou: quem decide a compra, o problema que resolvemos e o que a comunicação nunca pode parecer.` },
+        paginas: semLp ? lpIds.map((id) => ({ id, incluir: false, motivo: 'O cliente só anuncia em redes sociais — não usa landing pages.' })) : [],
+        notas,
+        divisores: [],
+        extras,
+        cobertura,
+        pendencias: [
+          ...(/anexad/i.test(find(/enviar o arquivo/i)) ? ['O manual da marca foi citado como link do Google Drive: confirme se o PDF enviado é a versão mais recente.'] : []),
+          ...(referencias && referencias.length < 80 ? ['Pedir 2 ou 3 referências visuais concretas (links ou prints).'] : []),
+        ],
       },
     };
   },

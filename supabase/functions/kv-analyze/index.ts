@@ -133,7 +133,8 @@ Regras (vêm da experiência com os manuais já entregues):
 6. Direção de imagem: 6 "fazer" e 6 "não fazer" específicos da marca (cenário, luz, pessoas, recortes). Inclua sempre: não cortar rostos; não pôr texto sobre o rosto.
 7. Criativos (3 listas de 6 itens), descrevendo como cada peça do manual aplica a marca: 01 feed Instagram 1080×1080 em fundo escuro da marca; 02 story 1080×1920 em versão clara, respeitando as áreas da interface (220 px em cima, 320 px embaixo); 03 feed Facebook em duas colunas (bloco de cor com texto + foto). Cite cores, tipografia e o CTA.
 8. Imagens: classifique cada uma (logo, logo_tagline, simbolo, foto, peca, pagina, outro). Para fotos e peças, "foco" é o centro do rosto/assunto principal. Para logos com símbolo separável, dê "simboloBox". Para páginas e peças, liste em "fotos" as caixas de FOTOGRAFIAS limpas (sem texto por cima) que valem reaproveitar.
-9. "pendencias": o que falta e valeria pedir ao cliente (vetor do logo, fontes, fotos...).`;
+9. "pendencias": o que falta e valeria pedir ao cliente (vetor do logo, fontes, fotos...).
+10. BRIEFING DO CLIENTE (respostas do formulário de criação), quando houver, é a fonte principal para público, tom, direção de imagem e restrições: "atributos" viram direção visual; "o que a marca NÃO busca transmitir" e "o que não pode ser executado" viram itens de "naoFazer" e restrições na nota de cores; "cor que não devemos usar" nunca aparece na paleta; se o cliente não tem banco de imagens próprio, a direção de imagem orienta a escolha em bancos profissionais. Anexos citados por link (Drive) que não chegaram nos materiais vão para "pendencias".`;
 
 Deno.serve(async (req) => {
   const preflight = handleOptions(req);
@@ -162,7 +163,8 @@ Deno.serve(async (req) => {
       kit && (kit.primary_color || kit.typography)
         ? `## Brand Kit atual do projeto (pode estar incompleto)\nPrimária ${kit.primary_color ?? "—"}, secundária ${kit.secondary_color ?? "—"}, fundo ${kit.background_color ?? "—"}, auxiliares ${(kit.aux_colors ?? []).join(", ") || "—"}, tipografia ${kit.typography ?? "—"}`
         : "",
-      body.notes ? `## Notas e briefing enviados pelo designer\n${String(body.notes).slice(0, 6000)}` : "",
+      body.briefing ? `## Briefing do cliente (respostas do formulário de criação)\n${String(body.briefing).slice(0, 12000)}` : "",
+      body.notes ? `## Notas enviadas pelo designer\n${String(body.notes).slice(0, 6000)}` : "",
       fonts.length ? `## fontsFound (fontes embutidas nos PDFs)\n${fonts.join(", ")}` : "## fontsFound\nnenhuma (materiais rasterizados ou sem PDF)",
       palette.length
         ? `## paletteCandidates (cores medidas nos pixels, com participação)\n${palette.map((p: any) => `${p.hex} ${(Number(p.share) * 100).toFixed(1)}% (${p.source})`).join("\n")}`

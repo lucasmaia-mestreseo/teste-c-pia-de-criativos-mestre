@@ -6,7 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-export type ModelSettingsKey = "image_generation" | "text_reasoning" | "vision_analysis";
+export type ModelSettingsKey = "image_generation" | "text_reasoning" | "vision_analysis" | "brand_manual";
 
 export interface ModelSettings {
   primary_model: string;
@@ -34,6 +34,15 @@ const DEFAULTS: Record<ModelSettingsKey, ModelSettings> = {
     fallback_model: "openai/gpt-5.4-mini",
     tertiary_model: "anthropic/claude-3.5-haiku",
     primary_attempts: 2,
+    fallback_attempts: 1,
+    tertiary_attempts: 1,
+  },
+  // Criação de KVs: strategy and writing of the brand manual (briefing → structure)
+  brand_manual: {
+    primary_model: "anthropic/claude-sonnet-4.5",
+    fallback_model: "google/gemini-3-flash-preview",
+    tertiary_model: "openai/gpt-5.4-mini",
+    primary_attempts: 1,
     fallback_attempts: 1,
     tertiary_attempts: 1,
   },
@@ -240,6 +249,10 @@ export interface CascadeOptions {
   /** When true, stop on the first 2xx response even if image extraction would fail later. */
   acceptAnyOk?: boolean;
   track?: Omit<UsageTrack, "settingsKey">;
+  /** Per-attempt timeout (default 110 s). */
+  timeoutMs?: number;
+  /** Total time for the whole cascade: later attempts get what is left (the Edge Function has a wall-clock limit). */
+  budgetMs?: number;
 }
 
 export interface CascadeResult extends CallResult {
@@ -260,10 +273,18 @@ export async function callOpenRouterWithCascade(opts: CascadeOptions): Promise<C
   let last: CallResult = { ok: false, status: 0, errorBody: "no attempt" };
   let attempts = 0;
   let totalCost = 0;
+  const deadline = opts.budgetMs ? Date.now() + opts.budgetMs : null;
 
   for (const { model, level } of cascade) {
+    let timeoutMs = opts.timeoutMs;
+    if (deadline) {
+      const left = deadline - Date.now() - 3000;
+      if (left < 15000) break; // not enough time for a meaningful attempt
+      timeoutMs = Math.min(timeoutMs ?? 110000, left);
+    }
     attempts++;
     const r = await callOpenRouter({
+      timeoutMs,
       model,
       messages: opts.messages,
       modalities: opts.modalities,

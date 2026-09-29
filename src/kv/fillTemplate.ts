@@ -10,6 +10,7 @@
 import template from './manual-template.html?raw';
 import { cmykLabel, contrast, normalizeHex, readableOn, rgbLabel, rgba } from './color';
 import type { ManualAssets, ManualSpec } from './spec';
+import { applyPlan, TEMPLATE_PAGES, type ManualPlan } from './structure';
 
 export interface FillLogEntry { ok: boolean; label: string }
 export interface FillResult {
@@ -18,6 +19,7 @@ export interface FillResult {
   remainingMarkers: string[];
   leftoverTerms: string[];
   tokens: BrandTokens;
+  pageCount?: number;
 }
 
 export { buildTokens, type BrandTokens } from './tokens';
@@ -36,7 +38,7 @@ const AGENCIA_MESTRE = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
 /** Wide marks look right at the template's widths; near-square ones must shrink or they overflow. */
 const WIDE_ENOUGH = 2.2;
 
-export function fillTemplate(spec: ManualSpec, assets: ManualAssets, opts: { googleFontsQuery: string | null }): FillResult {
+export function fillTemplate(spec: ManualSpec, assets: ManualAssets, opts: { googleFontsQuery: string | null; plan?: ManualPlan | null }): FillResult {
   let h = template;
   const log: FillLogEntry[] = [];
   const troca = (label: string, re: RegExp | string, por: string | ((...a: string[]) => string)) => {
@@ -189,6 +191,16 @@ ${paleta.slice(0, 8).map((c) => {
     log.push({ ok: i === 3, label: `${i}/3 descrições de criativos` });
   }
 
+  /* ── estrutura sob medida (briefing): páginas, orientações, sumário ── */
+  // before the images: custom pages may use the logo and photo assets too
+  let pageCount = TEMPLATE_PAGES.length;
+  if (opts.plan) {
+    const r = applyPlan(h, opts.plan, spec.marca || 'marca');
+    h = r.html;
+    log.push(...r.log);
+    pageCount = r.pageCount;
+  }
+
   /* ── logos: tamanho pela proporção real, depois as imagens ─────── */
   const r = assets.razaoLogo || 3;
   if (r < WIDE_ENOUGH) {
@@ -256,8 +268,11 @@ ${paleta.slice(0, 8).map((c) => {
   const remainingMarkers = [...new Set(h.match(/«[^»]+»/g) ?? [])];
   h = h.replace(/«[^»]+»/g, '');
   const semComentario = h.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/data:[^"')]+/g, '');
-  const leftoverTerms = [...new Set((semComentario.match(/\b(SISPRO|Sábio|Gotham|Quicksand|ERP|Brand Book p\.\d+|B2B)\b/g) ?? []))];
-  return { html: h, log, remainingMarkers, leftoverTerms, tokens: tk };
+  // terms from the template's origin — unless the client's own data uses them (a B2B client says "B2B")
+  const own = JSON.stringify([spec, opts.plan ?? null]);
+  const leftoverTerms = [...new Set((semComentario.match(/\b(SISPRO|Sábio|Gotham|Quicksand|ERP|Brand Book p\.\d+|B2B)\b/g) ?? []))]
+    .filter((t) => !own.includes(t));
+  return { html: h, log, remainingMarkers, leftoverTerms, tokens: tk, pageCount };
 }
 
 const PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';

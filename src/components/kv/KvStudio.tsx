@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpenCheck, Download, FileSearch, FolderOpen, Layers3, Loader2, PenLine, Trash2, Sparkles } from 'lucide-react';
+import {
+  ArrowLeft, BookOpenCheck, Check, Compass, Download, FolderOpen, Layers3, LayoutGrid, Loader2, Palette, Sparkles, Trash2, Type, Upload,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -12,6 +14,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import KvMaterialsStep from './KvMaterialsStep';
 import KvReviewStep from './KvReviewStep';
 import KvManualStep from './KvManualStep';
+import { StrategyView, StructureView } from './KvPlanPanel';
 import {
   buildAnalyzeRequest, buildLogoSet, photoCandidates, pickLogoMaterials, renderLogoAssets,
   type ImageInsight, type LogoSet, type Material, type PhotoCandidate,
@@ -20,23 +23,26 @@ import { normalizeSpec, type ManualSpec } from '@/kv/spec';
 import { buildTokens, fillTemplate, type FillResult } from '@/kv/fillTemplate';
 import { googleEquivalent, googleFontsQuery } from '@/kv/fonts';
 import { deleteManual, downloadText, listManuals, manualLabel, type SavedManual } from '@/kv/manualStorage';
+import { briefingsToText, type Briefing } from '@/kv/briefing';
+import { TEMPLATE_PAGES, normalizePlan, outline, isIncluded, type ManualPlan } from '@/kv/structure';
 
-type Step = 'materials' | 'review' | 'manual';
+type Stage = 'materials' | 'review' | 'manual';
+type ReviewTab = 'estrategia' | 'estrutura' | 'identidade' | 'textos';
 
-const STEPS: { id: Step; label: string; icon: typeof FileSearch }[] = [
-  { id: 'materials', label: 'Materiais', icon: FileSearch },
-  { id: 'review', label: 'Resumo para aprovação', icon: PenLine },
-  { id: 'manual', label: 'Manual', icon: BookOpenCheck },
+const STAGES: { id: Stage; label: string; icon: typeof Upload; hint: string }[] = [
+  { id: 'materials', label: 'Briefing e materiais', icon: Upload, hint: 'Traga o que o cliente enviou: respostas do briefing, brandbook, logotipo e peças. A IA lê tudo antes de propor qualquer coisa.' },
+  { id: 'review', label: 'Leitura da IA', icon: Compass, hint: 'Confira o que a IA entendeu e como o manual vai ficar. Nada vira página sem o seu OK.' },
+  { id: 'manual', label: 'Manual', icon: BookOpenCheck, hint: 'Manual pronto: navegue pelas páginas, baixe o PDF e leve a identidade para a geração de criativos.' },
 ];
 
-const ANALYZE_MESSAGES = [
-  'Lendo os PDFs e as peças…',
-  'Medindo as cores da marca…',
-  'Conferindo a tipografia…',
-  'Separando logo, símbolo e fotos…',
-  'Escrevendo headlines e CTAs…',
-  'Montando a direção de imagem…',
+type Phase = 'read' | 'identity' | 'strategy';
+const PHASES: { id: Phase; label: string; tips: string[] }[] = [
+  { id: 'read', label: 'Lendo briefing e materiais', tips: ['Abrindo os PDFs…', 'Separando as respostas do briefing…'] },
+  { id: 'identity', label: 'Identidade: cores, fontes e logo', tips: ['Medindo as cores da marca…', 'Conferindo a tipografia…', 'Separando logo, símbolo e fotos…', 'Escrevendo headlines e CTAs…'] },
+  { id: 'strategy', label: 'Estratégia: a forma do manual', tips: ['Cruzando cada resposta com as páginas…', 'Decidindo o que entra e o que sai…', 'Escrevendo as páginas sob medida…'] },
 ];
+
+const TEMPLATE_CATALOG = TEMPLATE_PAGES.map((p) => ({ id: p.id, titulo: p.titulo, capitulo: p.capitulo, tipo: p.tipo, nota: !!p.nota, essencial: !!p.essencial, descricao: p.descricao }));
 
 export default function KvStudio({ projectId }: { projectId: string }) {
   const { data: brandKit } = useBrandKit(projectId);
@@ -44,12 +50,17 @@ export default function KvStudio({ projectId }: { projectId: string }) {
   const { can } = usePermissions();
   const qc = useQueryClient();
 
-  const [step, setStep] = useState<Step>('materials');
+  const [stage, setStage] = useState<Stage>('materials');
+  const [tab, setTab] = useState<ReviewTab>('identidade');
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [briefings, setBriefings] = useState<Briefing[]>([]);
   const [notes, setNotes] = useState('');
-  const [analyzing, setAnalyzing] = useState(false);
-  const [analyzeMsg, setAnalyzeMsg] = useState(0);
+  const [phase, setPhase] = useState<Phase | null>(null);
+  const [tip, setTip] = useState(0);
+  const [planning, setPlanning] = useState(false);
   const [spec, setSpec] = useState<ManualSpec | null>(null);
+  const [plan, setPlan] = useState<ManualPlan | null>(null);
+  const [highlight, setHighlight] = useState<string | null>(null);
   const [insights, setInsights] = useState<ImageInsight[]>([]);
   const [photos, setPhotos] = useState<PhotoCandidate[]>([]);
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
@@ -61,14 +72,15 @@ export default function KvStudio({ projectId }: { projectId: string }) {
 
   // reset when switching projects
   useEffect(() => {
-    setStep('materials'); setMaterials([]); setNotes(''); setSpec(null); setResult(null); setPhotos([]); setSelectedPhotos([]);
+    setStage('materials'); setMaterials([]); setBriefings([]); setNotes(''); setSpec(null); setPlan(null); setResult(null); setPhotos([]); setSelectedPhotos([]);
   }, [projectId]);
 
   useEffect(() => {
-    if (!analyzing) return;
-    const t = setInterval(() => setAnalyzeMsg((i) => (i + 1) % ANALYZE_MESSAGES.length), 2600);
+    if (!phase) return;
+    setTip(0);
+    const t = setInterval(() => setTip((i) => i + 1), 2600);
     return () => clearInterval(t);
-  }, [analyzing]);
+  }, [phase]);
 
   const picks = useMemo(() => pickLogoMaterials(materials, insights), [materials, insights]);
   const logoSet: LogoSet | null = useMemo(() => {
@@ -79,13 +91,25 @@ export default function KvStudio({ projectId }: { projectId: string }) {
       return null;
     }
   }, [picks, spec?.cores.principal.hex]); // eslint-disable-line react-hooks/exhaustive-deps
+  const tokens = useMemo(() => (spec ? buildTokens(spec) : null), [spec]);
+  const entries = useMemo(() => outline(plan), [plan]);
+
+  /** Strategy step: the briefing decides the shape of the manual. Failing here is not fatal — the standard structure stays. */
+  const runPlan = async (s: ManualSpec, materialsText: string): Promise<ManualPlan | null> => {
+    const data = await invokeWithRetry<{ plan: unknown }>('kv-plan', {
+      projectId, briefing: briefingsToText(briefings), notes, spec: s, materialsText: materialsText.slice(0, 8000), pages: TEMPLATE_CATALOG,
+    }, { friendlyName: 'Estratégia do manual', projectId, maxRetries: 1 });
+    return normalizePlan(data.plan);
+  };
 
   const analyze = async () => {
-    setAnalyzing(true);
-    setAnalyzeMsg(0);
+    setPhase('read');
     try {
-      const body = { projectId, ...buildAnalyzeRequest(materials, notes) };
-      const data = await invokeWithRetry<{ spec: unknown; images: ImageInsight[] }>('kv-analyze', body, { friendlyName: 'Análise do manual', projectId, maxRetries: 1 });
+      const req = buildAnalyzeRequest(materials, notes);
+      setPhase('identity');
+      const data = await invokeWithRetry<{ spec: unknown; images: ImageInsight[] }>('kv-analyze',
+        { projectId, ...req, briefing: briefings.length ? briefingsToText(briefings) : undefined },
+        { friendlyName: 'Análise do manual', projectId, maxRetries: 1 });
       const s = normalizeSpec(data.spec as Partial<ManualSpec>);
       if (!s.marca) s.marca = project?.name ?? '';
       const ins = Array.isArray(data.images) ? data.images : [];
@@ -94,13 +118,45 @@ export default function KvStudio({ projectId }: { projectId: string }) {
       const cands = photoCandidates(materials, ins);
       setPhotos(cands);
       setSelectedPhotos(cands.slice(0, 3).map((c) => c.id));
-      setStep('review');
-      toast.success('Análise pronta', { description: 'Revise o resumo e aprove para montar o manual.' });
+
+      let p: ManualPlan | null = null;
+      if (briefings.length) {
+        setPhase('strategy');
+        try {
+          p = await runPlan(s, req.pdfText);
+        } catch (e) {
+          toast.warning('A estratégia não saiu desta vez', { description: `${e instanceof Error ? e.message : ''} O manual segue a estrutura padrão — tente “Moldar pelo briefing” na aba Estrutura.` });
+        }
+      }
+      setPlan(p);
+      setTab(p ? 'estrategia' : 'identidade');
+      setStage('review');
+      toast.success('Leitura pronta', { description: p ? 'Comece pela estratégia: veja como cada resposta do briefing entrou no manual.' : 'Revise o resumo e aprove para montar o manual.' });
     } catch (e) {
-      toast.error('A análise falhou', { description: e instanceof Error ? e.message : undefined });
+      toast.error('A leitura falhou', { description: e instanceof Error ? e.message : undefined });
     } finally {
-      setAnalyzing(false);
+      setPhase(null);
     }
+  };
+
+  const replan = async () => {
+    if (!spec) return;
+    setPlanning(true);
+    try {
+      const p = await runPlan(spec, buildAnalyzeRequest(materials, notes).pdfText);
+      setPlan(p);
+      toast.success('Estrutura refeita a partir do briefing');
+    } catch (e) {
+      toast.error('Não foi possível montar a estrutura', { description: e instanceof Error ? e.message : undefined });
+    } finally {
+      setPlanning(false);
+    }
+  };
+
+  const jumpTo = (key: string) => {
+    setTab('estrutura');
+    setHighlight(key);
+    setTimeout(() => setHighlight(null), 2400);
   };
 
   const build = async () => {
@@ -130,13 +186,13 @@ export default function KvStudio({ projectId }: { projectId: string }) {
         }
         if (fonts.missing.length) toast.warning(`Fonte não encontrada no Google Fonts: ${fonts.missing.join(', ')}`, { description: 'O manual usa a fonte de sistema mais próxima. Troque no resumo se quiser.' });
       }
-      setBuildMsg('Preenchendo as 38 páginas…');
+      setBuildMsg(`Montando as ${entries.length} páginas…`);
       const chosen = selectedPhotos.map((id) => photos.find((p) => p.id === id)).filter(Boolean) as PhotoCandidate[];
-      const res = fillTemplate(finalSpec, { ...assetsBase, fotos: chosen.map((c) => ({ url: c.url, foco: c.foco })) }, { googleFontsQuery: fonts.query });
+      const res = fillTemplate(finalSpec, { ...assetsBase, fotos: chosen.map((c) => ({ url: c.url, foco: c.foco })) }, { googleFontsQuery: fonts.query, plan });
       if (swaps.length) setSpec(finalSpec);
       setResult(res);
       setLogoForKit(logoSet ? logoSet.cor.toDataURL('image/png') : null);
-      setStep('manual');
+      setStage('manual');
     } catch (e) {
       toast.error('Não foi possível montar o manual', { description: e instanceof Error ? e.message : undefined });
     } finally {
@@ -148,45 +204,76 @@ export default function KvStudio({ projectId }: { projectId: string }) {
   const openSaved = useCallback(async (m: SavedManual) => {
     try {
       const [html, specText] = await Promise.all([downloadText(m.htmlPath), downloadText(m.specPath).catch(() => null)]);
-      const s = specText ? normalizeSpec(JSON.parse(specText)) : spec;
+      const raw = specText ? JSON.parse(specText) : null;
+      const s = raw ? normalizeSpec(raw) : spec;
       if (!s) throw new Error('Manual sem dados');
+      const p = raw?.plano ? normalizePlan(raw.plano) : null;
       setSpec(s);
-      setResult({ html, log: [{ ok: true, label: 'Manual salvo carregado' }], remainingMarkers: [], leftoverTerms: [], tokens: buildTokens(s) });
+      setPlan(p);
+      setResult({ html, log: [{ ok: true, label: 'Manual salvo carregado' }], remainingMarkers: [], leftoverTerms: [], tokens: buildTokens(s), pageCount: outline(p).length });
       setLogoForKit(null);
-      setStep('manual');
+      setStage('manual');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
       toast.error('Não foi possível abrir o manual', { description: e instanceof Error ? e.message : undefined });
     }
   }, [spec]);
 
-  const stepIndex = STEPS.findIndex((s) => s.id === step);
+  const stageIndex = STAGES.findIndex((s) => s.id === stage);
+  const reachable = (s: Stage) => s === 'materials' || (s === 'review' && !!spec) || (s === 'manual' && !!result);
+  const caption = (s: Stage) => {
+    if (s === 'materials') {
+      const parts = [briefings.length && 'briefing', materials.length && `${materials.length} arquivo(s)`].filter(Boolean);
+      return parts.length ? parts.join(' · ') : 'o que o cliente enviou';
+    }
+    if (s === 'review') return spec ? (plan ? `${entries.length} páginas · ${entries.filter((e) => e.tipo === 'extra' || e.tipo === 'contexto').length} sob medida` : 'identidade e textos') : 'estratégia e identidade';
+    return result ? `${result.pageCount ?? 38} páginas prontas` : 'PDF e identidade';
+  };
+
+  const TABS: { id: ReviewTab; label: string; icon: typeof Palette; hidden?: boolean }[] = [
+    { id: 'estrategia', label: 'Estratégia', icon: Compass, hidden: !plan?.cobertura.length && !plan?.diagnostico.problema },
+    { id: 'estrutura', label: 'Estrutura', icon: LayoutGrid },
+    { id: 'identidade', label: 'Identidade', icon: Palette },
+    { id: 'textos', label: 'Textos', icon: Type },
+  ];
+  const visibleTabs = TABS.filter((t) => !t.hidden);
+  const showLp = isIncluded(plan, 'lp-exemplo-topo') || isIncluded(plan, 'lp-exemplo-continuacao');
 
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 space-y-6">
         {/* Header */}
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
+        <div className="space-y-5">
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
             <div className="flex items-center gap-2 text-primary text-xs font-semibold uppercase tracking-wider">
               <Layers3 className="h-4 w-4" /> Criação de KVs
             </div>
             <h1 className="text-2xl font-bold mt-1">Manual de Comunicação Digital</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Materiais do cliente → análise da IA → seu OK → manual de 38 páginas no padrão Agência Mestre.
-            </p>
+            <p key={stage} className="text-sm text-muted-foreground mt-1 max-w-2xl animate-in fade-in duration-500">{STAGES[stageIndex].hint}</p>
           </div>
-          {/* Stepper */}
-          <div className="flex items-center gap-1 rounded-full border bg-card p-1">
-            {STEPS.map((s, i) => {
+
+          {/* Journey */}
+          <div className="relative grid grid-cols-3 gap-2">
+            <div className="absolute left-[16.66%] right-[16.66%] top-[18px] h-px bg-border hidden sm:block" />
+            <div className="absolute left-[16.66%] top-[18px] h-px bg-primary hidden sm:block transition-all duration-700 ease-out"
+              style={{ width: `${(stageIndex / 2) * 66.66}%` }} />
+            {STAGES.map((s, i) => {
               const Icon = s.icon;
-              const reachable = i <= stepIndex || (s.id === 'review' && spec) || (s.id === 'manual' && result);
+              const done = i < stageIndex;
+              const current = s.id === stage;
+              const ok = reachable(s.id);
               return (
-                <button key={s.id} disabled={!reachable} onClick={() => reachable && setStep(s.id)}
-                  className={cn('relative flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
-                    step === s.id ? 'text-primary-foreground' : reachable ? 'text-foreground hover:text-primary' : 'text-muted-foreground/50')}>
-                  {step === s.id && <motion.span layoutId="kv-step" className="absolute inset-0 rounded-full bg-primary" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
-                  <Icon className="h-3.5 w-3.5 relative" />
-                  <span className="relative hidden sm:inline">{s.label}</span>
+                <button key={s.id} disabled={!ok} onClick={() => ok && setStage(s.id)}
+                  className={cn('relative flex flex-col items-center text-center gap-1.5 group', !ok && 'cursor-default')}>
+                  <span className={cn('relative z-10 h-9 w-9 rounded-full border-2 flex items-center justify-center transition-all duration-500',
+                    current ? 'bg-primary border-primary text-primary-foreground shadow-[0_0_24px_-4px_hsl(var(--primary)/0.7)] scale-110'
+                      : done ? 'bg-primary/15 border-primary/60 text-primary'
+                        : 'bg-background border-border text-muted-foreground',
+                    ok && !current && 'group-hover:border-primary group-hover:text-primary')}>
+                    {done ? <Check className="h-4 w-4" strokeWidth={3} /> : <Icon className="h-4 w-4" />}
+                  </span>
+                  <span className={cn('text-xs font-semibold transition-colors', current ? 'text-foreground' : 'text-muted-foreground')}>{s.label}</span>
+                  <span className="text-[10.5px] text-muted-foreground/80 hidden sm:block">{caption(s.id)}</span>
                 </button>
               );
             })}
@@ -197,45 +284,119 @@ export default function KvStudio({ projectId }: { projectId: string }) {
           <p className="text-xs text-amber-500">Seu perfil não tem permissão para gerar com IA; você pode ver os manuais salvos.</p>
         )}
 
-        {/* CSS animation (not AnimatePresence): the next step mounts immediately even
+        {/* CSS animation (not AnimatePresence): the next stage mounts immediately even
             when the tab is in the background and animation frames are paused. */}
-        <div key={step} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-            {step === 'materials' && (
-              <KvMaterialsStep materials={materials} onMaterialsChange={setMaterials} notes={notes} onNotesChange={setNotes}
-                brandKit={brandKit as never} onAnalyze={analyze} analyzing={analyzing} />
-            )}
-            {step === 'review' && spec && (
-              <KvReviewStep spec={spec} onSpecChange={setSpec} logoSet={logoSet} photos={photos}
-                selectedPhotos={selectedPhotos} onSelectedPhotosChange={setSelectedPhotos}
-                onPhotoFocus={(id, foco) => setPhotos((ps) => ps.map((p) => (p.id === id ? { ...p, foco } : p)))}
-                vectorizeLogos={vectorizeLogos} onVectorizeChange={setVectorizeLogos}
-                onBack={() => setStep('materials')} onApprove={build} building={building} />
-            )}
-            {step === 'manual' && spec && result && (
-              <KvManualStep projectId={projectId} spec={spec} result={result} logoForKit={logoForKit}
-                photosForKit={selectedPhotos.map((id) => photos.find((p) => p.id === id)?.url).filter(Boolean) as string[]}
-                onBack={() => setStep('review')} onSaved={() => qc.invalidateQueries({ queryKey: ['kv-manuals', projectId] })} />
-            )}
+        <div key={stage} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+          {stage === 'materials' && (
+            <KvMaterialsStep materials={materials} onMaterialsChange={setMaterials} briefings={briefings} onBriefingsChange={setBriefings}
+              notes={notes} onNotesChange={setNotes} brandKit={brandKit as never} onAnalyze={analyze} analyzing={!!phase} />
+          )}
+
+          {stage === 'review' && spec && tokens && (
+            <div className="space-y-6">
+              {/* tabs */}
+              <div className="flex justify-center">
+                <div className="inline-flex items-center gap-1 rounded-full border bg-card p-1 shadow-sm">
+                  {visibleTabs.map((t) => {
+                    const Icon = t.icon;
+                    return (
+                      <button key={t.id} onClick={() => setTab(t.id)}
+                        className={cn('relative flex items-center gap-1.5 rounded-full px-3.5 sm:px-4 py-1.5 text-xs font-medium transition-colors duration-200',
+                          tab === t.id ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
+                        {tab === t.id && <motion.span layoutId="kv-review-tab" className="absolute inset-0 rounded-full bg-primary" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />}
+                        <Icon className="h-3.5 w-3.5 relative" />
+                        <span className={cn('relative', tab !== t.id && 'hidden sm:inline')}>{t.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div key={tab} className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+                {tab === 'estrategia' && plan && (
+                  <StrategyView plan={plan} onChange={setPlan} onJump={jumpTo} onReplan={replan} replanning={planning} />
+                )}
+                {tab === 'estrutura' && (
+                  <StructureView plan={plan} onChange={setPlan} tokens={tokens} highlight={highlight}
+                    canPlan={briefings.length > 0} onPlan={replan} planning={planning} />
+                )}
+                {(tab === 'identidade' || tab === 'textos') && (
+                  <KvReviewStep spec={spec} onSpecChange={setSpec} logoSet={logoSet} photos={photos}
+                    selectedPhotos={selectedPhotos} onSelectedPhotosChange={setSelectedPhotos}
+                    onPhotoFocus={(id, foco) => setPhotos((ps) => ps.map((p) => (p.id === id ? { ...p, foco } : p)))}
+                    vectorizeLogos={vectorizeLogos} onVectorizeChange={setVectorizeLogos}
+                    section={tab} showLp={showLp} />
+                )}
+              </div>
+
+              {/* approve bar */}
+              <div className="sticky bottom-0 z-10 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 bg-gradient-to-t from-background via-background/95 to-background/0">
+                <div className="glass rounded-2xl border px-3 sm:px-4 py-2.5 flex items-center gap-3 shadow-2xl">
+                  <Button variant="ghost" size="sm" onClick={() => setStage('materials')} className="gap-1.5"><ArrowLeft className="h-4 w-4" /><span className="hidden sm:inline">Materiais</span></Button>
+                  <div className="flex-1 text-center text-[11px] text-muted-foreground truncate">
+                    <b className="text-foreground tabular-nums">{entries.length}</b> páginas
+                    {plan && <> · <b className="text-primary tabular-nums">{entries.filter((e) => e.tipo === 'extra' || e.tipo === 'contexto').length}</b> sob medida · <b className="text-foreground tabular-nums">{plan.notas.length}</b> orientações reescritas</>}
+                  </div>
+                  <Button onClick={build} disabled={building || !spec.marca.trim()} className="h-10 px-5 gap-2 font-semibold btn-shine">
+                    {building ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                    {building ? 'Montando…' : 'Aprovar e montar'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {stage === 'manual' && spec && result && (
+            <KvManualStep projectId={projectId} spec={spec} result={result} logoForKit={logoForKit}
+              pageTitles={entries.map((e) => e.titulo)} plan={plan} briefings={briefings}
+              photosForKit={selectedPhotos.map((id) => photos.find((p) => p.id === id)?.url).filter(Boolean) as string[]}
+              onBack={() => setStage('review')} onSaved={() => qc.invalidateQueries({ queryKey: ['kv-manuals', projectId] })} />
+          )}
         </div>
 
         <SavedManuals projectId={projectId} onOpen={openSaved} />
       </div>
 
-      {/* Busy overlay */}
-      {(analyzing || building) && (
-          <div className="fixed inset-0 z-50 bg-background/70 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200">
-            <div className="rounded-2xl border bg-card shadow-2xl px-8 py-7 flex flex-col items-center gap-4 min-w-[300px] animate-in zoom-in-95 duration-300">
-              <div className="relative h-14 w-14">
-                <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
-                <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" />
-                <Sparkles className="absolute inset-0 m-auto h-6 w-6 text-primary" />
+      {/* Busy overlay: the phases, so the wait reads as progress */}
+      {(phase || building) && (
+        <div className="fixed inset-0 z-50 bg-background/70 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200">
+          <div className="rounded-2xl border bg-card shadow-2xl px-7 py-6 w-[340px] animate-in zoom-in-95 duration-300">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="relative h-10 w-10 flex-none">
+                <div className="absolute inset-0 rounded-full border-[3px] border-primary/20" />
+                <div className="absolute inset-0 rounded-full border-[3px] border-primary border-t-transparent animate-spin" />
+                <Sparkles className="absolute inset-0 m-auto h-4 w-4 text-primary" />
               </div>
-              <p key={analyzing ? analyzeMsg : buildMsg} className="text-sm font-medium text-center animate-in fade-in slide-in-from-bottom-1 duration-300">
-                {analyzing ? ANALYZE_MESSAGES[analyzeMsg] : buildMsg || 'Montando o manual…'}
-              </p>
-              <p className="text-[11px] text-muted-foreground">{analyzing ? 'Costuma levar de 30 a 90 segundos.' : 'Vetorizando e preenchendo — alguns segundos.'}</p>
+              <div>
+                <p className="text-sm font-semibold">{building ? 'Montando o manual' : 'Lendo com IA'}</p>
+                <p className="text-[11px] text-muted-foreground">{building ? 'Vetorizando e preenchendo — alguns segundos.' : 'Costuma levar de 1 a 2 minutos.'}</p>
+              </div>
             </div>
+            {building ? (
+              <p key={buildMsg} className="text-xs text-center animate-in fade-in duration-300">{buildMsg || 'Preparando…'}</p>
+            ) : (
+              <ol className="space-y-3">
+                {PHASES.filter((ph) => ph.id !== 'strategy' || briefings.length).map((ph) => {
+                  const order = PHASES.findIndex((x) => x.id === ph.id);
+                  const cur = PHASES.findIndex((x) => x.id === phase);
+                  const state = order < cur ? 'done' : order === cur ? 'now' : 'next';
+                  return (
+                    <li key={ph.id} className="flex items-start gap-3">
+                      <span className={cn('mt-0.5 h-5 w-5 rounded-full flex items-center justify-center flex-none transition-all duration-500',
+                        state === 'done' ? 'bg-primary text-primary-foreground' : state === 'now' ? 'border-2 border-primary' : 'border border-muted-foreground/30')}>
+                        {state === 'done' ? <Check className="h-3 w-3" strokeWidth={3} /> : state === 'now' ? <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> : null}
+                      </span>
+                      <div className="min-w-0">
+                        <p className={cn('text-xs font-medium transition-colors', state === 'next' ? 'text-muted-foreground' : 'text-foreground')}>{ph.label}</p>
+                        {state === 'now' && <p key={tip} className="text-[11px] text-muted-foreground animate-in fade-in slide-in-from-bottom-1 duration-300">{ph.tips[tip % ph.tips.length]}</p>}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
           </div>
+        </div>
       )}
     </div>
   );
@@ -247,8 +408,7 @@ function SavedManuals({ projectId, onOpen }: { projectId: string; onOpen: (m: Sa
     queryKey: ['kv-manuals', projectId],
     queryFn: () => listManuals(projectId),
   });
-  if (isLoading) return null;
-  if (!manuals?.length) return null;
+  if (isLoading || !manuals?.length) return null;
 
   const download = async (m: SavedManual) => {
     const html = await downloadText(m.htmlPath);
@@ -267,24 +427,23 @@ function SavedManuals({ projectId, onOpen }: { projectId: string; onOpen: (m: Sa
   return (
     <div className="rounded-2xl border bg-card p-5 space-y-3">
       <h3 className="text-sm font-bold flex items-center gap-2"><FolderOpen className="h-4 w-4 text-primary" /> Manuais salvos deste projeto</h3>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2 stagger">
         {manuals.map((m) => {
           const { brand, date } = manualLabel(m);
           return (
-            <div key={m.name} className="rounded-xl border p-3 flex items-center gap-3 hover:border-primary/40 transition">
+            <div key={m.name} className="group rounded-xl border p-3 flex items-center gap-3 card-hover">
               <BookOpenCheck className="h-8 w-8 text-primary flex-none" />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold capitalize truncate">{brand}</div>
                 <div className="text-[11px] text-muted-foreground">{date}</div>
               </div>
               <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => onOpen(m)}>Abrir</Button>
-              <button onClick={() => download(m)} className="text-muted-foreground hover:text-primary" title="Baixar HTML"><Download className="h-4 w-4" /></button>
-              <button onClick={() => remove(m)} className="text-muted-foreground hover:text-destructive" title="Excluir"><Trash2 className="h-4 w-4" /></button>
+              <button onClick={() => download(m)} className="text-muted-foreground hover:text-primary transition-colors" title="Baixar HTML"><Download className="h-4 w-4" /></button>
+              <button onClick={() => remove(m)} className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100" title="Excluir"><Trash2 className="h-4 w-4" /></button>
             </div>
           );
         })}
       </div>
-      {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
     </div>
   );
 }

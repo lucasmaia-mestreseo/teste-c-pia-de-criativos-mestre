@@ -44,7 +44,7 @@ const Index = () => {
   const [templateData, setTemplateData] = useState<TemplateData>(EMPTY_TEMPLATE);
   const [generating, setGenerating] = useState(false);
   const [dynamicGenerating, setDynamicGenerating] = useState(false);
-  const [unfoldPending, setUnfoldPending] = useState(0);
+  const [unfoldPending, setUnfoldPending] = useState<string[]>([]);
 
   const project = useProject(projectId);
   const onboardingPending = !!(projectId && project.data && !project.data.onboarding_completed);

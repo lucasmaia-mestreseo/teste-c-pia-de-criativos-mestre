@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
-import { Loader2, Save, Sparkles, ImagePlus, MessageSquareText, Eye, ChevronDown, GripVertical, ListChecks } from 'lucide-react';
+import { Loader2, Save, Sparkles, ImagePlus, MessageSquareText, Eye, ChevronDown, GripVertical, ListChecks, BookOpenCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   DndContext,
@@ -36,7 +36,7 @@ interface ModelSettings {
   tertiary_attempts: number;
 }
 
-type SettingsKey = 'image_generation' | 'text_reasoning' | 'vision_analysis';
+type SettingsKey = 'image_generation' | 'text_reasoning' | 'vision_analysis' | 'brand_manual';
 type TierId = 'primary' | 'fallback' | 'tertiary';
 const TIER_ORDER: TierId[] = ['primary', 'fallback', 'tertiary'];
 const TIER_LABELS = ['Primário', 'Fallback', 'Terciário'];
@@ -55,6 +55,14 @@ const DEFAULTS: Record<SettingsKey, ModelSettings> = {
     fallback_model: 'openai/gpt-5.4-mini',
     tertiary_model: 'anthropic/claude-3.5-haiku',
     primary_attempts: 2,
+    fallback_attempts: 1,
+    tertiary_attempts: 1,
+  },
+  brand_manual: {
+    primary_model: 'anthropic/claude-sonnet-4.5',
+    fallback_model: 'google/gemini-3-flash-preview',
+    tertiary_model: 'openai/gpt-5.4-mini',
+    primary_attempts: 1,
     fallback_attempts: 1,
     tertiary_attempts: 1,
   },
@@ -93,6 +101,12 @@ const SECTIONS: SectionConfig[] = [
     title: 'Análise de Imagens (Visão)',
     description: 'Análise de swipe files, screenshots de marca e logos.',
     icon: <Eye className="h-4 w-4" />,
+  },
+  {
+    key: 'brand_manual',
+    title: 'Manuais de marca (Criação de KVs)',
+    description: 'Estratégia do manual a partir do briefing: estrutura, páginas sob medida e orientações. Recomendado: Claude.',
+    icon: <BookOpenCheck className="h-4 w-4" />,
   },
 ];
 
@@ -431,7 +445,7 @@ export function AiModelsTab() {
   }, [loadCatalogs]);
 
   const buildCatalog = (key: SettingsKey) =>
-    catalogs[key].map((slug) => ({ value: slug, label: slugToLabel(slug) }));
+    catalogs[key === 'brand_manual' ? 'text_reasoning' : key].map((slug) => ({ value: slug, label: slugToLabel(slug) }));
 
   return (
     <div className="max-w-4xl space-y-6">

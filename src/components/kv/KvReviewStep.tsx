@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ColorPickerWithHex from '@/components/ColorPickerWithHex';
-import { AlertTriangle, ArrowLeft, Check, Crosshair, Info, Plus, Sparkles, X } from 'lucide-react';
+import { AlertTriangle, Crosshair, Info, Plus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ManualSpec, PaletteColor } from '@/kv/spec';
 import { buildTokens } from '@/kv/tokens';
@@ -25,9 +25,10 @@ interface Props {
   onPhotoFocus: (id: string, foco: { x: number; y: number }) => void;
   vectorizeLogos: boolean;
   onVectorizeChange: (v: boolean) => void;
-  onBack: () => void;
-  onApprove: () => void;
-  building: boolean;
+  /** "identidade": colors, type, logo, photos, image direction · "textos": copy, LP and creatives. */
+  section: 'identidade' | 'textos';
+  /** The landing-page chapter is in the manual (the briefing may have removed it). */
+  showLp: boolean;
   symbolBox?: Box;
 }
 
@@ -61,8 +62,11 @@ export default function KvReviewStep(p: Props) {
 
   const ctaWhite = contrast('#FFFFFF', tk.accent700);
 
+  const ident = p.section === 'identidade';
+
   return (
     <div className="space-y-6">
+      {ident && <>
       {/* Summary banner */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
         className="rounded-2xl border bg-gradient-to-br from-card to-secondary/40 p-5 grid md:grid-cols-[1fr_auto] gap-4 items-start">
@@ -98,7 +102,10 @@ export default function KvReviewStep(p: Props) {
         </div>
       )}
 
-      <div className="grid xl:grid-cols-2 gap-6">
+      </>}
+
+      <div className="grid xl:grid-cols-2 gap-6 stagger">
+        {ident && <>
         {/* Cores */}
         <Section title="Cores" subtitle="Papéis da paleta. Os tons derivados são calculados a partir destas cores.">
           <div className="grid sm:grid-cols-3 gap-4">
@@ -224,6 +231,16 @@ export default function KvReviewStep(p: Props) {
           <p className="text-[10px] text-muted-foreground">Foto 1: landing page e imagem de referência · Foto 2: pessoas (colunas e Facebook) · Foto 3: story e tile.</p>
         </Section>
 
+        {/* Listas */}
+        <Section title="Direção de imagem (p.12)" subtitle="Uma instrução por linha.">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <ListField label="Fazer" tone="good" items={spec.imagens.fazer} onChange={(v) => update((d) => { d.imagens.fazer = v; })} />
+            <ListField label="Não fazer" tone="bad" items={spec.imagens.naoFazer} onChange={(v) => update((d) => { d.imagens.naoFazer = v; })} />
+          </div>
+        </Section>
+        </>}
+
+        {!ident && <>
         {/* Textos */}
         <Section title="Textos da marca" subtitle="Usados nos criativos de exemplo e na landing page do manual.">
           <div className="grid sm:grid-cols-2 gap-3">
@@ -244,7 +261,7 @@ export default function KvReviewStep(p: Props) {
         </Section>
 
         {/* LP */}
-        <Section title="Landing page do manual" subtitle="Páginas 26–38.">
+        {p.showLp && <Section title="Landing page do manual" subtitle="Usados no exemplo de landing page do manual.">
           <TextField label="Subtítulo do hero" value={spec.lp.subtituloHero} onChange={(v) => update((d) => { d.lp.subtituloHero = v; })} />
           <div className="grid sm:grid-cols-2 gap-3">
             <TextField label="Título da seção 1" value={spec.lp.tituloSecao1} onChange={(v) => update((d) => { d.lp.tituloSecao1 = v; })} />
@@ -264,31 +281,16 @@ export default function KvReviewStep(p: Props) {
               onChange={(v) => update((d) => { d.lp.menu = v.split(',').map((x) => x.trim()).filter(Boolean).slice(0, 4); })} />
             <TextField label="Links do rodapé" value={spec.lp.rodapeLinks} onChange={(v) => update((d) => { d.lp.rodapeLinks = v; })} />
           </div>
-        </Section>
+        </Section>}
 
-        {/* Listas */}
-        <Section title="Direção de imagem (p.12)" subtitle="Uma instrução por linha.">
-          <div className="grid sm:grid-cols-2 gap-3">
-            <ListField label="Fazer" tone="good" items={spec.imagens.fazer} onChange={(v) => update((d) => { d.imagens.fazer = v; })} />
-            <ListField label="Não fazer" tone="bad" items={spec.imagens.naoFazer} onChange={(v) => update((d) => { d.imagens.naoFazer = v; })} />
-          </div>
-        </Section>
-        <Section title="Criativos de exemplo (p.23–25)" subtitle="Como cada peça aplica a marca. Uma instrução por linha.">
+        <Section title="Criativos de exemplo" subtitle="Como cada peça aplica a marca. Uma instrução por linha.">
           <div className="grid sm:grid-cols-3 gap-3">
             {['01 · Feed', '02 · Story', '03 · Facebook'].map((label, i) => (
               <ListField key={i} label={label} items={spec.criativos[i] ?? []} onChange={(v) => update((d) => { d.criativos[i] = v; })} />
             ))}
           </div>
         </Section>
-      </div>
-
-      {/* Actions */}
-      <div className="sticky bottom-0 -mx-1 px-1 py-3 bg-gradient-to-t from-background via-background to-background/0 flex items-center justify-between gap-3">
-        <Button variant="ghost" onClick={p.onBack} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Materiais</Button>
-        <Button onClick={p.onApprove} disabled={p.building || !spec.marca.trim()} className="h-11 px-6 gap-2 font-semibold">
-          {p.building ? <Sparkles className="h-4 w-4 animate-pulse" /> : <Check className="h-4 w-4" />}
-          {p.building ? 'Montando o manual…' : 'Aprovar e criar manual'}
-        </Button>
+        </>}
       </div>
     </div>
   );
