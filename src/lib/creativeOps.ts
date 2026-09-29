@@ -24,7 +24,16 @@ export interface CreativeReview {
   reviewed_at?: string;
 }
 
-export type TransformOperation = 'resize' | 'unfold' | 'fix';
+export type TransformOperation = 'resize' | 'unfold' | 'fix' | 'variant';
+
+/** One A/B variation proposed by suggest-variants (editable before generating). */
+export interface VariantProposal {
+  nome: string;
+  hipotese: string;
+  headline: string;
+  cta: string;
+  ajusteVisual: string;
+}
 
 export interface TransformParams {
   projectId: string;
@@ -36,6 +45,7 @@ export interface TransformParams {
   instructions?: string;
   issues?: string[];
   includeLogo?: boolean;
+  variant?: VariantProposal;
 }
 
 export interface TransformResult {
@@ -68,11 +78,35 @@ export async function reviewCreative(qc: QueryClient, projectId: string, creativ
 }
 
 export async function transformCreative(params: TransformParams): Promise<TransformResult> {
-  const friendlyName = params.operation === 'fix' ? 'Correção' : params.operation === 'resize' ? 'Redimensionar' : 'Desdobramento';
+  const friendlyName = { fix: 'Correção', resize: 'Redimensionar', unfold: 'Desdobramento', variant: 'Variação A/B' }[params.operation];
   return invokeWithRetry<TransformResult>('transform-creative', { ...params }, {
     friendlyName,
     projectId: params.projectId,
     maxRetries: 2,
+  });
+}
+
+export async function suggestVariants(projectId: string, creativeId: string, quantidade: number, foco: string) {
+  return invokeWithRetry<{ textosAtuais: { headline: string; cta: string }; variacoes: VariantProposal[] }>(
+    'suggest-variants', { projectId, creativeId, quantidade, foco }, { friendlyName: 'Sugestão de variações', projectId, maxRetries: 1 },
+  );
+}
+
+/* ─── Copy do anúncio ─── */
+
+export interface AdCopy {
+  meta: { textoPrincipal: string; titulo: string; descricao: string; botao: string };
+  instagram: { legenda: string; hashtags: string[] };
+  linkedin: { texto: string };
+  google: { titulos: string[]; descricoes: string[] };
+  variacoes: { angulo: string; textoPrincipal: string; titulo: string }[];
+  objetivo?: string;
+  geradoEm?: string;
+}
+
+export async function generateAdCopy(projectId: string, creativeId: string, objetivo: string, observacoes?: string) {
+  return invokeWithRetry<{ adCopy: AdCopy }>('ad-copy', { projectId, creativeId, objetivo, observacoes }, {
+    friendlyName: 'Copy do anúncio', projectId, maxRetries: 1,
   });
 }
 
@@ -109,4 +143,12 @@ export const KIND_LABELS: Record<string, string> = {
   resize: 'Redimensionado',
   unfold: 'Desdobramento',
   fix: 'Correção',
+  variant: 'Variação A/B',
 };
+
+/** Display origin: variants keep kind "generate" and are marked in generation_meta. */
+export function originOf(c: { kind?: string | null; generation_meta?: unknown }): string {
+  const op = (c.generation_meta as { operation?: string } | null)?.operation;
+  if (op === 'variant') return 'variant';
+  return c.kind ?? 'generate';
+}

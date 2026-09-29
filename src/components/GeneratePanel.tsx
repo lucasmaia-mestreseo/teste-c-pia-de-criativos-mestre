@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSelectedById } from '@/hooks/useSelectedById';
 import ExpandablePrompt from '@/components/ExpandablePrompt';
 import CreativeInsights, { ReviewBadge } from '@/components/CreativeInsights';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -21,7 +22,6 @@ interface GeneratePanelProps {
 
 export default function GeneratePanel({ projectId, generating, onUseAsReference }: GeneratePanelProps) {
   const [thumbSize, setThumbSize] = useState(() => Number(localStorage.getItem(STORAGE_KEY)) || 160);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; projectId: string } | null>(null);
   const { data: creatives } = useGeneratedCreatives(projectId);
   const deleteCreative = useDeleteCreative();
@@ -29,6 +29,7 @@ export default function GeneratePanel({ projectId, generating, onUseAsReference 
   const { can } = usePermissions();
 
   const items = creatives || [];
+  const [selectedIndex, setSelectedIndex] = useSelectedById(items);
   const modalCreative = selectedIndex !== null ? items[selectedIndex] : null;
 
   const handlePrev = useCallback(() => {

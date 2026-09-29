@@ -1,19 +1,23 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Loader2, ShieldCheck, AlertTriangle, RefreshCw, Wand2, Scaling, CircleHelp } from 'lucide-react';
+import { Loader2, ShieldCheck, AlertTriangle, RefreshCw, Wand2, Scaling, CircleHelp, PenLine, FlaskConical, Columns3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/usePermissions';
 import {
   KIND_LABELS,
   formatUsd,
+  originOf,
   reviewCreative,
   transformCreative,
   invalidateCreatives,
   type CreativeReview,
 } from '@/lib/creativeOps';
 import ResizeDialog from '@/components/ResizeDialog';
+import AdCopyDialog from '@/components/AdCopyDialog';
+import VariantsDialog, { CompareVariantsDialog } from '@/components/VariantsDialog';
+import { useGeneratedCreatives } from '@/hooks/useGeneratedCreatives';
 
 /** Minimal shape shared by every panel that lists generated_creatives rows. */
 export interface CreativeLike {
@@ -26,6 +30,8 @@ export interface CreativeLike {
   cost_usd?: number | null;
   review?: unknown;
   review_status?: string | null;
+  generation_meta?: unknown;
+  parent_creative_id?: string | null;
 }
 
 const SEVERITY_LABEL: Record<string, string> = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
@@ -66,6 +72,13 @@ export default function CreativeInsights({ creative }: { creative: CreativeLike 
   const [reviewing, setReviewing] = useState(false);
   const [fixing, setFixing] = useState(false);
   const [resizeOpen, setResizeOpen] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
+  const [variantsOpen, setVariantsOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const { data: all } = useGeneratedCreatives(creative.project_id);
+  const variantCount = (all ?? []).filter((c) => (c as CreativeLike).parent_creative_id === creative.id && originOf(c as CreativeLike) === 'variant').length;
+  const hasCopy = !!(creative.generation_meta as { adCopy?: unknown } | null)?.adCopy;
+  const origin = originOf(creative);
 
   const review = creative.review as CreativeReview | null;
   const status = reviewing ? 'pending' : creative.review_status;
@@ -102,9 +115,22 @@ export default function CreativeInsights({ creative }: { creative: CreativeLike 
   return (
     <div className="flex flex-col gap-2 border-t pt-2 mt-1">
       {canGenerate && (
-        <Button size="sm" variant="outline" onClick={() => setResizeOpen(true)}>
-          <Scaling className="h-3.5 w-3.5 mr-1" /> Redimensionar
-        </Button>
+        <div className="grid grid-cols-2 gap-1.5">
+          <Button size="sm" variant="outline" onClick={() => setResizeOpen(true)} className="col-span-2">
+            <Scaling className="h-3.5 w-3.5 mr-1" /> Redimensionar
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setCopyOpen(true)} className="text-[11px] px-2">
+            <PenLine className="h-3.5 w-3.5 mr-1" /> {hasCopy ? 'Ver copy' : 'Copy'}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setVariantsOpen(true)} className="text-[11px] px-2">
+            <FlaskConical className="h-3.5 w-3.5 mr-1" /> Variações
+          </Button>
+          {variantCount > 0 && (
+            <Button size="sm" variant="secondary" onClick={() => setCompareOpen(true)} className="col-span-2 text-[11px]">
+              <Columns3 className="h-3.5 w-3.5 mr-1" /> Comparar A/B ({variantCount + 1})
+            </Button>
+          )}
+        </div>
       )}
 
       {/* Revisão automática */}
@@ -152,12 +178,15 @@ export default function CreativeInsights({ creative }: { creative: CreativeLike 
       {/* Origem e custo */}
       <div className="text-[10px] text-muted-foreground space-y-0.5">
         <p><strong>Formato:</strong> {creative.format}</p>
-        {creative.kind && <p><strong>Origem:</strong> {KIND_LABELS[creative.kind] ?? creative.kind}</p>}
+        {creative.kind && <p><strong>Origem:</strong> {KIND_LABELS[origin] ?? origin}</p>}
         {creative.model_used && <p className="break-all"><strong>Modelo:</strong> {creative.model_used}</p>}
         {creative.cost_usd !== null && creative.cost_usd !== undefined && <p><strong>Custo:</strong> {formatUsd(creative.cost_usd)}</p>}
       </div>
 
       <ResizeDialog open={resizeOpen} onOpenChange={setResizeOpen} creative={creative} />
+      <AdCopyDialog open={copyOpen} onOpenChange={setCopyOpen} creative={creative} />
+      <VariantsDialog open={variantsOpen} onOpenChange={setVariantsOpen} creative={creative} />
+      <CompareVariantsDialog open={compareOpen} onOpenChange={setCompareOpen} creative={creative} />
     </div>
   );
 }

@@ -10,11 +10,14 @@ import { adminClient, imageToBytes, parseStorageUrl, signStorageUrl, uploadGener
  *  operation "resize" → adapt a generated creative to another format (Redimensionar)
  *  operation "unfold" → adapt an uploaded key visual to another format (Desdobramento)
  *  operation "fix"    → edit a creative to fix the issues found by review-creative
+ *  operation "variant"→ A/B variation of a creative (new headline/CTA/visual element, same layout)
  *
- * Body: { projectId, operation, targetFormat?, creativeId?, sourceImageUrl?, instructions?, issues? }
+ * Body: { projectId, operation, targetFormat?, creativeId?, sourceImageUrl?, instructions?, issues?, variant? }
  */
 
-type Operation = "resize" | "unfold" | "fix";
+type Operation = "resize" | "unfold" | "fix" | "variant";
+
+interface VariantSpec { nome?: string; hipotese?: string; headline?: string; cta?: string; ajusteVisual?: string }
 
 const FORMAT_HINTS: Record<string, string> = {
   "9:16": "Vertical tela cheia (Stories/Reels/TikTok). Mantenha textos, logo e rosto FORA dos ~14% superiores e ~20% inferiores (zonas cobertas pela interface do app). Empilhe os elementos verticalmente.",
@@ -59,6 +62,29 @@ ${instructions ? `\nINSTRUÇÕES ADICIONAIS DO USUÁRIO:\n"${instructions}"` : "
 ${originalPrompt ? `\nPara referência, este era o pedido original do criativo (use para saber os textos corretos):\n"""\n${originalPrompt.slice(0, 3000)}\n"""` : ""}`;
 }
 
+function variantPrompt(format: string, v: VariantSpec, originalPrompt: string | null): string {
+  const changes = [
+    v.headline && `- HEADLINE: troque a headline principal por exatamente "${v.headline}" — mesma posição, mesma fonte, mesmo peso e tamanho equivalente.`,
+    v.cta && `- CTA: o texto do botão passa a ser exatamente "${v.cta}" — mesmo botão, mesma posição.`,
+    v.ajusteVisual && `- AJUSTE VISUAL: ${v.ajusteVisual}`,
+  ].filter(Boolean).join("\n");
+  return `Você é um editor de criativos para testes A/B. A imagem anexada é o criativo CONTROLE. Crie a VARIAÇÃO "${v.nome ?? "B"}"${v.hipotese ? ` (hipótese: ${v.hipotese})` : ""}.
+
+Mude SOMENTE o que está listado abaixo. Todo o resto permanece IDÊNTICO ao controle: layout, fundo, pessoas, produto, logo, cores, tipografia e os demais textos — senão o teste A/B deixa de medir a hipótese.
+
+FORMATO: mantenha ${format}.
+
+MUDANÇAS:
+${changes || "- Nenhuma mudança de texto: aplique apenas o ajuste visual."}
+
+Os textos novos devem estar escritos exatamente como acima, sem erros de digitação.${originalPrompt ? `
+
+Contexto do criativo original:
+"""
+${originalPrompt.slice(0, 1500)}
+"""` : ""}`;
+}
+
 Deno.serve(async (req) => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
@@ -70,7 +96,7 @@ Deno.serve(async (req) => {
     const operation: Operation = body.operation;
     const instructions: string | null = typeof body.instructions === "string" && body.instructions.trim() ? body.instructions.trim().slice(0, 2000) : null;
 
-    if (!["resize", "unfold", "fix"].includes(operation)) {
+    if (!["resize", "unfold", "fix", "variant"].includes(operation)) {
       return jsonResponse({ error: "operation inválida" }, 400);
     }
 
@@ -115,6 +141,12 @@ Deno.serve(async (req) => {
         : [];
       if (!issues.length && !instructions) return jsonResponse({ error: "Nada para corrigir" }, 400);
       promptText = fixPrompt(targetFormat, parent?.prompt ?? null, issues, instructions);
+    } else if (operation === "variant") {
+      if (!parent) return jsonResponse({ error: "Variação precisa de um criativo de origem" }, 400);
+      targetFormat = parent.format || "1:1";
+      const v: VariantSpec = body.variant ?? {};
+      if (!v.headline && !v.cta && !v.ajusteVisual) return jsonResponse({ error: "Variação sem mudanças" }, 400);
+      promptText = variantPrompt(targetFormat, v, parent.prompt ?? null);
     } else {
       targetFormat = body.targetFormat;
       if (!targetFormat) return jsonResponse({ error: "targetFormat é obrigatório" }, 400);
@@ -154,14 +186,18 @@ Deno.serve(async (req) => {
     const bytes = await imageToBytes(result.image);
     const imageUrl = await uploadGeneratedImage(db, "generated-creatives", projectId, bytes, `${operation}-`);
 
-    const label = operation === "fix" ? "Correção" : operation === "resize" ? "Redimensionado" : "Desdobramento";
+    const variant: VariantSpec | null = operation === "variant" ? (body.variant ?? {}) : null;
+    const label = operation === "fix" ? "Correção" : operation === "resize" ? "Redimensionado" : operation === "variant" ? `Variação: ${variant?.nome ?? "B"}` : "Desdobramento";
     const inserted = await insertCreative(db, {
       project_id: projectId,
       created_by: userId,
       image_url: imageUrl,
       format: targetFormat,
-      prompt: `[${label} → ${targetFormat}]${instructions ? ` ${instructions}` : ""}${parent?.prompt && operation !== "unfold" ? `\n\nOriginal: ${parent.prompt}` : ""}`,
-      kind: operation,
+      prompt: variant
+        ? `[${label}] ${variant.hipotese ?? ""}\nHeadline: "${variant.headline ?? ""}" · CTA: "${variant.cta ?? ""}"${variant.ajusteVisual ? `\nAjuste visual: ${variant.ajusteVisual}` : ""}${parent?.prompt ? `\n\nOriginal: ${parent.prompt}` : ""}`
+        : `[${label} → ${targetFormat}]${instructions ? ` ${instructions}` : ""}${parent?.prompt && operation !== "unfold" ? `\n\nOriginal: ${parent.prompt}` : ""}`,
+      // variants keep kind "generate" (no schema change); generation_meta.operation marks them
+      kind: operation === "variant" ? "generate" : operation,
       parent_creative_id: parent?.id ?? null,
       // Desdobramento results are grouped by their key visual (peça-mãe).
       source_image_url: operation === "unfold"
@@ -169,7 +205,7 @@ Deno.serve(async (req) => {
         : (parent?.source_image_url ?? null),
       model_used: result.model,
       cost_usd: result.costUsd,
-      generation_meta: { operation, sourceFormat, targetFormat, instructions },
+      generation_meta: { operation, sourceFormat, targetFormat, instructions, ...(variant ? { variant } : {}) },
     });
 
     return jsonResponse({ success: true, creativeId: inserted.id, imageUrl, model: result.model, costUsd: result.costUsd });

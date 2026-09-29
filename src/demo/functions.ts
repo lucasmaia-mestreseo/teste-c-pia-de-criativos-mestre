@@ -131,6 +131,24 @@ const handlers: Record<string, Handler> = {
   'transform-creative': async (b) => {
     await sleep(IMAGE_DELAY);
     const parent = b.creativeId ? table('generated_creatives').find((c) => c.id === b.creativeId) : null;
+    if (b.operation === 'variant') {
+      if (!parent) throw new Error('Variação precisa de um criativo de origem');
+      const kit = kitOf(b.projectId);
+      const v = b.variant ?? {};
+      const imageUrl = storeImage(b.projectId, 'variant-', adArt({
+        format: parent.format, title: v.headline || 'Variação', cta: v.cta || 'Saiba mais',
+        primary: kit.primary_color, secondary: kit.secondary_color, background: kit.background_color,
+        badge: `Variação ${v.nome ?? ''}`.trim(), variant: table('generated_creatives').length,
+      }));
+      const row = insertCreative({
+        project_id: b.projectId, image_url: imageUrl, format: parent.format, kind: 'generate',
+        prompt: `[Variação: ${v.nome}] ${v.hipotese ?? ''}\nHeadline: "${v.headline}" · CTA: "${v.cta}"`,
+        parent_creative_id: parent.id, model_used: 'openai/gpt-5.4-image-2', cost_usd: 0.042,
+        generation_meta: { operation: 'variant', variant: v, targetFormat: parent.format },
+      });
+      track('transform-creative:variant', b.projectId, 'openai/gpt-5.4-image-2', 0.042, 'image_generation');
+      return { success: true, creativeId: row.id, imageUrl, model: 'openai/gpt-5.4-image-2', costUsd: 0.042 };
+    }
     const sourceUrl: string | null = parent ? parent.image_url : b.sourceImageUrl;
     const source = resolveStorage(sourceUrl);
     if (!source) throw new Error('Imagem de origem não encontrada (demo)');
@@ -323,6 +341,57 @@ const handlers: Record<string, Handler> = {
         pendencias: ['Logo em vetor (SVG/AI) para máxima nitidez.', 'Fotos próprias da marca em alta resolução.'],
       },
     };
+  },
+
+  'suggest-variants': async (b) => {
+    await sleep(1800);
+    const creative = table('generated_creatives').find((c) => c.id === b.creativeId);
+    const headline = creative?.prompt?.match(/["“]([^"”]{3,60})["”]/)?.[1] ?? 'Headline atual';
+    const pool = [
+      { nome: 'Prova social', hipotese: 'Números de clientes geram mais confiança que a promessa.', headline: 'Mais de 2 mil clientes já aprovaram', cta: 'QUERO CONHECER', ajusteVisual: '' },
+      { nome: 'Dor', hipotese: 'Nomear o problema chama mais atenção que o benefício.', headline: 'Cansado de prazos que não se cumprem?', cta: 'RESOLVER AGORA', ajusteVisual: '' },
+      { nome: 'Urgência', hipotese: 'Um prazo claro aumenta o clique.', headline: 'Condição especial só até sexta', cta: 'GARANTIR MINHA VAGA', ajusteVisual: '' },
+      { nome: 'Curiosidade', hipotese: 'Uma pergunta aberta gera mais cliques que uma afirmação.', headline: 'O que muda quando você escolhe certo?', cta: 'DESCUBRA', ajusteVisual: 'Destacar a foto com moldura na cor de destaque' },
+    ];
+    const foco = b.foco;
+    const variacoes = pool.slice(0, Math.min(4, Math.max(2, b.quantidade || 3))).map((v) => (
+      foco === 'cta' ? { ...v, headline, ajusteVisual: '' }
+        : foco === 'headline' ? { ...v, cta: 'SAIBA MAIS', ajusteVisual: '' }
+          : foco === 'visual' ? { ...v, headline, cta: 'SAIBA MAIS', ajusteVisual: v.ajusteVisual || 'Fundo na cor de apoio no lugar da institucional' }
+            : v));
+    track('suggest-variants', b.projectId, 'google/gemini-3-flash-preview', 0.003, 'text_reasoning');
+    return { success: true, textosAtuais: { headline, cta: 'SAIBA MAIS' }, variacoes };
+  },
+
+  'ad-copy': async (b) => {
+    await sleep(2200);
+    const creative = table('generated_creatives').find((c) => c.id === b.creativeId);
+    const project = table('projects').find((p) => p.id === b.projectId);
+    const marca = project?.name ?? 'a marca';
+    const adCopy = {
+      meta: {
+        textoPrincipal: `Quem escolhe a ${marca} não perde tempo com retrabalho. Atendimento próximo, prazo combinado e resultado que aparece. Fale com a gente e veja como fica no seu caso.`,
+        titulo: 'Resultado no prazo, sem surpresa', descricao: 'Orçamento em 24 h', botao: b.objetivo === 'leads' ? 'Cadastre-se' : 'Saiba mais',
+      },
+      instagram: {
+        legenda: `Prazo é compromisso. 📌\n\nNa ${marca}, cada etapa é acompanhada de perto — do primeiro contato à entrega.\n\nChama no direct e conta o que você precisa.`,
+        hashtags: ['qualidade', 'atendimento', 'resultado', marca.toLowerCase().replace(/[^a-z0-9]/g, ''), 'confianca'],
+      },
+      linkedin: { texto: `Prazo cumprido não é detalhe: é o que separa um fornecedor de um parceiro.\n\nNa ${marca}, trabalhamos com processo claro e acompanhamento em cada etapa.\n\nSe o seu próximo projeto não pode atrasar, vamos conversar.` },
+      google: {
+        titulos: [`${marca}`.slice(0, 30), 'Orçamento em 24 horas', 'Prazo combinado e cumprido', 'Atendimento especializado', 'Fale com um consultor'],
+        descricoes: ['Processo claro, prazo cumprido e acompanhamento em cada etapa. Peça seu orçamento.', 'Mais de 25 anos de experiência. Atendimento direto, sem intermediários.'],
+      },
+      variacoes: [
+        { angulo: 'Prova social', textoPrincipal: `Mais de 2 mil clientes já confiaram na ${marca}. Veja por que eles voltam.`, titulo: '2 mil clientes aprovam' },
+        { angulo: 'Dor', textoPrincipal: 'Obra atrasada custa caro. Com a gente, o prazo combinado é o prazo entregue.', titulo: 'Chega de atraso' },
+        { angulo: 'Oferta', textoPrincipal: 'Orçamento em 24 h e condições especiais este mês. Peça o seu agora.', titulo: 'Orçamento em 24 h' },
+      ],
+      objetivo: b.objetivo ?? 'conversao', geradoEm: new Date().toISOString(), model: 'google/gemini-3-flash-preview',
+    };
+    if (creative) { creative.generation_meta = { ...(creative.generation_meta ?? {}), adCopy }; persist(); }
+    track('ad-copy', b.projectId, 'google/gemini-3-flash-preview', 0.004, 'text_reasoning');
+    return { success: true, adCopy };
   },
 
   'admin-list-users': async () => table('profiles').map((p) => ({ id: p.user_id, email: p.email, email_confirmed_at: p.created_at, created_at: p.created_at })),

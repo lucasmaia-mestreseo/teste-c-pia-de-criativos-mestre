@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSelectedById } from '@/hooks/useSelectedById';
 import ExpandablePrompt from '@/components/ExpandablePrompt';
 import CreativeInsights, { ReviewBadge } from '@/components/CreativeInsights';
 import { useGeneratedCreatives, useDeleteCreative, useToggleFavorite } from '@/hooks/useGeneratedCreatives';
@@ -23,7 +24,6 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
   const { can } = usePermissions();
   const [thumbSize, setThumbSize] = useState(() => Number(localStorage.getItem(STORAGE_KEY)) || 200);
   const [onlyFavorites, setOnlyFavorites] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; projectId: string } | null>(null);
   const { data: creatives } = useGeneratedCreatives(projectId);
   const deleteCreative = useDeleteCreative();
@@ -33,6 +33,7 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
     ? (creatives || []).filter((c: any) => c.favorite)
     : (creatives || []);
 
+  const [selectedIndex, setSelectedIndex] = useSelectedById(filtered);
   const modalCreative = selectedIndex !== null ? filtered[selectedIndex] : null;
 
   const handlePrev = useCallback(() => {

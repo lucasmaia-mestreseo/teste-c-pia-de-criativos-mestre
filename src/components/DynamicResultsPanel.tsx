@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSelectedById } from '@/hooks/useSelectedById';
 import ExpandablePrompt from '@/components/ExpandablePrompt';
 import CreativeInsights, { ReviewBadge } from '@/components/CreativeInsights';
 import { useGeneratedCreatives, useDeleteCreative, useToggleFavorite } from '@/hooks/useGeneratedCreatives';
@@ -21,7 +22,6 @@ const STORAGE_KEY = 'thumbSize-dynamic';
 
 export default function DynamicResultsPanel({ projectId, generating, onUseAsReference }: DynamicResultsPanelProps) {
   const [thumbSize, setThumbSize] = useState(() => Number(localStorage.getItem(STORAGE_KEY)) || 200);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; projectId: string } | null>(null);
 
   const { data: creatives } = useGeneratedCreatives(projectId);
@@ -33,6 +33,7 @@ export default function DynamicResultsPanel({ projectId, generating, onUseAsRefe
     c.kind === 'dynamic' || /^\[(conservative|innovative|radical)\]/.test(c.prompt)
   );
 
+  const [selectedIndex, setSelectedIndex] = useSelectedById(dynamicCreatives);
   const modalCreative = selectedIndex !== null ? dynamicCreatives[selectedIndex] : null;
 
   const handlePrev = useCallback(() => {
