@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSelectedById } from '@/hooks/useSelectedById';
 import ExpandablePrompt from '@/components/ExpandablePrompt';
+import EmptyState from '@/components/EmptyState';
 import CreativeInsights, { ReviewBadge } from '@/components/CreativeInsights';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Slider } from '@/components/ui/slider';
 import { useGeneratedCreatives, useDeleteCreative, useToggleFavorite } from '@/hooks/useGeneratedCreatives';
-import { Download, Trash2, Loader2, Maximize2, Minimize2, Star, Eye, ImagePlus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Download, Trash2, Loader2, Maximize2, Minimize2, Star, Eye, ImagePlus, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { stripPngMetadata } from '@/lib/stripPngMetadata';
 import { toast } from 'sonner';
 
@@ -90,6 +91,12 @@ export default function GeneratePanel({ projectId, generating, onUseAsReference 
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 min-h-0 overflow-y-auto">
+        {items.length === 0 && !generating && (
+          <EmptyState icon={Sparkles} title="Seu primeiro criativo começa aqui">
+            Descreva a peça à esquerda — ou escolha um modelo ou swipe file — e clique em <b className="text-foreground">Gerar Criativo</b>.
+            Cada criativo passa por revisão automática e pode ser redimensionado, desdobrado e testado em A/B.
+          </EmptyState>
+        )}
         {(items.length > 0 || generating) && (
           <div>
             <div className="flex items-center justify-between px-3 py-1.5">
@@ -107,10 +114,11 @@ export default function GeneratePanel({ projectId, generating, onUseAsReference 
                 </div>
               )}
               {items.map((c, idx) => (
-                <div key={c.id} className="group relative rounded-md overflow-hidden border bg-secondary flex-shrink-0" style={{ width: thumbSize, height: thumbSize }}>
-                  <img src={c.image_url} alt={c.prompt} className="w-full h-full object-cover" />
+                <div key={c.id} className="creative-thumb group relative rounded-md overflow-hidden border bg-secondary flex-shrink-0" style={{ width: thumbSize, height: thumbSize, animationDelay: `${Math.min(idx, 12) * 25}ms` }}>
+                  <img src={c.image_url} alt={c.prompt} loading="lazy" className="thumb-img" />
+                  {thumbSize >= 96 && <span className="thumb-format">{c.format}</span>}
                   <ReviewBadge creative={c} />
-                  <div className="absolute bottom-0 left-0 right-0 bg-background/90 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-0.5 py-1">
+                  <div className="thumb-actions absolute bottom-0 left-0 right-0 bg-background/85 flex items-center justify-center gap-0.5 py-1">
                     <button onClick={() => setSelectedIndex(idx)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Detalhes">
                       <Eye className="h-3 w-3 text-muted-foreground" />
                     </button>

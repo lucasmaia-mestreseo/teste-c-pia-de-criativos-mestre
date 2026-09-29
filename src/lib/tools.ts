@@ -21,7 +21,7 @@ export const TOOLS: ToolDefinition[] = [
     id: 'creatives',
     title: 'Geração de Criativos',
     description: 'Crie anúncios a partir de prompt livre, modelos ou swipe files, sempre com o brand kit e o contexto do cliente.',
-    tags: ['Prompt livre', 'Modelos', 'Swipe', 'Dinâmica'],
+    tags: ['Prompt livre', 'Swipe', 'Dinâmica', 'Variações A/B', 'Copy'],
     path: '/criativos',
   },
   {

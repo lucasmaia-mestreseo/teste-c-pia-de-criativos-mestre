@@ -1,3 +1,4 @@
+import AuthShowcase from '@/components/AuthShowcase';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -138,8 +139,10 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background">
-      <div className="w-full max-w-sm space-y-6 p-6">
+    <div className="min-h-screen bg-background grid lg:grid-cols-[minmax(420px,1fr)_1.15fr]">
+      <div className="relative flex items-center justify-center p-6">
+      <div aria-hidden className="lg:hidden absolute -top-32 left-1/2 -translate-x-1/2 h-[300px] w-[500px] rounded-full bg-primary/10 blur-[100px]" />
+      <div className="relative w-full max-w-sm space-y-6 p-6 rounded-2xl lg:border-0 animate-in fade-in slide-in-from-bottom-2 duration-500">
         <div className="text-center space-y-1">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Zap className="h-6 w-6 text-primary fill-primary" />
@@ -244,6 +247,8 @@ export default function AuthPage() {
           </TabsContent>
         </Tabs>
       </div>
+      </div>
+      <AuthShowcase />
     </div>
   );
 }

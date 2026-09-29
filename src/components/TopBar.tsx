@@ -11,6 +11,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import UserMenu from '@/components/UserMenu';
 import { Palette, Clock, Plus, Zap, FileText, Sparkles, Image, Check, ChevronsUpDown, Pencil, Layers, ChevronLeft, BookOpenCheck } from 'lucide-react';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 import type { RightPanel } from '@/pages/Index';
@@ -207,25 +208,34 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
 
       {/* Navigation */}
       {selectedProjectId && (
-        <nav className="flex items-center gap-0.5 flex-1 min-w-0">
-          {navItems.map(({ panel, icon: Icon, label }) => (
-            <button
-              key={panel}
-              onClick={() => !onboardingPending && onPanelChange(panel)}
-              disabled={onboardingPending}
-              className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap",
-                onboardingPending
-                  ? 'text-muted-foreground/50 cursor-not-allowed'
-                  : activePanel === panel
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-primary hover:border-primary border border-transparent'
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {label}
-            </button>
-          ))}
+        <nav className="flex items-center gap-0.5 flex-1 min-w-0 overflow-x-auto no-scrollbar">
+          {navItems.map(({ panel, icon: Icon, label }) => {
+            const active = activePanel === panel;
+            return (
+              <button
+                key={panel}
+                onClick={() => !onboardingPending && onPanelChange(panel)}
+                disabled={onboardingPending}
+                title={label}
+                aria-current={active ? 'page' : undefined}
+                className={cn(
+                  "relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap flex-none",
+                  onboardingPending
+                    ? 'text-muted-foreground/50 cursor-not-allowed'
+                    : active
+                      ? 'text-primary-foreground'
+                      : 'text-muted-foreground hover:text-primary hover:bg-secondary/60'
+                )}
+              >
+                {active && !onboardingPending && (
+                  <motion.span layoutId="topbar-active" className="absolute inset-0 rounded-md bg-primary shadow-sm shadow-primary/30" transition={{ type: 'spring', stiffness: 500, damping: 36 }} />
+                )}
+                <Icon className="relative h-3.5 w-3.5" />
+                {/* labels collapse to icons on medium screens; the active tab keeps its label */}
+                <span className={cn('relative', !active && 'hidden xl:inline')}>{label}</span>
+              </button>
+            );
+          })}
         </nav>
       )}
 

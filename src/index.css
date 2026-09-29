@@ -114,6 +114,61 @@
 }
 
 .generating-pulse {
-  animation: glitch-pulse 0.8s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
+  animation: glitch-pulse 1.6s ease-in-out infinite;
   border: 2px solid hsl(58 100% 67.5%);
 }
+/* light sweep over the "generating" placeholder */
+.generating-pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, hsl(58 100% 67.5% / 0.14) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: sweep 1.4s ease-in-out infinite;
+}
+@keyframes sweep { to { transform: translateX(100%); } }
+
+/* ═══ Creative thumbnails (galleries) ═══ */
+.creative-thumb {
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+  animation: thumb-in .35s ease-out both;
+}
+.creative-thumb:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px -10px rgb(0 0 0 / .7);
+  border-color: hsl(var(--primary) / .45);
+}
+/* show the whole creative (9:16 and 16:9 used to lose their headline to object-cover) */
+.creative-thumb .thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: hsl(0 0% 8%);
+  transition: transform .35s ease;
+}
+.creative-thumb:hover .thumb-img { transform: scale(1.03); }
+.creative-thumb .thumb-actions { transform: translateY(100%); transition: transform .2s ease, opacity .2s ease; backdrop-filter: blur(6px); }
+.creative-thumb:hover .thumb-actions, .creative-thumb:focus-within .thumb-actions { transform: translateY(0); }
+.creative-thumb .thumb-format {
+  position: absolute; top: 4px; left: 4px; z-index: 1;
+  font-size: 9px; font-weight: 700; letter-spacing: .03em;
+  padding: 1px 5px; border-radius: 4px;
+  background: rgb(0 0 0 / .55); color: #fff; opacity: .85;
+}
+@keyframes thumb-in { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .creative-thumb, .creative-thumb .thumb-img, .creative-thumb .thumb-actions { animation: none; transition: none; }
+  .generating-pulse, .generating-pulse::after { animation: none; }
+}
+
+/* horizontal scrollers without a visible bar (top navigation) */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* gentle float for the login showcase tiles */
+.auth-float { animation: auth-float 6s ease-in-out infinite; }
+@keyframes auth-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -10px; } }
+@media (prefers-reduced-motion: reduce) { .auth-float { animation: none; } }

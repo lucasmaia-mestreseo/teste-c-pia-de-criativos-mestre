@@ -129,7 +129,7 @@ const Index = () => {
         ) : (
           <>
             {activePanel === 'generate' && (
-              <div className="w-[35%] border-r bg-card flex-shrink-0 flex flex-col">
+              <div className="w-[35%] max-w-[560px] border-r bg-card flex-shrink-0 flex flex-col animate-in fade-in slide-in-from-left-2 duration-300">
                 <GenerationControls
                   projectId={projectId!}
                   creationMode={creationMode}
@@ -146,18 +146,19 @@ const Index = () => {
             )}
 
             {activePanel === 'dynamic' && (
-              <div className="w-[35%] border-r bg-card flex-shrink-0 flex flex-col">
+              <div className="w-[35%] max-w-[560px] border-r bg-card flex-shrink-0 flex flex-col animate-in fade-in slide-in-from-left-2 duration-300">
                 <DynamicGeneratePanel projectId={projectId} onGeneratingChange={setDynamicGenerating} />
               </div>
             )}
 
             {activePanel === 'unfold' && (
-              <div className="w-[35%] border-r bg-card flex-shrink-0 flex flex-col">
+              <div className="w-[35%] max-w-[560px] border-r bg-card flex-shrink-0 flex flex-col animate-in fade-in slide-in-from-left-2 duration-300">
                 <UnfoldPanel projectId={projectId!} onPendingChange={setUnfoldPending} />
               </div>
             )}
 
-            <div className="flex-1 bg-background overflow-hidden">
+            {/* key → each tab fades in (CSS, never blocks the next tab from mounting) */}
+            <div key={activePanel} className="flex-1 bg-background overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-300">
               {activePanel === 'generate' && (
                 <GeneratePanel
                   projectId={projectId}
