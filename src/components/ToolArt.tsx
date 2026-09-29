@@ -64,10 +64,26 @@ function KvArt() {
   );
 }
 
+function VideoArt() {
+  // A player with a cut timeline underneath: play button, captions and a cut marker.
+  return (
+    <Tile>
+      <rect x="5" y="6" width="38" height="25" rx="3.5" fill={INK} />
+      <path d="M20.5 12.5 L29.5 18.5 L20.5 24.5 Z" fill="hsl(var(--primary))" />
+      <rect x="13" y="27" width="22" height="2" rx="1" fill="hsl(var(--primary))" opacity="0.7" />
+      <rect x="5" y="35" width="38" height="8" rx="2.5" fill={INK} opacity="0.85" />
+      <path d="M8 39h2M11 37.5v3M13 38.5v1M15 37v4M17 38v2M27 37.5v3M29 38.5v1M31 37v4M33 38v2M35 37.5v3M38 38.5v1" stroke="hsl(var(--primary))" strokeWidth="1.2" strokeLinecap="round" />
+      <rect x="19" y="35" width="6" height="8" fill="hsl(var(--primary))" opacity="0.35" />
+      <path d="M40 2 L41.4 5.6 L45 7 L41.4 8.4 L40 12 L38.6 8.4 L35 7 L38.6 5.6 Z" fill={INK} />
+    </Tile>
+  );
+}
+
 const ART: Record<string, () => JSX.Element> = {
   creatives: CreativesArt,
   unfold: UnfoldArt,
   kv: KvArt,
+  video: VideoArt,
 };
 
 export default function ToolArt({ id }: { id: string }) {

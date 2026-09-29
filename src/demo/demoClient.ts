@@ -236,7 +236,7 @@ if (typeof document !== 'undefined') {
     el.id = 'demo-badge';
     el.innerHTML = '<strong>DEMO</strong> · <a href="?reset-demo" style="text-decoration:underline">recomeçar</a>';
     el.title = 'Modo demo: dados fictícios, sem IA real';
-    el.setAttribute('style', 'position:fixed;right:12px;top:54px;z-index:9999;opacity:.9;background:hsl(58 100% 67.5%);color:#111;font:12px Inter,Arial,sans-serif;padding:3px 10px;border-radius:999px;font-size:11px;box-shadow:0 4px 14px rgba(0,0,0,.35)');
+    el.setAttribute('style', 'position:fixed;left:0;top:42%;writing-mode:vertical-rl;transform:rotate(180deg);z-index:9999;opacity:.85;background:hsl(58 100% 67.5%);color:#111;font:12px Inter,Arial,sans-serif;padding:10px 3px;border-radius:8px 0 0 8px;font-size:10px;box-shadow:0 4px 14px rgba(0,0,0,.35)');
     document.body.appendChild(el);
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);

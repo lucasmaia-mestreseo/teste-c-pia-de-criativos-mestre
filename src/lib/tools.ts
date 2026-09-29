@@ -14,7 +14,17 @@ export interface ToolDefinition {
   path?: string;
   /** Tools that work inside a project open /project/:id/:panel after picking a project. */
   projectPanel?: string;
+  /** Shows the "Novo" tag on the card. */
+  novo?: boolean;
+  /** false = card shown as "Em breve" and not clickable. */
+  available?: boolean;
 }
+
+/**
+ * Edição de Vídeo runs only in the demo for now: the real version needs the
+ * transcription key and a render server (FFmpeg). See docs/EDICAO-DE-VIDEO.md.
+ */
+export const VIDEO_ENABLED = import.meta.env.MODE === 'demo';
 
 export const TOOLS: ToolDefinition[] = [
   {
@@ -30,12 +40,23 @@ export const TOOLS: ToolDefinition[] = [
     description: 'Suba uma peça-mãe e gere a mesma peça em todos os formatos — stories, feed e banner — com textos e logo preservados.',
     tags: ['9:16', '4:5', '1:1', '16:9'],
     projectPanel: 'unfold',
+    novo: true,
   },
   {
     id: 'kv',
     title: 'Criação de KVs',
-    description: 'Suba brandbook, logo e peças do cliente: a IA analisa, você aprova o resumo e sai o manual de comunicação digital de 38 páginas.',
-    tags: ['Manual de marca', 'Vetorização', 'PDF'],
+    description: 'Briefing, brandbook, logo e peças do cliente: a IA lê tudo, molda a estrutura e você aprova o manual de comunicação digital.',
+    tags: ['Manual de marca', 'Briefing', 'PDF'],
     projectPanel: 'kv',
+    novo: true,
+  },
+  {
+    id: 'video',
+    title: 'Edição de Vídeo',
+    description: 'Solte a gravação: a IA transcreve, corta silêncios e vícios de linguagem, trata imagem e áudio e gera as legendas. Com a assistente Astra.',
+    tags: ['Cortes automáticos', 'Legendas', 'Astra'],
+    projectPanel: 'video',
+    novo: true,
+    available: VIDEO_ENABLED,
   },
 ];

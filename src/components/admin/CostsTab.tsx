@@ -28,6 +28,8 @@ const FEATURE_LABELS: Record<string, string> = {
   'ad-copy': 'Copy do anúncio',
   'kv-analyze': 'Criação de KVs',
   'kv-plan': 'Criação de KVs · estratégia',
+  'video-transcribe': 'Edição de Vídeo · transcrição',
+  'video-astra': 'Edição de Vídeo · Astra',
   'review-creative': 'Revisão automática',
   'analyze-swipe': 'Análise de swipe',
   'suggest-texts': 'Sugestão de textos',

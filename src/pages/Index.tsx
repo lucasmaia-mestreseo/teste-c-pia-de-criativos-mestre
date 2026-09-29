@@ -16,16 +16,18 @@ import DynamicResultsPanel from '@/components/DynamicResultsPanel';
 import CreativesPanel from '@/components/CreativesPanel';
 import UnfoldPanel from '@/components/UnfoldPanel';
 import UnfoldResultsPanel from '@/components/UnfoldResultsPanel';
+import { VIDEO_ENABLED } from '@/lib/tools';
 // Criação de KVs is heavy (38-page template, PDF/vector tools): loaded only when opened
 const KvStudio = lazy(() => import('@/components/kv/KvStudio'));
+const VideoStudio = lazy(() => import('@/components/video/VideoStudio'));
 import ProjectOnboarding from '@/components/ProjectOnboarding';
 import { useProject } from '@/hooks/useProject';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
-export type RightPanel = 'generate' | 'brandkit' | 'context' | 'history' | 'dynamic' | 'creatives' | 'unfold' | 'kv';
+export type RightPanel = 'generate' | 'brandkit' | 'context' | 'history' | 'dynamic' | 'creatives' | 'unfold' | 'kv' | 'video';
 
-const VALID_PANELS: RightPanel[] = ['generate', 'brandkit', 'context', 'history', 'dynamic', 'creatives', 'unfold', 'kv'];
+const VALID_PANELS: RightPanel[] = ['generate', 'brandkit', 'context', 'history', 'dynamic', 'creatives', 'unfold', 'kv', ...(VIDEO_ENABLED ? ['video' as const] : [])];
 
 const EMPTY_FREE_PROMPT: FreePromptData = { prompt: '', attachedImages: [] };
 const EMPTY_TEMPLATE: TemplateData = { templateId: null, fields: {}, prompt: '', attachedImages: [] };
@@ -176,6 +178,11 @@ const Index = () => {
               {activePanel === 'kv' && (
                 <Suspense fallback={<div className="h-full flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
                   <KvStudio projectId={projectId!} />
+                </Suspense>
+              )}
+              {activePanel === 'video' && (
+                <Suspense fallback={<div className="h-full flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
+                  <VideoStudio projectId={projectId!} />
                 </Suspense>
               )}
               {activePanel === 'unfold' && <UnfoldResultsPanel projectId={projectId!} pending={unfoldPending} onUseAsReference={handleUseAsReference} />}

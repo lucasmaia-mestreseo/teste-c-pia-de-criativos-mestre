@@ -38,6 +38,7 @@ export default function Home() {
   const firstName = profile?.name?.split(' ')[0];
 
   const openTool = (tool: ToolDefinition) => {
+    if (tool.available === false) return;
     if (tool.path) navigate(tool.path);
     else if (tool.projectPanel) setPickingFor(tool);
   };
@@ -60,14 +61,22 @@ export default function Home() {
         </p>
 
         <div className="grid gap-4 mt-8 sm:grid-cols-2 lg:grid-cols-3">
-          {TOOLS.map((tool, i) => (
+          {TOOLS.map((tool, i) => {
+            const soon = tool.available === false;
+            return (
             <button
               key={tool.id}
               onClick={() => openTool(tool)}
+              disabled={soon}
               style={{ animationDelay: `${i * 80}ms`, animationFillMode: 'both' }}
-              className="group text-left rounded-2xl border bg-card/90 backdrop-blur p-5 flex flex-col gap-4 transition-all duration-300 hover:border-primary/60 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring animate-in fade-in slide-in-from-bottom-3 duration-500"
+              className={`group relative text-left rounded-2xl border bg-card/90 backdrop-blur p-5 flex flex-col gap-4 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring animate-in fade-in slide-in-from-bottom-3 duration-500 ${soon ? 'opacity-60 cursor-default' : 'hover:border-primary/60 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/10'}`}
             >
-              <div className="transition-transform duration-300 group-hover:scale-105 group-hover:-rotate-2 w-fit"><ToolArt id={tool.id} /></div>
+              {(tool.novo || soon) && (
+                <span className={`absolute top-4 right-4 text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 ${soon ? 'bg-secondary text-muted-foreground' : 'bg-primary text-primary-foreground shadow-[0_0_18px_-4px_hsl(var(--primary)/0.8)]'}`}>
+                  {soon ? 'Em breve' : 'Novo'}
+                </span>
+              )}
+              <div className={`transition-transform duration-300 w-fit ${soon ? 'grayscale' : 'group-hover:scale-105 group-hover:-rotate-2'}`}><ToolArt id={tool.id} /></div>
               <div className="space-y-1.5 flex-1">
                 <h2 className="text-lg font-bold group-hover:text-primary transition-colors">{tool.title}</h2>
                 <p className="text-sm text-muted-foreground leading-relaxed">{tool.description}</p>
@@ -78,7 +87,8 @@ export default function Home() {
                 ))}
               </div>
             </button>
-          ))}
+            );
+          })}
 
           <div style={{ animationDelay: `${TOOLS.length * 80}ms`, animationFillMode: 'both' }} className="rounded-2xl border-2 border-dashed p-5 flex flex-col items-center justify-center text-center gap-3 min-h-[240px] animate-in fade-in duration-500">
             <div className="h-12 w-12 rounded-xl bg-secondary flex items-center justify-center">

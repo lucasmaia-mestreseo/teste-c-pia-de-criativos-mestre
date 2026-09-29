@@ -9,7 +9,8 @@ import { useProjects, useCreateProject } from '@/hooks/useProjects';
 import { useRenameProject } from '@/hooks/useProject';
 import { usePermissions } from '@/hooks/usePermissions';
 import UserMenu from '@/components/UserMenu';
-import { Palette, Clock, Plus, Zap, FileText, Sparkles, Image, Check, ChevronsUpDown, Pencil, Layers, ChevronLeft, BookOpenCheck } from 'lucide-react';
+import { Palette, Clock, Plus, Zap, FileText, Sparkles, Image, Check, ChevronsUpDown, Pencil, Layers, ChevronLeft, BookOpenCheck, Clapperboard } from 'lucide-react';
+import { VIDEO_ENABLED } from '@/lib/tools';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -90,6 +91,7 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
     { panel: 'dynamic', icon: Sparkles, label: 'Dinâmica' },
     { panel: 'unfold', icon: Layers, label: 'Desdobramento' },
     { panel: 'kv', icon: BookOpenCheck, label: 'KVs' },
+    ...(VIDEO_ENABLED ? [{ panel: 'video' as RightPanel, icon: Clapperboard, label: 'Vídeo' }] : []),
     { panel: 'creatives', icon: Image, label: 'Criativos' },
     { panel: 'brandkit', icon: Palette, label: 'Brand Kit' },
     { panel: 'context', icon: FileText, label: 'Contexto' },

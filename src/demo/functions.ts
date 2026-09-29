@@ -349,6 +349,20 @@ const handlers: Record<string, Handler> = {
     };
   },
 
+  // Edição de Vídeo: Whisper and the Astra LLM, simulated (see src/demo/videoDemo.ts)
+  'video-transcribe': async (b) => {
+    await sleep(2600);
+    const { demoTranscribe } = await import('./videoDemo');
+    track('video-transcribe', b.projectId, 'openai/whisper-1', 0.006 * Math.ceil((b.duration || 60) / 60), 'text_reasoning');
+    return { success: true, ...demoTranscribe(Number(b.duration) || 0, Array.isArray(b.speech) ? b.speech : []), language: 'pt' };
+  },
+  'video-astra': async (b) => {
+    await sleep(1200);
+    const { demoAstra } = await import('./videoDemo');
+    track('video-astra', b.projectId, 'openai/gpt-5.4-mini', 0.002, 'text_reasoning');
+    return { success: true, ...demoAstra(String(b.pedido || ''), { settings: b.settings ?? {}, duration: Number(b.duration) || 0 }) };
+  },
+
   // Simulated strategy: reads the briefing answers with simple rules (the real one is Claude via OpenRouter).
   'kv-plan': async (b) => {
     await sleep(3000);
