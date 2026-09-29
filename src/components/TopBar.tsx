@@ -9,7 +9,7 @@ import { useProjects, useCreateProject } from '@/hooks/useProjects';
 import { useRenameProject } from '@/hooks/useProject';
 import { usePermissions } from '@/hooks/usePermissions';
 import UserMenu from '@/components/UserMenu';
-import { Palette, Clock, Plus, Zap, FileText, Sparkles, Image, Check, ChevronsUpDown, Pencil, Layers, ChevronLeft } from 'lucide-react';
+import { Palette, Clock, Plus, Zap, FileText, Sparkles, Image, Check, ChevronsUpDown, Pencil, Layers, ChevronLeft, BookOpenCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -88,6 +88,7 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
     { panel: 'generate', icon: Zap, label: 'Gerar' },
     { panel: 'dynamic', icon: Sparkles, label: 'Dinâmica' },
     { panel: 'unfold', icon: Layers, label: 'Desdobramento' },
+    { panel: 'kv', icon: BookOpenCheck, label: 'KVs' },
     { panel: 'creatives', icon: Image, label: 'Criativos' },
     { panel: 'brandkit', icon: Palette, label: 'Brand Kit' },
     { panel: 'context', icon: FileText, label: 'Contexto' },

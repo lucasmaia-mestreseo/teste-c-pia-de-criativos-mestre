@@ -6,7 +6,7 @@ import { createSeed, type Row, type Tables } from './seed';
 
 const STORAGE_KEY = 'criativos-mestre-demo-v1';
 
-interface DemoState { tables: Tables; storage: Record<string, string> }
+interface DemoState { tables: Tables; storage: Record<string, string>; storageMeta?: Record<string, string> }
 
 function loadState(): DemoState {
   try {

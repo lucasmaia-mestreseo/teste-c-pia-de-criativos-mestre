@@ -46,9 +46,28 @@ function UnfoldArt() {
   );
 }
 
+function KvArt() {
+  // An open brand manual: logo page on the left, swatches + type on the right.
+  return (
+    <Tile>
+      <path d="M5 11 Q14 8 23 11 L23 41 Q14 38 5 41 Z" fill={INK} />
+      <path d="M25 11 Q34 8 43 11 L43 41 Q34 38 25 41 Z" fill={INK} opacity="0.85" />
+      <circle cx="14" cy="21" r="4.5" fill="hsl(var(--primary))" />
+      <rect x="9" y="29" width="10" height="2.4" rx="1.2" fill="hsl(var(--primary))" opacity="0.7" />
+      <rect x="28.5" y="15" width="5" height="5" rx="1" fill="hsl(var(--primary))" />
+      <rect x="35" y="15" width="5" height="5" rx="1" fill="hsl(var(--primary))" opacity="0.6" />
+      <rect x="28.5" y="22" width="5" height="5" rx="1" fill="hsl(var(--primary))" opacity="0.35" />
+      <text x="35" y="27" fontFamily="Space Grotesk, Arial" fontWeight="700" fontSize="6.5" fill="hsl(var(--primary))">Aa</text>
+      <rect x="28.5" y="31" width="11.5" height="2" rx="1" fill="hsl(var(--primary))" opacity="0.6" />
+      <path d="M40 3 L41.4 6.6 L45 8 L41.4 9.4 L40 13 L38.6 9.4 L35 8 L38.6 6.6 Z" fill={INK} />
+    </Tile>
+  );
+}
+
 const ART: Record<string, () => JSX.Element> = {
   creatives: CreativesArt,
   unfold: UnfoldArt,
+  kv: KvArt,
 };
 
 export default function ToolArt({ id }: { id: string }) {

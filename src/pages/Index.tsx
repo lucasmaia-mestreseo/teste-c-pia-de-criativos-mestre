@@ -15,14 +15,15 @@ import DynamicResultsPanel from '@/components/DynamicResultsPanel';
 import CreativesPanel from '@/components/CreativesPanel';
 import UnfoldPanel from '@/components/UnfoldPanel';
 import UnfoldResultsPanel from '@/components/UnfoldResultsPanel';
+import KvStudio from '@/components/kv/KvStudio';
 import ProjectOnboarding from '@/components/ProjectOnboarding';
 import { useProject } from '@/hooks/useProject';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
-export type RightPanel = 'generate' | 'brandkit' | 'context' | 'history' | 'dynamic' | 'creatives' | 'unfold';
+export type RightPanel = 'generate' | 'brandkit' | 'context' | 'history' | 'dynamic' | 'creatives' | 'unfold' | 'kv';
 
-const VALID_PANELS: RightPanel[] = ['generate', 'brandkit', 'context', 'history', 'dynamic', 'creatives', 'unfold'];
+const VALID_PANELS: RightPanel[] = ['generate', 'brandkit', 'context', 'history', 'dynamic', 'creatives', 'unfold', 'kv'];
 
 const EMPTY_FREE_PROMPT: FreePromptData = { prompt: '', attachedImages: [] };
 const EMPTY_TEMPLATE: TemplateData = { templateId: null, fields: {}, prompt: '', attachedImages: [] };
@@ -169,6 +170,7 @@ const Index = () => {
               {activePanel === 'history' && <HistoryPanel projectId={projectId} />}
               {activePanel === 'dynamic' && <DynamicResultsPanel projectId={projectId} generating={dynamicGenerating} onUseAsReference={handleUseAsReference} />}
               {activePanel === 'creatives' && <CreativesPanel projectId={projectId} onUseAsReference={handleUseAsReference} />}
+              {activePanel === 'kv' && <KvStudio projectId={projectId!} />}
               {activePanel === 'unfold' && <UnfoldResultsPanel projectId={projectId!} pending={unfoldPending} onUseAsReference={handleUseAsReference} />}
             </div>
           </>

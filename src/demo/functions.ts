@@ -243,6 +243,88 @@ const handlers: Record<string, Handler> = {
     };
   },
 
+  'kv-analyze': async (b) => {
+    await sleep(3500);
+    const project = table('projects').find((p) => p.id === b.projectId);
+    const notes: string = b.notes || '';
+    const named = notes.match(/(?:marca|cliente)\s*[:\-–]\s*([^\n.,;]{2,40})/i)?.[1]?.trim();
+    const marca = named || project?.name || 'Marca';
+    const cands: { hex: string; share: number; source: string }[] = b.paletteCandidates ?? [];
+    // chroma: HSL saturation is unstable near white/black
+    const sat = (hex: string) => {
+      const [r, g, bl] = [1, 3, 5].map((o) => parseInt(hex.slice(o, o + 2), 16) / 255);
+      return Math.max(r, g, bl) - Math.min(r, g, bl);
+    };
+    const lum = (hex: string) => { const [r, g, bl] = [1, 3, 5].map((o) => parseInt(hex.slice(o, o + 2), 16)); return 0.2126 * r + 0.7152 * g + 0.0722 * bl; };
+    const brandy = cands.filter((c) => !/neutro/.test(c.source) && sat(c.hex) > 0.2);
+    const byDark = [...brandy].sort((a, c) => lum(a.hex) - lum(c.hex));
+    const principal = byDark[0]?.hex ?? '#1B2752';
+    const acento = [...brandy].sort((a, c) => sat(c.hex) * lum(c.hex) - sat(a.hex) * lum(a.hex)).find((c) => c.hex !== principal)?.hex ?? '#F2A900';
+    const apoio = byDark.find((c) => c.hex !== principal && c.hex !== acento)?.hex ?? '#3F61AA';
+    const family = (b.fontsFound?.[0] as string | undefined)?.replace(/\s+(Regular|Bold|Light|Medium|SemiBold|Black|Italic).*$/i, '') || 'Montserrat';
+    const images = (b.images ?? []).map((img: any) => {
+      const label = String(img.label).toLowerCase();
+      if (/logo|marcado como logo/.test(label)) return { id: img.id, tipo: 'logo', foco: { x: 0.5, y: 0.5 } };
+      if (/s[ií]mbolo/.test(label)) return { id: img.id, tipo: 'simbolo', foco: { x: 0.5, y: 0.5 } };
+      if (/foto|marcado como foto/.test(label)) return { id: img.id, tipo: 'foto', foco: { x: 0.5, y: 0.38 } };
+      if (/página/.test(label)) return { id: img.id, tipo: 'pagina', foco: { x: 0.5, y: 0.5 }, fotos: [{ x0: 0.52, y0: 0.18, x1: 0.95, y1: 0.82 }] };
+      return { id: img.id, tipo: 'peca', foco: { x: 0.5, y: 0.45 } };
+    });
+    track('kv-analyze', b.projectId, 'google/gemini-3-flash-preview', 0.018, 'text_reasoning');
+    return {
+      success: true,
+      images,
+      spec: {
+        marca, produto: marca, slogan: `${marca}: do jeito certo, desde o começo.`,
+        headlinePrincipal: 'Qualidade que você percebe no primeiro contato',
+        headlineSecundaria: 'Feito para durar',
+        headlineTerceira: 'Especialistas no que importa para você',
+        posicionamento: `${marca}, referência no que faz`,
+        textoDeApoio: 'Atendimento próximo, prazos cumpridos e resultado de verdade.',
+        cores: {
+          principal: { hex: principal, nome: 'Cor institucional', uso: 'Fundos, títulos e assinatura' },
+          apoio: { hex: apoio, nome: 'Cor de apoio', uso: 'Títulos, links e cards' },
+          acento: { hex: acento, nome: 'Cor de destaque', uso: 'CTA e destaques' },
+          paleta: [],
+          nota: `A cor institucional domina; o destaque aparece só em CTAs e grifos.${/vermelho nunca/i.test(notes) ? ' A marca evita vermelho.' : ''}`,
+        },
+        tipografia: {
+          primaria: family, secundaria: family, auxiliarPrimaria: 'Arial', auxiliarSecundaria: 'Georgia',
+          nota: b.fontsFound?.length ? '' : 'Materiais sem fonte embutida: tipografia inferida pela aparência (modo demo).',
+        },
+        cta: { institucional: 'CONHEÇA', principal: 'FALE COM A GENTE', secundario: 'SAIBA MAIS', material: 'BAIXE O CATÁLOGO', demo: 'PEÇA UM ORÇAMENTO', solucoes: 'VER SERVIÇOS' },
+        lp: {
+          subtituloHero: 'Soluções sob medida, com atendimento de quem entende do assunto.',
+          tituloSecao1: 'O que a gente faz de melhor', tituloSecao2: 'Por que escolher a ' + marca,
+          textoSecao2: 'Experiência, processo claro e um time que acompanha cada etapa até a entrega.',
+          cards: [
+            { titulo: 'Experiência', texto: 'Anos de mercado e clientes que voltam.' },
+            { titulo: 'Agilidade', texto: 'Prazos combinados e cumpridos.' },
+            { titulo: 'Proximidade', texto: 'Atendimento direto, sem intermediários.' },
+          ],
+          menu: ['Sobre', 'Serviços', 'Clientes', 'Contato'],
+          rodapeLinks: 'Serviços · Clientes · Contato',
+        },
+        imagens: {
+          fazer: ['Luz natural e cenários reais do negócio.', 'Pessoas em ação, olhando para o trabalho.', 'Enquadramento com respiro para texto.', 'Cores da paleta presentes na cena.', 'Detalhes do produto em primeiro plano.', 'Fundos limpos, sem poluição visual.'],
+          naoFazer: ['Banco de imagem genérico e posado.', 'Recortes que cortam o rosto.', 'Texto sobre o rosto ou o produto.', 'Filtros saturados fora da paleta.', 'Ambientes escuros e sem contraste.', 'Mais de uma assinatura na mesma peça.'],
+        },
+        criativos: [
+          ['Fundo na cor institucional com degradê sutil.', 'Headline em caixa alta, até 3 linhas.', 'Assinatura negativa no rodapé.', 'CTA na cor de destaque.', 'Foto recortada com respiro.', 'Uma assinatura por peça.'],
+          ['Versão clara, fundo off-white.', 'Logo colorido abaixo dos 220 px da interface.', 'Título grande na cor institucional.', 'Imagem no centro, sem cortar rostos.', 'CTA acima dos 320 px finais.', 'Todo o texto na área segura.'],
+          ['Duas colunas: bloco de cor e foto.', 'Texto só no bloco de cor.', 'Foto com o rosto dentro da coluna.', 'Assinatura no bloco, nunca sobre a foto.', 'Headline curta, até 3 linhas.', 'CTA abaixo do título.'],
+        ],
+        resumo: {
+          direcaoVisual: 'Visual limpo e confiante, com a cor institucional dominante e acento pontual.',
+          tomDeVoz: 'Direto, próximo e seguro — sem jargão.',
+          publico: 'Decisores que valorizam qualidade e atendimento.',
+        },
+        inferencias: ['Modo demo: análise simulada a partir das cores medidas e das fontes encontradas.', b.fontsFound?.length ? `Tipografia tirada das fontes embutidas (${family}).` : 'Tipografia padrão (sem PDF com fontes).'],
+        pendencias: ['Logo em vetor (SVG/AI) para máxima nitidez.', 'Fotos próprias da marca em alta resolução.'],
+      },
+    };
+  },
+
   'admin-list-users': async () => table('profiles').map((p) => ({ id: p.user_id, email: p.email, email_confirmed_at: p.created_at, created_at: p.created_at })),
 };
 

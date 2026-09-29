@@ -31,4 +31,11 @@ export const TOOLS: ToolDefinition[] = [
     tags: ['9:16', '4:5', '1:1', '16:9'],
     projectPanel: 'unfold',
   },
+  {
+    id: 'kv',
+    title: 'Criação de KVs',
+    description: 'Suba brandbook, logo e peças do cliente: a IA analisa, você aprova o resumo e sai o manual de comunicação digital de 38 páginas.',
+    tags: ['Manual de marca', 'Vetorização', 'PDF'],
+    projectPanel: 'kv',
+  },
 ];

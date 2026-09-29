@@ -172,6 +172,7 @@ const storage = {
   from: (bucket: string) => ({
     upload: async (path: string, file: Blob) => {
       state.storage[`${bucket}/${path}`] = await fileToDataUrl(file);
+      (state.storageMeta ??= {})[`${bucket}/${path}`] = new Date().toISOString();
       persist();
       return { data: { path }, error: null };
     },
@@ -185,7 +186,19 @@ const storage = {
       persist();
       return { data: [], error: null };
     },
-    list: async () => ({ data: [], error: null }),
+    list: async (prefix = '') => {
+      const base = `${bucket}/${prefix ? `${prefix.replace(/\/$/, '')}/` : ''}`;
+      const data = Object.keys(state.storage)
+        .filter((k) => k.startsWith(base) && !k.slice(base.length).includes('/'))
+        .map((k) => ({ name: k.slice(base.length), created_at: state.storageMeta?.[k] ?? new Date().toISOString() }))
+        .sort((a, b) => b.created_at.localeCompare(a.created_at));
+      return { data, error: null };
+    },
+    download: async (path: string) => {
+      const url = state.storage[`${bucket}/${path}`];
+      if (!url) return { data: null, error: { message: 'Arquivo não encontrado (demo)' } };
+      return { data: await (await fetch(url)).blob(), error: null };
+    },
   }),
 };
 
