@@ -14,6 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_usage: {
+        Row: {
+          completion_tokens: number | null
+          cost_usd: number | null
+          created_at: string
+          duration_ms: number | null
+          function_name: string
+          id: string
+          model: string
+          project_id: string | null
+          prompt_tokens: number | null
+          settings_key: string | null
+          status_code: number | null
+          success: boolean
+          user_id: string | null
+        }
+        Insert: {
+          completion_tokens?: number | null
+          cost_usd?: number | null
+          created_at?: string
+          duration_ms?: number | null
+          function_name: string
+          id?: string
+          model: string
+          project_id?: string | null
+          prompt_tokens?: number | null
+          settings_key?: string | null
+          status_code?: number | null
+          success?: boolean
+          user_id?: string | null
+        }
+        Update: {
+          completion_tokens?: number | null
+          cost_usd?: number | null
+          created_at?: string
+          duration_ms?: number | null
+          function_name?: string
+          id?: string
+          model?: string
+          project_id?: string | null
+          prompt_tokens?: number | null
+          settings_key?: string | null
+          status_code?: number | null
+          success?: boolean
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           key: string
@@ -43,6 +99,8 @@ export type Database = {
           created_at: string
           design_screenshot_url: string | null
           id: string
+          logo_analysis: string | null
+          logo_analysis_source: string | null
           logo_url: string | null
           people_photos: string[] | null
           person_grid_url: string | null
@@ -60,6 +118,8 @@ export type Database = {
           created_at?: string
           design_screenshot_url?: string | null
           id?: string
+          logo_analysis?: string | null
+          logo_analysis_source?: string | null
           logo_url?: string | null
           people_photos?: string[] | null
           person_grid_url?: string | null
@@ -77,6 +137,8 @@ export type Database = {
           created_at?: string
           design_screenshot_url?: string | null
           id?: string
+          logo_analysis?: string | null
+          logo_analysis_source?: string | null
           logo_url?: string | null
           people_photos?: string[] | null
           person_grid_url?: string | null
@@ -173,39 +235,73 @@ export type Database = {
       }
       generated_creatives: {
         Row: {
+          briefing: Json | null
+          cost_usd: number | null
           created_at: string
           created_by: string | null
           favorite: boolean
           format: string
+          generation_meta: Json | null
           id: string
           image_url: string
+          kind: string
+          model_used: string | null
+          parent_creative_id: string | null
           project_id: string
           prompt: string
+          review_status: string | null
+          review: Json | null
+          source_image_url: string | null
           swipe_file_id: string | null
         }
         Insert: {
+          briefing?: Json | null
+          cost_usd?: number | null
           created_at?: string
           created_by?: string | null
           favorite?: boolean
           format: string
+          generation_meta?: Json | null
           id?: string
           image_url: string
+          kind?: string
+          model_used?: string | null
+          parent_creative_id?: string | null
           project_id: string
           prompt: string
+          review_status?: string | null
+          review?: Json | null
+          source_image_url?: string | null
           swipe_file_id?: string | null
         }
         Update: {
+          briefing?: Json | null
+          cost_usd?: number | null
           created_at?: string
           created_by?: string | null
           favorite?: boolean
           format?: string
+          generation_meta?: Json | null
           id?: string
           image_url?: string
+          kind?: string
+          model_used?: string | null
+          parent_creative_id?: string | null
           project_id?: string
           prompt?: string
+          review_status?: string | null
+          review?: Json | null
+          source_image_url?: string | null
           swipe_file_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "generated_creatives_parent_creative_id_fkey"
+            columns: ["parent_creative_id"]
+            isOneToOne: false
+            referencedRelation: "generated_creatives"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "generated_creatives_project_id_fkey"
             columns: ["project_id"]

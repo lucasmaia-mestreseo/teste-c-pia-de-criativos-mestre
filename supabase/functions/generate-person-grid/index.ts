@@ -1,46 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { buildModelCascade, callOpenRouter, extractImageUrl, loadModelSettings } from "../_shared/openrouter.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
-/** Strip non-essential PNG chunks (metadata, EXIF, text) keeping only image data */
-function stripPngMetadata(data: Uint8Array): Uint8Array {
-  const PNG_SIG = [137, 80, 78, 71, 13, 10, 26, 10];
-  for (let i = 0; i < 8; i++) {
-    if (data[i] !== PNG_SIG[i]) return data;
-  }
-  const keepTypes = new Set(["IHDR", "PLTE", "tRNS", "IDAT", "IEND"]);
-  const chunks: Uint8Array[] = [data.slice(0, 8)];
-  let offset = 8;
-  while (offset < data.length) {
-    const len = (data[offset] << 24) | (data[offset+1] << 16) | (data[offset+2] << 8) | data[offset+3];
-    const type = String.fromCharCode(data[offset+4], data[offset+5], data[offset+6], data[offset+7]);
-    const chunkSize = 12 + len;
-    if (keepTypes.has(type)) {
-      chunks.push(data.slice(offset, offset + chunkSize));
-    }
-    offset += chunkSize;
-    if (type === "IEND") break;
-  }
-  const totalLen = chunks.reduce((s, c) => s + c.length, 0);
-  const result = new Uint8Array(totalLen);
-  let pos = 0;
-  for (const chunk of chunks) { result.set(chunk, pos); pos += chunk.length; }
-  return result;
-}
+import { generateImageWithCascade, imageFailurePayload } from "../_shared/openrouter.ts";
+import { requireProjectAccess } from "../_shared/auth.ts";
+import { corsHeaders, handleOptions, jsonResponse } from "../_shared/http.ts";
+import { adminClient, imageToBytes, uploadGeneratedImage } from "../_shared/storage.ts";
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleOptions(req);
+  if (preflight) return preflight;
+  const START_TS = Date.now();
 
   try {
-    const { requireProjectAccess } = await import("../_shared/auth.ts");
     const { photos, projectId } = await req.json();
 
     const authed = await requireProjectAccess(req, projectId, corsHeaders);
@@ -49,9 +18,7 @@ serve(async (req) => {
     if (!photos || photos.length === 0) {
       throw new Error("Nenhuma foto de pessoa fornecida");
     }
-
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY not configured");
+    if (!Deno.env.get("OPENROUTER_API_KEY")) throw new Error("OPENROUTER_API_KEY not configured");
 
     // Use the first photo as the primary reference
     const primaryPhoto = photos[0];
@@ -89,10 +56,7 @@ CRITICAL: The lighting and color grading must remain identical to the input sour
     // Build content with all provided photos
     const userContent: any[] = [
       { type: "text", text: gridPrompt },
-      {
-        type: "image_url",
-        image_url: { url: primaryPhoto },
-      },
+      { type: "image_url", image_url: { url: primaryPhoto } },
     ];
 
     // Add additional photos as extra references
@@ -105,74 +69,28 @@ CRITICAL: The lighting and color grading must remain identical to the input sour
 
     console.log("Generating person grid with", photos.length, "reference photos...");
 
-    const imageSettings = await loadModelSettings("image_generation");
-    const cascade = buildModelCascade(imageSettings);
-    let generatedImage: string | undefined;
-    let lastStatus = 0;
-    let lastErr: string | null = null;
-
-    for (const { model } of cascade) {
-      const r = await callOpenRouter({
-        model,
-        messages: [
-          { role: "system", content: "You are an expert cinematographer and character consistency specialist. Generate photorealistic multi-angle grids maintaining absolute character fidelity." },
-          { role: "user", content: userContent },
-        ],
-        modalities: ["image", "text"],
-      });
-      lastStatus = r.status;
-      if (!r.ok) {
-        lastErr = r.errorBody ?? null;
-        console.error(`person-grid OpenRouter error (${model}):`, r.status, lastErr);
-        if (r.status === 402) {
-          return new Response(JSON.stringify({ error: "Créditos insuficientes na OpenRouter." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        }
-        if (r.status === 429) {
-          const ra = r.retryAfter ? parseInt(r.retryAfter, 10) : NaN;
-          await new Promise(res => setTimeout(res, !Number.isNaN(ra) && ra > 0 ? Math.min(ra * 1000, 8000) : 1500));
-        }
-        continue;
-      }
-      generatedImage = extractImageUrl(r.data);
-      if (generatedImage) break;
-    }
-
-    if (!generatedImage) {
-      if (lastStatus === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em breve." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-      throw new Error("Nenhuma imagem foi gerada pela IA: " + (lastErr || "sem detalhes"));
-    }
-
-    // Upload to storage
-    const base64Data = generatedImage.replace(/^data:image\/\w+;base64,/, "");
-    const rawBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
-    const imageBytes = stripPngMetadata(rawBytes);
-    const filePath = `${projectId}/grid-${crypto.randomUUID()}.png`;
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    const { error: uploadError } = await supabase.storage
-      .from("people-photos")
-      .upload(filePath, imageBytes, { contentType: "image/png" });
-    if (uploadError) throw uploadError;
-
-    const { data: { publicUrl } } = supabase.storage
-      .from("people-photos")
-      .getPublicUrl(filePath);
-
-    console.log("Grid generated and uploaded:", publicUrl);
-
-    return new Response(JSON.stringify({ success: true, gridUrl: publicUrl }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const result = await generateImageWithCascade({
+      messages: [
+        { role: "system", content: "You are an expert cinematographer and character consistency specialist. Generate photorealistic multi-angle grids maintaining absolute character fidelity." },
+        { role: "user", content: userContent },
+      ],
+      aspectRatio: "16:9",
+      track: { functionName: "generate-person-grid", projectId, userId: authed.userId },
+      startedAt: START_TS,
     });
+
+    if (!result.ok || !result.image) {
+      const failure = imageFailurePayload(result);
+      return jsonResponse(failure.body, failure.status, failure.headers);
+    }
+
+    const bytes = await imageToBytes(result.image);
+    const gridUrl = await uploadGeneratedImage(adminClient(), "people-photos", projectId, bytes, "grid-");
+    console.log("Grid generated and uploaded:", gridUrl);
+
+    return jsonResponse({ success: true, gridUrl });
   } catch (e) {
     console.error("generate-person-grid error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: e instanceof Error ? e.message : "Unknown error" }, 500);
   }
 });

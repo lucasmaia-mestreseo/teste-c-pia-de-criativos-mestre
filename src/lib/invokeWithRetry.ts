@@ -6,6 +6,8 @@ interface InvokeWithRetryOptions {
   maxRetries?: number;
   friendlyName?: string;
   projectId?: string;
+  /** Don't show "tentativa X de Y" toasts (for background calls like the automatic review). */
+  silent?: boolean;
 }
 
 const ERROR_MESSAGES: Record<number, string> = {
@@ -148,6 +150,10 @@ export async function invokeWithRetry<T = any>(
       // Don't retry on credits / payload-too-large
       if (parsed.status === 402 || parsed.status === 413) break;
 
+      // The server already ran the whole model cascade (up to 4 paid image
+      // attempts) — retrying from here would multiply the cost of one click.
+      if (parsed.source === 'openrouter' && parsed.stage === 'image-generation' && parsed.status !== 429) break;
+
       if (attempt < maxRetries) {
         // Respect retry_after if provided, else exponential backoff
         const delay = parsed.retryAfter
@@ -155,12 +161,14 @@ export async function invokeWithRetry<T = any>(
           : Math.pow(2, attempt - 1) * 1000;
 
         const isRateLimit = parsed.status === 429;
-        toast.info(`Tentativa ${attempt + 1} de ${maxRetries}...`, {
-          description: isRateLimit
-            ? `Serviço de IA limitando. Aguardando ${Math.round(delay / 1000)}s antes de tentar novamente.`
-            : `Reconectando com ${friendlyName}`,
-          duration: delay,
-        });
+        if (!options.silent) {
+          toast.info(`Tentativa ${attempt + 1} de ${maxRetries}...`, {
+            description: isRateLimit
+              ? `Serviço de IA limitando. Aguardando ${Math.round(delay / 1000)}s antes de tentar novamente.`
+              : `Reconectando com ${friendlyName}`,
+            duration: delay,
+          });
+        }
         await new Promise((r) => setTimeout(r, delay));
       }
     }

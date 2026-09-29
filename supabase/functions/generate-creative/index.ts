@@ -1,18 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
-  buildModelCascade,
-  callOpenRouter,
   callOpenRouterWithCascade,
-  extractImageUrl,
-  loadModelSettings,
+  generateImageWithCascade,
+  imageFailurePayload,
 } from "../_shared/openrouter.ts";
+import { corsHeaders, handleOptions, jsonResponse } from "../_shared/http.ts";
+import { adminClient, imageToBytes, parseStorageUrl, signProjectStorageUrl, signStorageUrl, uploadGeneratedImage } from "../_shared/storage.ts";
+import { requireProjectAccess } from "../_shared/auth.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+type Track = { functionName: string; projectId: string; userId: string };
 
 /* ------------------------------------------------------------------ */
 /*  Helper: detect if user wants full photo replacement vs face swap  */
@@ -40,10 +36,11 @@ function detectPhotoMode(prompt: string): "replace" | "swap" {
 /* ------------------------------------------------------------------ */
 /*  Helper: pre-analyze logo content (texts, structure) via vision AI */
 /* ------------------------------------------------------------------ */
-async function analyzeLogoContent(logoUrl: string): Promise<string | null> {
+async function analyzeLogoContent(logoUrl: string, track: Track): Promise<string | null> {
   try {
     const result = await callOpenRouterWithCascade({
       settingsKey: "vision_analysis",
+      track,
       messages: [
         {
           role: "user",
@@ -73,31 +70,42 @@ Be precise and exhaustive. Every single character of text must be listed. Answer
   }
 }
 
-/** Strip non-essential PNG chunks (metadata, EXIF, text) keeping only image data */
-function stripPngMetadata(data: Uint8Array): Uint8Array {
-  const PNG_SIG = [137, 80, 78, 71, 13, 10, 26, 10];
-  // Verify PNG signature
-  for (let i = 0; i < 8; i++) {
-    if (data[i] !== PNG_SIG[i]) return data; // Not a PNG, return as-is
+/**
+ * The logo analysis only depends on the logo file, so it is cached on the brand
+ * kit (keyed by storage path) instead of paying a vision call on every generation.
+ */
+async function getLogoAnalysis(projectId: string, logoUrl: string, track: Track): Promise<string | null> {
+  const parsed = parseStorageUrl(logoUrl);
+  const cacheKey = parsed ? `${parsed.bucket}/${parsed.path}` : null;
+  const db = adminClient();
+  if (cacheKey) {
+    const { data: kit } = await db
+      .from("brand_kits")
+      .select("logo_analysis, logo_analysis_source")
+      .eq("project_id", projectId)
+      .maybeSingle();
+    if (kit?.logo_analysis && kit.logo_analysis_source === cacheKey) return kit.logo_analysis;
   }
-  const keepTypes = new Set(["IHDR", "PLTE", "tRNS", "IDAT", "IEND"]);
-  const chunks: Uint8Array[] = [data.slice(0, 8)]; // signature
-  let offset = 8;
-  while (offset < data.length) {
-    const len = (data[offset] << 24) | (data[offset+1] << 16) | (data[offset+2] << 8) | data[offset+3];
-    const type = String.fromCharCode(data[offset+4], data[offset+5], data[offset+6], data[offset+7]);
-    const chunkSize = 12 + len; // 4 len + 4 type + data + 4 crc
-    if (keepTypes.has(type)) {
-      chunks.push(data.slice(offset, offset + chunkSize));
-    }
-    offset += chunkSize;
-    if (type === "IEND") break;
+  const analysis = await analyzeLogoContent(logoUrl, track);
+  if (analysis && cacheKey) {
+    await db.from("brand_kits")
+      .update({ logo_analysis: analysis, logo_analysis_source: cacheKey })
+      .eq("project_id", projectId);
   }
-  const totalLen = chunks.reduce((s, c) => s + c.length, 0);
-  const result = new Uint8Array(totalLen);
-  let pos = 0;
-  for (const chunk of chunks) { result.set(chunk, pos); pos += chunk.length; }
-  return result;
+  return analysis;
+}
+
+/** Keep the project context short so it guides tone and scene without flooding the image prompt. */
+function buildContextSection(context: string | null, voiceGuide: string | null): string | null {
+  const ctx = (context || "").trim();
+  const voice = (voiceGuide || "").trim();
+  if (!ctx && !voice) return null;
+  const parts = [`═══ SEÇÃO 1B: CONTEXTO DO PROJETO (referência de tom e público) ═══`];
+  if (ctx) parts.push(`Sobre o negócio:\n${ctx.slice(0, 2500)}`);
+  if (voice) parts.push(`Tom de voz:\n${voice.slice(0, 1200)}`);
+  parts.push(`Use este contexto para escolher cenário, pessoas, objetos e estilo coerentes com o negócio e o público.
+NÃO escreva na imagem nenhum texto que o usuário não pediu — o contexto orienta o visual, não adiciona copy.`);
+  return parts.join("\n\n");
 }
 
 /* ------------------------------------------------------------------ */
@@ -133,6 +141,7 @@ function buildInstructionBlock(
   logoPosition: string | null = null,
   logoSize: string | null = null,
   personPosition: string | null = null,
+  contextSection: string | null = null,
 ): string {
   const sections: string[] = [];
 
@@ -143,6 +152,8 @@ Instrução do usuário:
 "${userPrompt}"
 
 IMPORTANTE: Tudo que o usuário escreveu acima é uma ORDEM OBRIGATÓRIA. Cada palavra, cada pedido, cada detalhe DEVE ser executado na imagem final. Não ignore nenhuma parte desta instrução.`);
+
+  if (contextSection) sections.push(contextSection);
 
   /* --- 2. TEXTO OBRIGATÓRIO --- */
   const textRules: string[] = [];
@@ -431,25 +442,42 @@ Se TODOS os itens estiverem verificados, a imagem está pronta.`);
 /*  Main handler                                                       */
 /* ------------------------------------------------------------------ */
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleOptions(req);
+  if (preflight) return preflight;
+
+  // Edge-function hard limit is ~150s; every step (logo analysis included) counts.
+  const START_TS = Date.now();
 
   try {
-    const { requireProjectAccess } = await import("../_shared/auth.ts");
-    const { prompt, format, swipeFileId, swipeFileUrl, projectId, brandKit, elementOverrides, mode, templateId, templateFields, attachedImages, ignoreContext, ignoreBrandKit, logoPosition, logoSize, personPosition } = await req.json();
+    const bodyRaw = await req.json();
+    const { prompt, format, swipeFileId, projectId, elementOverrides, mode, templateId, templateFields, ignoreContext, ignoreBrandKit, logoPosition, logoSize, personPosition } = bodyRaw;
 
     const authed = await requireProjectAccess(req, projectId, corsHeaders);
     if (authed instanceof Response) return authed;
     const authenticatedUserId = authed.userId;
-
-    // Convert templateBaseImageUrl to signed URL later (bucket is private)
+    const track: Track = { functionName: "generate-creative", projectId, userId: authenticatedUserId };
 
     const creationMode = mode || 'swipe';
     if (!Deno.env.get("OPENROUTER_API_KEY")) throw new Error("OPENROUTER_API_KEY not configured");
 
-    const imageSettings = await loadModelSettings("image_generation");
-    const cascade = buildModelCascade(imageSettings);
+    const db = adminClient();
+
+    // Storage buckets are private: make sure every image URL of this project that
+    // we hand to the AI provider is signed (attachments, for instance, arrive in
+    // public-URL format). Files of other projects are never signed here.
+    const sign = (u: string | null | undefined) => signProjectStorageUrl(db, u, projectId);
+    const swipeFileUrl = await sign(bodyRaw.swipeFileUrl);
+    const attachedImages: string[] = await Promise.all(
+      (Array.isArray(bodyRaw.attachedImages) ? bodyRaw.attachedImages : []).map(async (u: string) => (await sign(u)) ?? u),
+    );
+    const brandKit = bodyRaw.brandKit
+      ? {
+        ...bodyRaw.brandKit,
+        logoUrl: await sign(bodyRaw.brandKit.logoUrl),
+        personPhotoUrl: await sign(bodyRaw.brandKit.personPhotoUrl),
+        personGridUrl: await sign(bodyRaw.brandKit.personGridUrl),
+      }
+      : null;
 
     const hasLogo = !!(brandKit?.logoUrl);
     const hasPersonPhoto = !!(brandKit?.personPhotoUrl);
@@ -458,9 +486,19 @@ serve(async (req) => {
 
     let logoAnalysis: string | null = null;
     if (hasLogo) {
-      console.log("Analyzing logo content...");
-      logoAnalysis = await analyzeLogoContent(brandKit.logoUrl);
-      console.log("Logo analysis result:", logoAnalysis ? "success" : "failed");
+      logoAnalysis = await getLogoAnalysis(projectId, brandKit.logoUrl, track);
+      console.log("Logo analysis:", logoAnalysis ? "ok" : "failed");
+    }
+
+    // Project context & voice guide (the "Usar contexto" toggle used to be ignored here).
+    let contextSection: string | null = null;
+    if (!ignoreContext) {
+      const { data: project } = await db
+        .from("projects")
+        .select("context, voice_guide")
+        .eq("id", projectId)
+        .maybeSingle();
+      contextSection = buildContextSection(project?.context ?? null, project?.voice_guide ?? null);
     }
 
     /* ---- Build prompt & content based on creation mode ---- */
@@ -471,10 +509,7 @@ serve(async (req) => {
 
     if (creationMode === 'templates' && templateId && templateFields) {
       // Fetch template prompt from database
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const dbClient = createClient(supabaseUrl, supabaseKey);
-      const { data: tpRow } = await dbClient
+      const { data: tpRow } = await db
         .from("template_prompts")
         .select("prompt, style_prompt, base_image_url")
         .eq("id", templateId)
@@ -482,17 +517,8 @@ serve(async (req) => {
 
       const compositionPrompt = tpRow?.prompt || '';
       const stylePrompt = tpRow?.style_prompt || '';
-      templateBaseImageUrl = tpRow?.base_image_url || null;
       // Sign private-bucket URL for external AI access
-      if (templateBaseImageUrl) {
-        const m = templateBaseImageUrl.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/([^?]+)/);
-        if (m) {
-          const { data: signed } = await dbClient.storage.from(m[1]).createSignedUrl(decodeURIComponent(m[2]), 3600);
-          if (signed?.signedUrl) templateBaseImageUrl = signed.signedUrl;
-        }
-      }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const _skip = 0;
+      templateBaseImageUrl = await signStorageUrl(db, tpRow?.base_image_url || null);
       const fieldLines = Object.entries(templateFields)
         .filter(([_, v]) => v && (v as string).trim())
         .map(([k, v]) => `- ${k}: ${v}`)
@@ -544,6 +570,7 @@ CRITICAL RULES:
         hasPersonPhoto || hasPersonGrid, photoMode, logoAnalysis,
         elementOverrides || null, !!ignoreBrandKit,
         logoPosition || null, logoSize || null, personPosition || null,
+        contextSection,
       );
       userContent.push(
         { type: "text", text: "📎 IMAGEM DE REFERÊNCIA (use como base de layout e estrutura visual):" },
@@ -555,6 +582,7 @@ CRITICAL RULES:
         effectivePrompt, format, brandKit, hasLogo,
         hasPersonPhoto || hasPersonGrid, photoMode, logoAnalysis, null, !!ignoreBrandKit,
         logoPosition || null, logoSize || null, personPosition || null,
+        contextSection,
       );
       userContent.push({ type: "text", text: instructionBlock });
 
@@ -609,146 +637,54 @@ CRITICAL RULES:
       });
     }
 
-    const MAX_ATTEMPTS = cascade.length;
-    // Edge-function hard limit is 150s. Reserve ~15s for upload/DB/auth work
-    // already done plus the final upload + insert below. Stop trying new
-    // attempts once we've spent ~125s so we can return a clean error.
-    const START_TS = Date.now();
-    const TOTAL_BUDGET_MS = 125000;
-    let generatedImage: string | undefined;
-    let lastModel = "";
-    let lastLevel: "primary" | "fallback" | "tertiary" = "primary";
-    let lastStatus: number | null = null;
-    let lastProviderBody: string | null = null;
-    let lastRetryAfter: string | null = null;
-    let lastRequestId: string | null | undefined = null;
+    const result = await generateImageWithCascade({
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
+      ],
+      aspectRatio: format,
+      track,
+      startedAt: START_TS,
+    });
 
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      const elapsed = Date.now() - START_TS;
-      const remaining = TOTAL_BUDGET_MS - elapsed;
-      if (remaining < 20000) {
-        console.warn(`Stopping cascade: only ${remaining}ms of budget left before edge timeout.`);
-        break;
-      }
-      const { model, level } = cascade[attempt - 1];
-      lastModel = model;
-      lastLevel = level;
-
-      console.log(`Attempt ${attempt}/${MAX_ATTEMPTS} with model ${model} (${level}) via OpenRouter (budget ${remaining}ms)`);
-
-      const result = await callOpenRouter({
-        model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userContent },
-        ],
-        modalities: ["image", "text"],
-        timeoutMs: Math.max(20000, Math.min(remaining - 5000, 90000)),
-      });
-
-      lastStatus = result.status;
-      lastRequestId = result.requestId;
-      lastRetryAfter = result.retryAfter ?? null;
-
-      if (!result.ok) {
-        lastProviderBody = result.errorBody ?? null;
-        console.error(`OpenRouter error (attempt ${attempt}, model ${model}, status ${result.status}):`, lastProviderBody);
-
-        if (result.status === 402) {
-          return new Response(JSON.stringify({
-            error: "Créditos insuficientes na OpenRouter. Adicione saldo à conta.",
-            source: "openrouter", provider: "openrouter", stage: "image-generation",
-            status: 402, model, level, attempt,
-            request_id: lastRequestId, provider_body: lastProviderBody,
-          }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        }
-
-        if (result.status === 429) {
-          if (attempt < MAX_ATTEMPTS) {
-            const ra = lastRetryAfter ? parseInt(lastRetryAfter, 10) : NaN;
-            const waitMs = !Number.isNaN(ra) && ra > 0 ? Math.min(ra * 1000, 10000) : Math.min(2000 * attempt, 8000);
-            console.log(`Rate limited; waiting ${waitMs}ms before next attempt (cascading model)`);
-            await new Promise(r => setTimeout(r, waitMs));
-            continue;
-          }
-          return new Response(JSON.stringify({
-            error: "OpenRouter está limitando novas gerações. Tente novamente em instantes.",
-            source: "openrouter", provider: "openrouter", stage: "image-generation",
-            status: 429, model, level, attempt, retry_after: lastRetryAfter,
-            request_id: lastRequestId, provider_body: lastProviderBody,
-          }), {
-            status: 429,
-            headers: { ...corsHeaders, "Content-Type": "application/json", ...(lastRetryAfter ? { "Retry-After": lastRetryAfter } : {}) },
-          });
-        }
-
-        if (attempt < MAX_ATTEMPTS) {
-          await new Promise(r => setTimeout(r, 1000 * attempt));
-          continue;
-        }
-        return new Response(JSON.stringify({
-          error: "Erro no provedor de IA ao gerar a imagem.",
-          source: "openrouter", provider: "openrouter", stage: "image-generation",
-          status: result.status, model, level, attempt,
-          request_id: lastRequestId, provider_body: lastProviderBody,
-        }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-
-      generatedImage = extractImageUrl(result.data);
-      if (generatedImage) break;
-
-      console.warn(`Attempt ${attempt} returned no image. finish_reason: ${result.data?.choices?.[0]?.finish_reason}`);
-      if (attempt < MAX_ATTEMPTS) await new Promise(r => setTimeout(r, 800));
+    if (!result.ok || !result.image) {
+      const failure = imageFailurePayload(result);
+      return jsonResponse(failure.body, failure.status, failure.headers);
     }
 
-
-    if (!generatedImage) {
-      return new Response(JSON.stringify({
-        error: "A IA não conseguiu gerar a imagem após múltiplas tentativas. Tente novamente ou simplifique o prompt.",
-        source: "openrouter", provider: "openrouter", stage: "image-generation",
-        status: lastStatus, model: lastModel, level: lastLevel, attempt: MAX_ATTEMPTS,
-        request_id: lastRequestId, provider_body: lastProviderBody,
-      }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    // Extract base64 data and strip PNG metadata before upload
-    const base64Data = generatedImage.replace(/^data:image\/\w+;base64,/, "");
-    const rawBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
-    const imageBytes = stripPngMetadata(rawBytes);
-    const filePath = `${projectId}/${crypto.randomUUID()}.png`;
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    const { error: uploadError } = await supabase.storage
-      .from("generated-creatives")
-      .upload(filePath, imageBytes, { contentType: "image/png" });
-    if (uploadError) throw uploadError;
-
-    const { data: { publicUrl } } = supabase.storage
-      .from("generated-creatives")
-      .getPublicUrl(filePath);
+    const imageBytes = await imageToBytes(result.image);
+    const publicUrl = await uploadGeneratedImage(db, "generated-creatives", projectId, imageBytes);
+    const totalCost = (result.costUsd || 0);
 
     // Save to database
-    const { error: dbError } = await supabase.from("generated_creatives").insert({
+    const { data: inserted, error: dbError } = await db.from("generated_creatives").insert({
       project_id: projectId,
       swipe_file_id: swipeFileId || null,
       image_url: publicUrl,
       prompt: effectivePrompt,
       format,
       created_by: authenticatedUserId,
-    });
+      kind: "generate",
+      model_used: result.model,
+      cost_usd: totalCost,
+      generation_meta: {
+        mode: creationMode,
+        format,
+        hasLogo,
+        hasPerson: hasPersonPhoto || hasPersonGrid,
+        ignoreBrandKit: !!ignoreBrandKit,
+        ignoreContext: !!ignoreContext,
+        logoSize: logoSize || null,
+        logoPosition: logoPosition || null,
+        personPosition: personPosition || null,
+        attempts: result.attempts,
+      },
+    }).select("id").single();
     if (dbError) throw dbError;
 
-    return new Response(JSON.stringify({ success: true, imageUrl: publicUrl }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ success: true, imageUrl: publicUrl, creativeId: inserted.id, model: result.model, costUsd: totalCost });
   } catch (e) {
     console.error("generate-creative error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: e instanceof Error ? e.message : "Unknown error" }, 500);
   }
 });

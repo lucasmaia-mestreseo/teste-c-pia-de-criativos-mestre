@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import ExpandablePrompt from '@/components/ExpandablePrompt';
+import CreativeInsights, { ReviewBadge } from '@/components/CreativeInsights';
 import { useGeneratedCreatives, useDeleteCreative, useToggleFavorite } from '@/hooks/useGeneratedCreatives';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -8,6 +9,7 @@ import { Slider } from '@/components/ui/slider';
 import { Download, Trash2, Star, Minimize2, Maximize2, Eye, Loader2, ImagePlus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { stripPngMetadata } from '@/lib/stripPngMetadata';
 import { toast } from 'sonner';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface DynamicResultsPanelProps {
   projectId: string | null;
@@ -25,9 +27,10 @@ export default function DynamicResultsPanel({ projectId, generating, onUseAsRefe
   const { data: creatives } = useGeneratedCreatives(projectId);
   const deleteCreative = useDeleteCreative();
   const toggleFavorite = useToggleFavorite();
+  const { can } = usePermissions();
 
   const dynamicCreatives = (creatives || []).filter((c: any) =>
-    /^\[(conservative|innovative|radical)\]/.test(c.prompt)
+    c.kind === 'dynamic' || /^\[(conservative|innovative|radical)\]/.test(c.prompt)
   );
 
   const modalCreative = selectedIndex !== null ? dynamicCreatives[selectedIndex] : null;
@@ -101,19 +104,26 @@ export default function DynamicResultsPanel({ projectId, generating, onUseAsRefe
         {dynamicCreatives.map((c: any, idx: number) => (
           <div key={c.id} className="group relative rounded-md overflow-hidden border bg-secondary flex-shrink-0" style={{ width: thumbSize, height: thumbSize }}>
             <img src={c.image_url} alt={c.prompt} className="w-full h-full object-cover" />
+            <ReviewBadge creative={c} />
             <div className="absolute bottom-0 left-0 right-0 bg-background/90 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-0.5 py-1">
               <button onClick={() => setSelectedIndex(idx)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Detalhes">
                 <Eye className="h-3 w-3 text-muted-foreground" />
               </button>
-              <button onClick={() => toggleFavorite.mutate({ id: c.id, projectId: c.project_id, favorite: !c.favorite })} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Favoritar">
-                <Star className={`h-3 w-3 ${c.favorite ? 'fill-primary text-primary' : 'text-muted-foreground'}`} />
-              </button>
-              <button onClick={() => handleDownload(c.image_url, `creative-${c.id}.png`)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Download">
-                <Download className="h-3 w-3 text-muted-foreground" />
-              </button>
-              <button onClick={() => setDeleteTarget({ id: c.id, projectId: c.project_id })} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Excluir">
-                <Trash2 className="h-3 w-3 text-muted-foreground" />
-              </button>
+              {can('favorite_creative') && (
+                <button onClick={() => toggleFavorite.mutate({ id: c.id, projectId: c.project_id, favorite: !c.favorite })} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Favoritar">
+                  <Star className={`h-3 w-3 ${c.favorite ? 'fill-primary text-primary' : 'text-muted-foreground'}`} />
+                </button>
+              )}
+              {can('download_creative') && (
+                <button onClick={() => handleDownload(c.image_url, `creative-${c.id}.png`)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Download">
+                  <Download className="h-3 w-3 text-muted-foreground" />
+                </button>
+              )}
+              {can('delete_creative') && (
+                <button onClick={() => setDeleteTarget({ id: c.id, projectId: c.project_id })} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Excluir">
+                  <Trash2 className="h-3 w-3 text-muted-foreground" />
+                </button>
+              )}
               {onUseAsReference && (
                 <button onClick={() => onUseAsReference(c.image_url, c.project_id)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Usar como referência">
                   <ImagePlus className="h-3 w-3 text-muted-foreground" />
@@ -140,9 +150,12 @@ export default function DynamicResultsPanel({ projectId, generating, onUseAsRefe
                 <ChevronRight className="h-6 w-6 text-foreground" />
               </button>
               <div className="flex flex-col gap-2 min-w-[180px] max-w-[220px] pt-8 max-h-[80vh] overflow-y-auto">
+                {can('download_creative') && (
                 <Button size="sm" variant="outline" onClick={() => handleDownload(modalCreative.image_url, `creative-${modalCreative.id}.png`)}>
                   <Download className="h-3.5 w-3.5 mr-1" /> Download
                 </Button>
+                )}
+                {can('favorite_creative') && (
                 <Button
                   size="sm"
                   variant={modalCreative.favorite ? 'default' : 'outline'}
@@ -153,16 +166,19 @@ export default function DynamicResultsPanel({ projectId, generating, onUseAsRefe
                   <Star className={`h-3.5 w-3.5 mr-1 ${modalCreative.favorite ? 'fill-primary-foreground' : ''}`} />
                   {modalCreative.favorite ? 'Favoritado' : 'Favoritar'}
                 </Button>
+                )}
+                {can('delete_creative') && (
                 <Button size="sm" variant="destructive" onClick={() => setDeleteTarget({ id: modalCreative.id, projectId: modalCreative.project_id })}>
                   <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir
                 </Button>
+                )}
                 {onUseAsReference && (
                   <Button size="sm" variant="outline" onClick={() => { onUseAsReference(modalCreative.image_url, modalCreative.project_id); setSelectedIndex(null); }}>
                     <ImagePlus className="h-3.5 w-3.5 mr-1" /> Referência
                   </Button>
                 )}
+                <CreativeInsights creative={modalCreative} />
                 <ExpandablePrompt text={modalCreative.prompt} />
-                <p className="text-[10px] text-muted-foreground"><strong>Formato:</strong> {modalCreative.format}</p>
                 <p className="text-[10px] text-muted-foreground">{(selectedIndex ?? 0) + 1} / {dynamicCreatives.length}</p>
               </div>
             </div>

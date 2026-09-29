@@ -26,6 +26,11 @@ Galeria de resultados para exibir os criativos gerados no projeto, com a opção
 
 Histórico, onde salvo todos os criativos gerados no banco de dados para consulta futura
 
+## Documentação técnica
+
+- [Arquitetura](docs/ARQUITETURA.md) — como a plataforma funciona (telas, Edge Functions, IA, banco).
+- [Melhorias 2026-09](docs/MELHORIAS-2026-09.md) — Ferramentas, Redimensionar, Desdobramento, Revisão, Custos e correções; inclui o passo a passo de publicação.
+
 This project was built with [Lovable](https://lovable.dev).
 
 ## Build with Lovable

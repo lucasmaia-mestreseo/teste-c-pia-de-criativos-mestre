@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import ExpandablePrompt from '@/components/ExpandablePrompt';
+import CreativeInsights, { ReviewBadge } from '@/components/CreativeInsights';
 import { useGeneratedCreatives, useDeleteCreative, useToggleFavorite } from '@/hooks/useGeneratedCreatives';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -126,6 +127,7 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
         {filtered.map((c: any, idx: number) => (
           <div key={c.id} className="group relative rounded-md overflow-hidden border bg-secondary flex-shrink-0" style={{ width: thumbSize, height: thumbSize }}>
             <img src={c.image_url} alt={c.prompt} className="w-full h-full object-cover" />
+            <ReviewBadge creative={c} />
             <div className="absolute bottom-0 left-0 right-0 bg-background/90 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-0.5 py-1">
               <button onClick={() => setSelectedIndex(idx)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Detalhes">
                 <Eye className="h-3 w-3 text-muted-foreground" />
@@ -208,8 +210,8 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
                     <ImagePlus className="h-3.5 w-3.5 mr-1" /> Referência
                   </Button>
                 )}
+                <CreativeInsights creative={modalCreative} />
                 <ExpandablePrompt text={modalCreative.prompt} />
-                <p className="text-[10px] text-muted-foreground"><strong>Formato:</strong> {modalCreative.format}</p>
                 <p className="text-[10px] text-muted-foreground">{(selectedIndex ?? 0) + 1} / {filtered.length}</p>
               </div>
             </div>

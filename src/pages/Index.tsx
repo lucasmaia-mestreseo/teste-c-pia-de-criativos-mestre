@@ -13,14 +13,19 @@ import DashboardPanel from '@/components/DashboardPanel';
 import DynamicGeneratePanel from '@/components/DynamicGeneratePanel';
 import DynamicResultsPanel from '@/components/DynamicResultsPanel';
 import CreativesPanel from '@/components/CreativesPanel';
+import UnfoldPanel from '@/components/UnfoldPanel';
+import UnfoldResultsPanel from '@/components/UnfoldResultsPanel';
 import ProjectOnboarding from '@/components/ProjectOnboarding';
 import { useProject } from '@/hooks/useProject';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
-type RightPanel = 'generate' | 'brandkit' | 'context' | 'history' | 'dynamic' | 'creatives';
+export type RightPanel = 'generate' | 'brandkit' | 'context' | 'history' | 'dynamic' | 'creatives' | 'unfold';
 
-const VALID_PANELS: RightPanel[] = ['generate', 'brandkit', 'context', 'history', 'dynamic', 'creatives'];
+const VALID_PANELS: RightPanel[] = ['generate', 'brandkit', 'context', 'history', 'dynamic', 'creatives', 'unfold'];
+
+const EMPTY_FREE_PROMPT: FreePromptData = { prompt: '', attachedImages: [] };
+const EMPTY_TEMPLATE: TemplateData = { templateId: null, fields: {}, prompt: '', attachedImages: [] };
 
 const Index = () => {
   const { projectId: urlProjectId, panel: urlPanel } = useParams<{ projectId?: string; panel?: string }>();
@@ -32,34 +37,40 @@ const Index = () => {
   );
   const [selectedSwipe, setSelectedSwipe] = useState<Tables<'swipe_files'> | null>(null);
   const [creationMode, setCreationMode] = useState<CreationMode>('free');
-  const [freePromptData, setFreePromptData] = useState<FreePromptData>({ prompt: '', attachedImages: [] });
-  const [templateData, setTemplateData] = useState<TemplateData>({ templateId: null, fields: {}, prompt: '', attachedImages: [] });
+  const [freePromptData, setFreePromptData] = useState<FreePromptData>(EMPTY_FREE_PROMPT);
+  const [templateData, setTemplateData] = useState<TemplateData>(EMPTY_TEMPLATE);
   const [generating, setGenerating] = useState(false);
+  const [dynamicGenerating, setDynamicGenerating] = useState(false);
+  const [unfoldPending, setUnfoldPending] = useState(0);
 
   const project = useProject(projectId);
-  const onboardingPending = !!(projectId && project.data && !(project.data as any).onboarding_completed);
+  const onboardingPending = !!(projectId && project.data && !project.data.onboarding_completed);
 
-  // Sync URL → state when URL params change
+  const resetProjectState = () => {
+    setSelectedSwipe(null);
+    setFreePromptData(EMPTY_FREE_PROMPT);
+    setTemplateData(EMPTY_TEMPLATE);
+  };
+
+  // Sync URL → state when URL params change (including the browser back/forward buttons)
   useEffect(() => {
     if (urlProjectId && urlProjectId !== projectId) {
       setProjectId(urlProjectId);
-      setSelectedSwipe(null);
-      setFreePromptData({ prompt: '', attachedImages: [] });
-      setTemplateData({ templateId: null, fields: {}, prompt: '', attachedImages: [] });
+      resetProjectState();
+    }
+    if (!urlProjectId && projectId) {
+      // Back to "/criativos" → show the dashboard again
+      setProjectId(null);
     }
     if (urlPanel && VALID_PANELS.includes(urlPanel as RightPanel) && urlPanel !== activePanel) {
       setActivePanel(urlPanel as RightPanel);
     }
-    if (!urlProjectId && projectId) {
-      // We're on / but have a projectId — clear it
-    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlProjectId, urlPanel]);
 
   const handleProjectChange = (id: string) => {
     setProjectId(id);
-    setSelectedSwipe(null);
-    setFreePromptData({ prompt: '', attachedImages: [] });
-    setTemplateData({ templateId: null, fields: {}, prompt: '', attachedImages: [] });
+    resetProjectState();
     setActivePanel('generate');
     navigate(`/project/${id}/generate`);
   };
@@ -91,7 +102,7 @@ const Index = () => {
 
   const handleGoToDashboard = () => {
     setProjectId(null);
-    navigate('/');
+    navigate('/criativos');
   };
 
   const showDashboard = !projectId;
@@ -135,7 +146,13 @@ const Index = () => {
 
             {activePanel === 'dynamic' && (
               <div className="w-[35%] border-r bg-card flex-shrink-0 flex flex-col">
-                <DynamicGeneratePanel projectId={projectId} />
+                <DynamicGeneratePanel projectId={projectId} onGeneratingChange={setDynamicGenerating} />
+              </div>
+            )}
+
+            {activePanel === 'unfold' && (
+              <div className="w-[35%] border-r bg-card flex-shrink-0 flex flex-col">
+                <UnfoldPanel projectId={projectId!} onPendingChange={setUnfoldPending} />
               </div>
             )}
 
@@ -150,8 +167,9 @@ const Index = () => {
               {activePanel === 'brandkit' && <BrandKitPanel projectId={projectId} />}
               {activePanel === 'context' && <ContextPanel projectId={projectId} />}
               {activePanel === 'history' && <HistoryPanel projectId={projectId} />}
-              {activePanel === 'dynamic' && <DynamicResultsPanel projectId={projectId} onUseAsReference={handleUseAsReference} />}
+              {activePanel === 'dynamic' && <DynamicResultsPanel projectId={projectId} generating={dynamicGenerating} onUseAsReference={handleUseAsReference} />}
               {activePanel === 'creatives' && <CreativesPanel projectId={projectId} onUseAsReference={handleUseAsReference} />}
+              {activePanel === 'unfold' && <UnfoldResultsPanel projectId={projectId!} pending={unfoldPending} onUseAsReference={handleUseAsReference} />}
             </div>
           </>
         )}

@@ -8,13 +8,20 @@ import { Loader2, Sparkles, ShieldCheck, Lightbulb, Rocket } from 'lucide-react'
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { invokeWithRetry } from '@/lib/invokeWithRetry';
+import { reviewCreative, runWithConcurrency } from '@/lib/creativeOps';
+import { Progress } from '@/components/ui/progress';
+import { useBrandKit } from '@/hooks/useBrandKit';
 import { useCreativeFormats } from '@/hooks/useCreativeFormats';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface DynamicGeneratePanelProps {
   projectId: string | null;
+  onGeneratingChange?: (generating: boolean) => void;
 }
+
+/** Parallel requests to the image provider; more than this tends to hit rate limits. */
+const CONCURRENCY = 2;
 
 const TYPE_CONFIG = [
   {
@@ -40,7 +47,7 @@ const TYPE_CONFIG = [
   },
 ];
 
-export default function DynamicGeneratePanel({ projectId }: DynamicGeneratePanelProps) {
+export default function DynamicGeneratePanel({ projectId, onGeneratingChange }: DynamicGeneratePanelProps) {
   const [selectedTypes, setSelectedTypes] = useState<Record<string, boolean>>({});
   const [counts, setCounts] = useState<Record<string, number>>({
     conservative: 2,
@@ -52,6 +59,10 @@ export default function DynamicGeneratePanel({ projectId }: DynamicGeneratePanel
   const [ignoreContext, setIgnoreContext] = useState(false);
   const [customPrompt, setCustomPrompt] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [includeLogo, setIncludeLogo] = useState(true);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const { data: brandKit } = useBrandKit(projectId);
+  const hasLogo = !!brandKit?.logo_url;
 
   const { data: formats } = useCreativeFormats();
   const qc = useQueryClient();
@@ -69,21 +80,50 @@ export default function DynamicGeneratePanel({ projectId }: DynamicGeneratePanel
   const handleGenerate = async () => {
     if (!projectId || !anySelected) return;
     setGenerating(true);
+    onGeneratingChange?.(true);
 
-    const types = Object.entries(selectedTypes)
+    // One request per creative: each stays well under the Edge Function time limit,
+    // results show up as they finish, and one failure does not lose the whole batch.
+    const jobs = Object.entries(selectedTypes)
       .filter(([, v]) => v)
-      .map(([type]) => ({ type, count: counts[type] || 1 }));
+      .flatMap(([type]) => Array.from({ length: counts[type] || 1 }, () => type));
+    setProgress({ done: 0, total: jobs.length });
 
     try {
-      const data = await invokeWithRetry('generate-dynamic-creative', {
-        projectId, types, format, ignoreBrandKit, ignoreContext, customPrompt: customPrompt.trim() || undefined,
-      }, { friendlyName: 'Geração Dinâmica', projectId, maxRetries: 2 });
-      toast.success(`${data.results?.length || 0} criativos gerados!`);
-      qc.invalidateQueries({ queryKey: ['generated_creatives', projectId] });
-    } catch (e: any) {
-      toast.error(e.message || 'Erro ao gerar criativos');
+      const settled = await runWithConcurrency(jobs, CONCURRENCY, async (type) => {
+        try {
+          const data = await invokeWithRetry('generate-dynamic-creative', {
+            projectId,
+            types: [{ type, count: 1 }],
+            format,
+            ignoreBrandKit,
+            ignoreContext,
+            includeLogo: includeLogo && hasLogo,
+            customPrompt: customPrompt.trim() || undefined,
+          }, { friendlyName: 'Geração Dinâmica', projectId, maxRetries: 2 });
+          qc.invalidateQueries({ queryKey: ['generated_creatives', projectId] });
+          for (const r of data.results ?? []) {
+            if (r.creativeId) void reviewCreative(qc, projectId, r.creativeId);
+          }
+          return (data.results ?? []).filter((r: any) => r.imageUrl).length as number;
+        } finally {
+          setProgress((p) => (p ? { ...p, done: p.done + 1 } : p));
+        }
+      });
+
+      const ok = settled.reduce((n, r) => n + (r.status === 'fulfilled' ? r.value : 0), 0);
+      const failed = jobs.length - ok;
+      if (ok > 0) toast.success(`${ok} criativo${ok > 1 ? 's' : ''} gerado${ok > 1 ? 's' : ''}!`);
+      if (failed > 0) {
+        const firstError = settled.find((r) => r.status === 'rejected') as PromiseRejectedResult | undefined;
+        toast.error(`${failed} de ${jobs.length} não foram gerados`, {
+          description: firstError?.reason?.message,
+        });
+      }
     } finally {
       setGenerating(false);
+      onGeneratingChange?.(false);
+      setProgress(null);
     }
   };
 
@@ -152,6 +192,12 @@ export default function DynamicGeneratePanel({ projectId }: DynamicGeneratePanel
           <Checkbox checked={ignoreBrandKit} onCheckedChange={(v) => setIgnoreBrandKit(!!v)} className="h-3.5 w-3.5" />
           <span className="text-[10px] text-muted-foreground">Ignorar Brand Kit</span>
         </label>
+        {hasLogo && (
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <Checkbox checked={includeLogo && !ignoreBrandKit} disabled={ignoreBrandKit} onCheckedChange={(v) => setIncludeLogo(!!v)} className="h-3.5 w-3.5" />
+            <span className="text-[10px] text-muted-foreground">Incluir logo</span>
+          </label>
+        )}
         <label className="flex items-center gap-1.5 cursor-pointer">
           <Checkbox checked={ignoreContext} onCheckedChange={(v) => setIgnoreContext(!!v)} className="h-3.5 w-3.5" />
           <span className="text-[10px] text-muted-foreground">Ignorar Contexto</span>
@@ -171,12 +217,21 @@ export default function DynamicGeneratePanel({ projectId }: DynamicGeneratePanel
           className="flex-1 h-8 text-xs"
         >
           {generating ? (
-            <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> Gerando...</>
+            <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> Gerando{progress ? ` ${progress.done}/${progress.total}` : '...'}</>
           ) : (
             <><Sparkles className="h-3.5 w-3.5 mr-1" /> Gerar Criativos</>
           )}
         </Button>
       </div>
+
+      {progress && (
+        <div className="space-y-1">
+          <Progress value={(progress.done / Math.max(1, progress.total)) * 100} className="h-1.5" />
+          <p className="text-[10px] text-muted-foreground">
+            {progress.done} de {progress.total} concluídos — os criativos aparecem à direita conforme ficam prontos.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

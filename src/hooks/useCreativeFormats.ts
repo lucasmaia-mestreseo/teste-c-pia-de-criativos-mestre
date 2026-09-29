@@ -15,3 +15,12 @@ export function useCreativeFormats() {
     },
   });
 }
+
+const FALLBACK_FORMATS = ['9:16', '4:5', '1:1', '16:9'];
+
+/** Active format labels (e.g. "9:16"), with a sensible fallback while loading. */
+export function useFormatOptions(): string[] {
+  const { data: formats } = useCreativeFormats();
+  const labels = (formats || []).map((f) => f.label);
+  return labels.length ? labels : FALLBACK_FORMATS;
+}

@@ -3,19 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useProjects, useCreateProject } from '@/hooks/useProjects';
 import { useRenameProject } from '@/hooks/useProject';
 import { usePermissions } from '@/hooks/usePermissions';
-import { useAuth } from '@/contexts/AuthContext';
-import { Palette, Clock, Plus, Zap, FileText, Shield, LogOut, User, Sparkles, Image, Check, ChevronsUpDown, Pencil } from 'lucide-react';
+import UserMenu from '@/components/UserMenu';
+import { Palette, Clock, Plus, Zap, FileText, Sparkles, Image, Check, ChevronsUpDown, Pencil, Layers, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-type RightPanel = 'generate' | 'brandkit' | 'context' | 'history' | 'dynamic' | 'creatives';
+import type { RightPanel } from '@/pages/Index';
 
 interface TopBarProps {
   selectedProjectId: string | null;
@@ -32,7 +30,6 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
   const projects = allProjects?.filter((p) => canAccessProject(p.id));
   const createProject = useCreateProject();
   const renameProject = useRenameProject();
-  const { profile, role, signOut } = useAuth();
   const navigate = useNavigate();
   const [newName, setNewName] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -41,14 +38,6 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
   const [projectsOpen, setProjectsOpen] = useState('');
 
   const canCreateProject = can('create_project');
-  const canAdmin = role === 'owner' || role === 'admin' || role === 'manager';
-
-  const userInitials = profile?.name
-    ?.split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2) || 'U';
 
   const nameExists = (name: string, ignoreId?: string) => {
     const n = name.trim().toLowerCase();
@@ -98,6 +87,7 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
   const navItems: { panel: RightPanel; icon: React.ElementType; label: string }[] = [
     { panel: 'generate', icon: Zap, label: 'Gerar' },
     { panel: 'dynamic', icon: Sparkles, label: 'Dinâmica' },
+    { panel: 'unfold', icon: Layers, label: 'Desdobramento' },
     { panel: 'creatives', icon: Image, label: 'Criativos' },
     { panel: 'brandkit', icon: Palette, label: 'Brand Kit' },
     { panel: 'context', icon: FileText, label: 'Contexto' },
@@ -106,6 +96,15 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
 
   return (
     <header className="h-12 border-b bg-card flex items-center px-3 gap-2 flex-shrink-0">
+      {/* Back to the tools hub */}
+      <button
+        onClick={() => navigate('/')}
+        className="p-1 -ml-1 rounded-md text-muted-foreground hover:text-primary transition-colors flex-shrink-0"
+        title="Voltar às ferramentas"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+
       {/* Logo */}
       <button
         onClick={onGoToDashboard}
@@ -231,33 +230,7 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
 
       {!selectedProjectId && <div className="flex-1" />}
 
-      {/* User avatar */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="flex items-center gap-2 p-1 rounded-md hover:bg-secondary transition-colors flex-shrink-0">
-            <Avatar className="h-7 w-7">
-              <AvatarFallback className="text-[10px] font-semibold bg-primary text-primary-foreground">
-                {userInitials}
-              </AvatarFallback>
-            </Avatar>
-            <span className="text-xs font-medium truncate max-w-[100px] hidden lg:block">{profile?.name}</span>
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => navigate('/profile')}>
-            <User className="h-3.5 w-3.5 mr-2" /> Perfil
-          </DropdownMenuItem>
-          {canAdmin && (
-            <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => navigate('/admin')}>
-              <Shield className="h-3.5 w-3.5 mr-2" /> Administração
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem className="cursor-pointer text-xs" onClick={signOut}>
-            <LogOut className="h-3.5 w-3.5 mr-2" /> Sair
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <UserMenu />
     </header>
   );
 }

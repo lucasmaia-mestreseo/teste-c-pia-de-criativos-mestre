@@ -49,6 +49,7 @@ serve(async (req) => {
 
     const result = await callOpenRouterWithCascade({
       settingsKey: "vision_analysis",
+      track: { functionName: "analyze-swipe", projectId: sf.project_id, userId: authed.userId },
       messages: [
         {
           role: "user",

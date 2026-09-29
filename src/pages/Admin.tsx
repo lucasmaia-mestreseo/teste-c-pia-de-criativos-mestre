@@ -22,7 +22,8 @@ import { cn } from '@/lib/utils';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { AiModelsTab } from '@/components/admin/AiModelsTab';
 import { AnalyticsTab } from '@/components/admin/AnalyticsTab';
-import { LineChart as LineChartIcon } from 'lucide-react';
+import { LineChart as LineChartIcon, DollarSign } from 'lucide-react';
+import { CostsTab } from '@/components/admin/CostsTab';
 
 // ─── Types ───
 
@@ -100,13 +101,14 @@ const roleBadgeColor = (r: AppRole | null) => {
   }
 };
 
-type Section = 'projects' | 'users' | 'usage' | 'analytics' | 'prompts' | 'formats' | 'permissions' | 'error-logs' | 'ai-models';
+type Section = 'projects' | 'users' | 'usage' | 'analytics' | 'costs' | 'prompts' | 'formats' | 'permissions' | 'error-logs' | 'ai-models';
 
 const SIDEBAR_ITEMS: { id: Section; label: string; icon: React.ReactNode; ownerOnly?: boolean; adminOnly?: boolean }[] = [
   { id: 'projects', label: 'Projetos', icon: <FolderOpen className="h-4 w-4" /> },
   { id: 'users', label: 'Usuários', icon: <Users className="h-4 w-4" /> },
   { id: 'usage', label: 'Uso do Sistema', icon: <BarChart3 className="h-4 w-4" /> },
   { id: 'analytics', label: 'Análises', icon: <LineChartIcon className="h-4 w-4" /> },
+  { id: 'costs', label: 'Custos de IA', icon: <DollarSign className="h-4 w-4" />, adminOnly: true },
   { id: 'formats', label: 'Formatos', icon: <ImageIcon className="h-4 w-4" />, adminOnly: true },
   { id: 'error-logs', label: 'Logs de Erros', icon: <Bug className="h-4 w-4" />, adminOnly: true },
   { id: 'prompts', label: 'Prompts', icon: <FileCode className="h-4 w-4" />, ownerOnly: true },
@@ -168,6 +170,7 @@ export default function AdminPage() {
           {activeSection === 'users' && <UsersTab currentUser={user} currentRole={role} />}
           {activeSection === 'usage' && <UsageTab />}
           {activeSection === 'analytics' && <AnalyticsTab />}
+          {activeSection === 'costs' && isAdminOrOwner && <CostsTab />}
           {activeSection === 'formats' && isAdminOrOwner && <FormatsTab />}
           {activeSection === 'error-logs' && isAdminOrOwner && <ErrorLogsTab />}
           {activeSection === 'prompts' && isOwner && <PromptsTab userId={user?.id} />}

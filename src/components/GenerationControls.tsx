@@ -19,6 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { invokeWithRetry } from '@/lib/invokeWithRetry';
+import { reviewCreative } from '@/lib/creativeOps';
 import { Textarea } from '@/components/ui/textarea';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -184,13 +185,15 @@ export default function GenerationControls({
         body.attachedImages = templateData.attachedImages;
       }
 
-      await invokeWithRetry('generate-creative', body, {
+      const result = await invokeWithRetry<{ creativeId?: string }>('generate-creative', body, {
         friendlyName: 'Geração de Criativo',
         projectId,
         maxRetries: 2,
       });
       toast.success('Criativo gerado com sucesso!');
       qc.invalidateQueries({ queryKey: ['generated_creatives', projectId] });
+      // Automatic review runs in the background; its badge shows up on the creative.
+      if (result?.creativeId) void reviewCreative(qc, projectId, result.creativeId);
     } catch (e: any) {
       toast.error(e.message || 'Erro ao gerar criativo');
     } finally {

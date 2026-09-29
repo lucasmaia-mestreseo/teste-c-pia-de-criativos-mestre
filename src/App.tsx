@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import AuthGuard from "@/components/AuthGuard";
 import Index from "./pages/Index.tsx";
+import Home from "./pages/Home.tsx";
 import Auth from "./pages/Auth.tsx";
 import PendingApproval from "./pages/PendingApproval.tsx";
 import Profile from "./pages/Profile.tsx";
@@ -26,6 +27,14 @@ const App = () => (
             <Route path="/pending-approval" element={<PendingApproval />} />
             <Route
               path="/"
+              element={
+                <AuthGuard>
+                  <Home />
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="/criativos"
               element={
                 <AuthGuard>
                   <Index />

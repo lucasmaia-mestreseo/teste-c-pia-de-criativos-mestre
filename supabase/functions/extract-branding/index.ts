@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callOpenRouterWithCascade } from "../_shared/openrouter.ts";
 import { requireApproved } from "../_shared/auth.ts";
+import { firecrawlScrape, normalizeUrl } from "../_shared/connectors.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,14 +33,23 @@ serve(async (req) => {
         text: "Analyze this screenshot and extract the branding: primary color, secondary color, background color, auxiliary colors (hex codes), and typography/font families.",
       });
     } else {
+      // The model cannot browse: give it a real screenshot of the site instead of just the URL.
+      const scraped = await firecrawlScrape({ url: normalizeUrl(url), formats: ["screenshot"], waitFor: 2000 });
+      if (!scraped?.screenshot) throw new Error("Não foi possível capturar o site");
+      const shot: string = scraped.screenshot;
+      userContent.push({
+        type: "image_url",
+        image_url: { url: shot.startsWith("http") || shot.startsWith("data:") ? shot : `data:image/png;base64,${shot}` },
+      });
       userContent.push({
         type: "text",
-        text: `Analyze the branding of this website: ${url}\n\nExtract the primary color, secondary color, background color, auxiliary colors (as hex codes), and typography/font families used.`,
+        text: `This is a screenshot of ${url}. Extract the primary color, secondary color, background color, auxiliary colors (as hex codes), and typography/font families used.`,
       });
     }
 
     const result = await callOpenRouterWithCascade({
       settingsKey: "vision_analysis",
+      track: { functionName: "extract-branding", userId: authed.userId },
       messages: [
         {
           role: "system",

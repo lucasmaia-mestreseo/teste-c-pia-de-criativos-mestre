@@ -41,6 +41,7 @@ Sugira um texto substituto para CADA elemento, respeitando seu papel e tamanho a
 
     const result = await callOpenRouterWithCascade({
       settingsKey: "text_reasoning",
+      track: { functionName: "suggest-texts", userId: authed.userId },
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },

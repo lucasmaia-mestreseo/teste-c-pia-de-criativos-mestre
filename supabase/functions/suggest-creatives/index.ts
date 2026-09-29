@@ -49,6 +49,7 @@ Gere as 3 sugestões de criativos.`;
 
     const result = await callOpenRouterWithCascade({
       settingsKey: "text_reasoning",
+      track: { functionName: "suggest-creatives", projectId, userId: authed.userId },
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
