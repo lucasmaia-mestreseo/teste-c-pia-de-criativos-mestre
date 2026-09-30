@@ -36,6 +36,10 @@ function resolveStorage(url: string | null | undefined): string | null {
 }
 
 function insertCreative(row: Row): Row {
+  if (row.task_id && row.banner_number == null) {
+    const nums = table('generated_creatives').filter((c) => c.task_id === row.task_id && c.banner_number).map((c) => c.banner_number as number);
+    row = { ...row, banner_number: (nums.length ? Math.max(...nums) : 0) + 1 };
+  }
   const full = {
     id: newId(), favorite: false, swipe_file_id: null, parent_creative_id: null, source_image_url: null,
     briefing: null, review: null, review_status: null, created_by: DEMO_USER.id,
@@ -96,7 +100,7 @@ const handlers: Record<string, Handler> = {
       variant: table('generated_creatives').length,
     }));
     const row = insertCreative({
-      project_id: b.projectId, swipe_file_id: b.swipeFileId ?? null, image_url: imageUrl,
+      project_id: b.projectId, task_id: b.taskId ?? null, swipe_file_id: b.swipeFileId ?? null, image_url: imageUrl,
       prompt: b.prompt || fieldValues.join(' · ') || title, format: b.format, kind: 'generate',
       model_used: model, cost_usd: cost,
       generation_meta: { mode: b.mode, format: b.format, hasLogo: !!b.brandKit?.logoUrl, hasPerson: !!(b.brandKit?.personPhotoUrl || b.brandKit?.personGridUrl) },
@@ -116,7 +120,8 @@ const handlers: Record<string, Handler> = {
         const briefing = { titulo, copy: 'Texto de apoio persuasivo gerado como exemplo no modo demo.', proposta_imagem: 'Pessoa em destaque, fundo limpo e CTA forte.', objetivo_estrategico: 'Gerar cliques' };
         const imageUrl = storeImage(b.projectId, 'dynamic-', adArt({ format: b.format || '1:1', title: titulo, primary: kit.primary_color, secondary: kit.secondary_color, background: kit.background_color, variant: i }));
         const row = insertCreative({
-          project_id: b.projectId, image_url: imageUrl, prompt: `[${type}] ${titulo}`, format: b.format || '1:1', kind: 'dynamic',
+          project_id: b.projectId, task_id: b.taskId ?? null, banner_number: b.taskId && Number.isInteger(b.bannerNumber) ? b.bannerNumber : null,
+          image_url: imageUrl, prompt: `[${type}] ${titulo}`, format: b.format || '1:1', kind: 'dynamic',
           briefing: { type, ...briefing }, model_used: 'google/gemini-3.1-flash-image-preview', cost_usd: 0.042,
           generation_meta: { mode: 'dynamic', format: b.format, hasLogo: !!b.includeLogo },
         });
@@ -141,7 +146,7 @@ const handlers: Record<string, Handler> = {
         badge: `Variação ${v.nome ?? ''}`.trim(), variant: table('generated_creatives').length,
       }));
       const row = insertCreative({
-        project_id: b.projectId, image_url: imageUrl, format: parent.format, kind: 'generate',
+        project_id: b.projectId, task_id: parent.task_id ?? b.taskId ?? null, image_url: imageUrl, format: parent.format, kind: 'generate',
         prompt: `[Variação: ${v.nome}] ${v.hipotese ?? ''}\nHeadline: "${v.headline}" · CTA: "${v.cta}"`,
         parent_creative_id: parent.id, model_used: 'openai/gpt-5.4-image-2', cost_usd: 0.042,
         generation_meta: { operation: 'variant', variant: v, targetFormat: parent.format },
@@ -159,8 +164,11 @@ const handlers: Record<string, Handler> = {
     // Desdobramento/Redimensionar run on Nano Banana 2 (settings key image_unfold)
     const model = op === 'fix' ? 'openai/gpt-5.4-image-2' : 'google/gemini-3.1-flash-image-preview';
     const cost = op === 'fix' ? 0.042 : 0.039;
+    // tarefa/Bxx: Desdobramento goes to the chosen task; resize/fix stay in the piece's task, with its number
+    const taskId = op === 'unfold' ? (b.taskId ?? parent?.task_id ?? null) : parent ? (parent.task_id ?? null) : (b.taskId ?? null);
+    const bannerNumber = Number.isInteger(b.bannerNumber) ? b.bannerNumber : (parent && parent.task_id === taskId ? parent.banner_number ?? null : null);
     const row = insertCreative({
-      project_id: b.projectId, image_url: imageUrl, format, kind: op,
+      project_id: b.projectId, task_id: taskId, banner_number: taskId ? bannerNumber : null, image_url: imageUrl, format, kind: op,
       prompt: `[${label} → ${format}]${b.instructions ? ` ${b.instructions}` : ''}`,
       parent_creative_id: parent?.id ?? null,
       source_image_url: op === 'unfold' ? (parent ? (parent.source_image_url ?? parent.image_url) : sourceUrl) : (parent?.source_image_url ?? null),

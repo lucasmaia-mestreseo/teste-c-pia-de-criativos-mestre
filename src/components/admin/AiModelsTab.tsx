@@ -34,6 +34,7 @@ interface ModelSettings {
   primary_attempts: number;
   fallback_attempts: number;
   tertiary_attempts: number;
+  image_size?: string;
 }
 
 type SettingsKey = 'image_generation' | 'image_unfold' | 'text_reasoning' | 'vision_analysis' | 'brand_manual';
@@ -49,6 +50,7 @@ const DEFAULTS: Record<SettingsKey, ModelSettings> = {
     primary_attempts: 2,
     fallback_attempts: 1,
     tertiary_attempts: 1,
+    image_size: '2K',
   },
   image_unfold: {
     primary_model: 'google/gemini-3.1-flash-image-preview',
@@ -57,6 +59,7 @@ const DEFAULTS: Record<SettingsKey, ModelSettings> = {
     primary_attempts: 2,
     fallback_attempts: 1,
     tertiary_attempts: 0,
+    image_size: '2K',
   },
   text_reasoning: {
     primary_model: 'google/gemini-3-flash-preview',
@@ -260,7 +263,9 @@ function SectionCard({ config, catalog }: SectionCardProps) {
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
 
-  const settings = tiersToSettings(tiers);
+  const isImage = config.key === 'image_generation' || config.key === 'image_unfold';
+  const [imageSize, setImageSize] = useState<string>(DEFAULTS[config.key].image_size ?? '2K');
+  const settings: ModelSettings = isImage ? { ...tiersToSettings(tiers), image_size: imageSize } : tiersToSettings(tiers);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -278,10 +283,11 @@ function SectionCard({ config, catalog }: SectionCardProps) {
         ? { ...DEFAULTS[config.key], ...(data.value as any) }
         : DEFAULTS[config.key];
       setTiers(settingsToTiers(merged, uids));
-      setInitialSettings(merged);
+      if (merged.image_size) setImageSize(merged.image_size);
+      setInitialSettings(isImage ? { ...tiersToSettings(settingsToTiers(merged, uids)), image_size: merged.image_size ?? '2K' } : tiersToSettings(settingsToTiers(merged, uids)));
       setLoading(false);
     })();
-  }, [config.key, uids]);
+  }, [config.key, uids, isImage]);
 
   const isDirty = JSON.stringify(settings) !== JSON.stringify(initialSettings);
 
@@ -382,6 +388,22 @@ function SectionCard({ config, catalog }: SectionCardProps) {
               </span>
             )}
           </p>
+          {isImage && (
+            <div className="flex flex-wrap items-center gap-3 rounded-md border bg-background/40 p-3">
+              <div className="flex-1 min-w-[200px]">
+                <p className="text-xs font-semibold">Resolução de saída</p>
+                <p className="text-[11px] text-muted-foreground">Modelos Gemini (Nano Banana). 2K deixa textos e bordas nítidos; o download reduz ao tamanho exato do formato.</p>
+              </div>
+              <div className="flex gap-1 rounded-lg bg-secondary/60 p-1">
+                {['1K', '2K', '4K'].map((r) => (
+                  <button key={r} type="button" onClick={() => setImageSize(r)}
+                    className={cn('rounded-md px-3 py-1 text-xs font-semibold transition-colors', imageSize === r ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
+                    {r}{r === '2K' ? ' ·  rec.' : ''}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
             <SortableContext items={tiers.map((t) => t.uid)} strategy={verticalListSortingStrategy}>
               <div className="space-y-2">

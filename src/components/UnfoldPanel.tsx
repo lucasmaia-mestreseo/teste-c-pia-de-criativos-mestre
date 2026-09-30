@@ -12,24 +12,26 @@ import { useFormatOptions } from '@/hooks/useCreativeFormats';
 import { invalidateCreatives, reviewCreative, runWithConcurrency, transformCreative } from '@/lib/creativeOps';
 import { formatName } from '@/lib/formatNames';
 import ActiveGuideBadge from '@/components/kv/ActiveGuideBadge';
+import { getCurrentTaskId, nextBannerNumber } from '@/hooks/useTasks';
+import TaskNotice from '@/components/TaskNotice';
 
 /** A key visual the other formats are derived from. */
 type Source =
   | { id: string; type: 'upload'; storageUrl: string; previewUrl: string; format: string | null; width: number; height: number; name: string }
-  | { id: string; type: 'creative'; creativeId: string; previewUrl: string; format: string; width: number; height: number; name: string };
+  | { id: string; type: 'creative'; creativeId: string; previewUrl: string; format: string; width: number; height: number; name: string; taskId?: string | null; bannerNumber?: number | null };
 
 type Status = 'queued' | 'running' | 'done' | 'error';
 
 const MAX_SOURCES = 10;
 /** Formats only the Desdobramento offers, on top of the project's formats. */
-const EXTRA_FORMATS = ['1.91:1'];
+const EXTRA_FORMATS = ['3:4', '1.91:1'];
 const FORMAT_HINTS: Record<string, string> = {
   '9:16': 'Stories e Reels',
   '4:5': 'Feed vertical',
   '1:1': 'Feed quadrado',
   '16:9': 'Display e YouTube',
   '1.91:1': 'Banner Facebook',
-  '3:4': 'Pinterest',
+  '3:4': 'Feed 3:4',
 };
 const TIPS = ['No 9:16, subir a headline', 'No 16:9, pessoa à esquerda', 'Manter o CTA grande', 'Logo sempre no topo'];
 
@@ -123,12 +125,12 @@ export default function UnfoldPanel({ projectId, onPendingChange }: UnfoldPanelP
     }
   };
 
-  const toggleCreative = async (c: { id: string; image_url: string; format: string }) => {
+  const toggleCreative = async (c: { id: string; image_url: string; format: string; task_id?: string | null; banner_number?: number | null }) => {
     const existing = sources.find((s) => s.type === 'creative' && s.creativeId === c.id);
     if (existing) { setSources((ss) => ss.filter((s) => s.id !== existing.id)); return; }
     if (sources.length >= MAX_SOURCES) { toast.info(`Até ${MAX_SOURCES} peças por vez.`); return; }
     const size = await readImageSize(c.image_url).catch(() => ({ width: ratioOf(c.format) * 1000, height: 1000 }));
-    const next: Source[] = [...sources, { id: crypto.randomUUID(), type: 'creative', creativeId: c.id, previewUrl: c.image_url, format: c.format, ...size, name: `Criativo ${c.format}` }];
+    const next: Source[] = [...sources, { id: crypto.randomUUID(), type: 'creative', creativeId: c.id, previewUrl: c.image_url, format: c.format, ...size, name: `Criativo ${c.format}`, taskId: c.task_id ?? null, bannerNumber: c.banner_number ?? null }];
     setSources(next);
     firstSelection(next);
     setStatus({});
@@ -149,9 +151,23 @@ export default function UnfoldPanel({ projectId, onPendingChange }: UnfoldPanelP
   ].filter((p) => p.formats.length);
   const same = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
 
+  /** Bxx of each piece-mãe: all its formats share it. A piece already in this task keeps its number. */
+  const bannerOf = useRef<Record<string, number>>({});
+  const assignBanners = async () => {
+    const taskId = getCurrentTaskId(projectId);
+    bannerOf.current = {};
+    if (!taskId) return;
+    let next = await nextBannerNumber(taskId);
+    for (const s of sources) {
+      if (s.type === 'creative' && s.taskId === taskId && s.bannerNumber) bannerOf.current[s.id] = s.bannerNumber;
+      else bannerOf.current[s.id] = next++;
+    }
+  };
+
   const handleRun = async () => {
     if (!jobs.length) return;
     const list = [...jobs];
+    await assignBanners();
     setStatus(Object.fromEntries(list.map((j) => [`${j.source.id}|${j.format}`, 'queued' as Status])));
 
     const settled = await runWithConcurrency(list, 3, async ({ source, format }) => {
@@ -162,6 +178,7 @@ export default function UnfoldPanel({ projectId, onPendingChange }: UnfoldPanelP
           projectId,
           operation: 'unfold',
           targetFormat: format,
+          bannerNumber: bannerOf.current[source.id], sourceRatio: source.width / source.height,
           instructions: instructions.trim() || undefined,
           ...(source.type === 'upload'
             ? { sourceImageUrl: source.storageUrl, sourceFormat: source.format ?? undefined }
@@ -201,7 +218,7 @@ export default function UnfoldPanel({ projectId, onPendingChange }: UnfoldPanelP
         setStatus((s) => ({ ...s, [key]: 'running' }));
         try {
           const r = await transformCreative({
-            projectId, operation: 'unfold', targetFormat: format, instructions: instructions.trim() || undefined,
+            projectId, operation: 'unfold', targetFormat: format, bannerNumber: bannerOf.current[source.id], sourceRatio: source.width / source.height, instructions: instructions.trim() || undefined,
             ...(source.type === 'upload' ? { sourceImageUrl: source.storageUrl, sourceFormat: source.format ?? undefined } : { creativeId: source.creativeId }),
           });
           invalidateCreatives(qc, projectId);
@@ -238,6 +255,7 @@ export default function UnfoldPanel({ projectId, onPendingChange }: UnfoldPanelP
             Peças aprovadas viram todos os formatos da campanha, com os mesmos textos, logo e pessoas — só a composição se adapta. Uma ou várias de uma vez.
           </p>
           <ActiveGuideBadge projectId={projectId} className="mt-2" />
+          <TaskNotice projectId={projectId} className="mt-2" />
         </div>
 
         {/* key visuals */}

@@ -25,6 +25,19 @@ export const EXACT_FORMATS: Record<string, ExactFormat> = {
   },
 };
 
+/**
+ * Smooth downscale: halve with bilinear filtering until close to the target,
+ * then one last bilinear step. (A single nearest-neighbour resize — ImageScript's
+ * default — leaves jagged text and grainy edges.)
+ */
+function smoothResize(img: Image, w: number, h: number): Image {
+  let cur = img;
+  while (cur.width / 2 >= w && cur.height / 2 >= h) {
+    cur = cur.resize(Math.round(cur.width / 2), Math.round(cur.height / 2), Image.RESIZE_BILINEAR);
+  }
+  return cur.resize(w, h, Image.RESIZE_BILINEAR);
+}
+
 /** Center-crop to the exact ratio and resize to the exact size. Returns PNG bytes. */
 export async function fitExact(bytes: Uint8Array, target: ExactFormat): Promise<Uint8Array> {
   const decoded = await Image.decode(bytes);
@@ -36,6 +49,5 @@ export async function fitExact(bytes: Uint8Array, target: ExactFormat): Promise<
   if (img.width / img.height > ratio) cw = Math.round(img.height * ratio);
   else ch = Math.round(img.width / ratio);
   img.crop(Math.round((img.width - cw) / 2), Math.round((img.height - ch) / 2), cw, ch);
-  img.resize(target.width, target.height);
-  return await img.encode(1);
+  return await smoothResize(img, target.width, target.height).encode(1);
 }

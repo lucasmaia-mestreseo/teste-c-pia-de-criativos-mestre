@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { invokeWithRetry } from '@/lib/invokeWithRetry';
+import { getCurrentTaskId } from '@/hooks/useTasks';
 
 /**
  * Client-side entry points for the post-generation operations:
@@ -46,6 +47,11 @@ export interface TransformParams {
   issues?: string[];
   includeLogo?: boolean;
   variant?: VariantProposal;
+  /** Tarefa (defaults to the one selected in the project) and banner number (Desdobramento keeps the Bxx of its piece). */
+  taskId?: string;
+  bannerNumber?: number;
+  /** width / height of the piece-mãe (chooses outpainting vs. recomposition). */
+  sourceRatio?: number;
 }
 
 export interface TransformResult {
@@ -79,7 +85,9 @@ export async function reviewCreative(qc: QueryClient, projectId: string, creativ
 
 export async function transformCreative(params: TransformParams): Promise<TransformResult> {
   const friendlyName = { fix: 'Correção', resize: 'Redimensionar', unfold: 'Desdobramento', variant: 'Variação A/B' }[params.operation];
-  return invokeWithRetry<TransformResult>('transform-creative', { ...params }, {
+  // the task being worked on; the server keeps resize/fix/variant in the task of their piece
+  const taskId = params.taskId ?? getCurrentTaskId(params.projectId) ?? undefined;
+  return invokeWithRetry<TransformResult>('transform-creative', { ...params, taskId }, {
     friendlyName,
     projectId: params.projectId,
     maxRetries: 2,

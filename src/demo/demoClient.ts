@@ -19,6 +19,7 @@ const DEFAULTS: Record<string, () => Row> = {
   projects: () => ({ active: true, onboarding_completed: false, context: null, voice_guide: null, description: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
   swipe_files: () => ({ analysis: null, width: null, height: null, created_at: new Date().toISOString() }),
   ai_usage: () => ({ success: true, created_at: new Date().toISOString() }),
+  project_tasks: () => ({ archived: false, created_by: 'demo-user', created_at: new Date().toISOString() }),
 };
 
 // ─── Query builder (the subset of PostgREST the app uses) ───
@@ -60,6 +61,7 @@ class DemoQuery implements PromiseLike<any> {
   neq(c: string, v: unknown) { this.filters.push((r) => r[c] !== v); return this; }
   in(c: string, vs: unknown[]) { this.filters.push((r) => vs.includes(r[c])); return this; }
   is(c: string, v: unknown) { this.filters.push((r) => (r[c] ?? null) === v); return this; }
+  not(c: string, op: string, v: unknown) { this.filters.push((r) => (op === 'is' ? (r[c] ?? null) !== v : r[c] !== v)); return this; }
   gt(c: string, v: any) { this.filters.push((r) => r[c] > v); return this; }
   gte(c: string, v: any) { this.filters.push((r) => r[c] >= v); return this; }
   lt(c: string, v: any) { this.filters.push((r) => r[c] < v); return this; }

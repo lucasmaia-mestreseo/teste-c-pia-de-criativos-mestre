@@ -22,15 +22,16 @@ const KvStudio = lazy(() => import('@/components/kv/KvStudio'));
 const VideoStudio = lazy(() => import('@/components/video/VideoStudio'));
 import ProjectOnboarding from '@/components/ProjectOnboarding';
 import ProjectStart from '@/components/ProjectStart';
+import TasksPanel from '@/components/TasksPanel';
 import { useProject } from '@/hooks/useProject';
 import { useAuth } from '@/contexts/AuthContext';
 import { touchRecentProject } from '@/lib/projectLists';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
-export type RightPanel = 'generate' | 'brandkit' | 'context' | 'history' | 'dynamic' | 'creatives' | 'unfold' | 'kv' | 'video';
+export type RightPanel = 'tasks' | 'generate' | 'brandkit' | 'context' | 'history' | 'dynamic' | 'creatives' | 'unfold' | 'kv' | 'video';
 
-const VALID_PANELS: RightPanel[] = ['generate', 'brandkit', 'context', 'history', 'dynamic', 'creatives', 'unfold', 'kv', ...(VIDEO_ENABLED ? ['video' as const] : [])];
+const VALID_PANELS: RightPanel[] = ['tasks', 'generate', 'brandkit', 'context', 'history', 'dynamic', 'creatives', 'unfold', 'kv', ...(VIDEO_ENABLED ? ['video' as const] : [])];
 
 const EMPTY_FREE_PROMPT: FreePromptData = { prompt: '', attachedImages: [] };
 const EMPTY_TEMPLATE: TemplateData = { templateId: null, fields: {}, prompt: '', attachedImages: [] };
@@ -99,7 +100,8 @@ const Index = () => {
   };
 
   const handleOnboardingComplete = () => {
-    setActivePanel('generate');
+    setActivePanel('tasks');
+    if (projectId) navigate(`/project/${projectId}/tasks`, { state: { newTask: true } });
   };
 
   const handleUseAsReference = useCallback((imageUrl: string, refProjectId?: string) => {
@@ -183,6 +185,7 @@ const Index = () => {
                   onUseAsReference={handleUseAsReference}
                 />
               )}
+              {activePanel === 'tasks' && <TasksPanel projectId={projectId!} />}
               {activePanel === 'brandkit' && <BrandKitPanel projectId={projectId} />}
               {activePanel === 'context' && <ContextPanel projectId={projectId} />}
               {activePanel === 'history' && <HistoryPanel projectId={projectId} />}

@@ -15,6 +15,8 @@ export interface ModelSettings {
   primary_attempts: number;
   fallback_attempts: number;
   tertiary_attempts: number;
+  /** Image models only: output resolution sent as image_config.image_size ("1K" | "2K" | "4K"). */
+  image_size?: string;
 }
 
 // Backwards-compat alias
@@ -28,6 +30,7 @@ const DEFAULTS: Record<ModelSettingsKey, ModelSettings> = {
     primary_attempts: 2,
     fallback_attempts: 1,
     tertiary_attempts: 1,
+    image_size: "2K",
   },
   // Desdobramento and Redimensionar: adapt an existing piece to another format.
   // Nano Banana 2 keeps texts, logo and people faithful and is fast/cheap for batches.
@@ -38,6 +41,7 @@ const DEFAULTS: Record<ModelSettingsKey, ModelSettings> = {
     primary_attempts: 2,
     fallback_attempts: 1,
     tertiary_attempts: 0,
+    image_size: "2K",
   },
   text_reasoning: {
     primary_model: "google/gemini-3-flash-preview",
@@ -126,6 +130,8 @@ export interface CallOptions {
   toolChoice?: unknown;
   /** Output aspect ratio for image models that support `image_config` (e.g. "9:16"). */
   aspectRatio?: string | null;
+  /** Output resolution for image models that support it (Gemini: "1K" | "2K" | "4K"). */
+  imageSize?: string | null;
   track?: UsageTrack;
 }
 
@@ -182,6 +188,10 @@ export async function callOpenRouter(opts: CallOptions): Promise<CallResult> {
   if (opts.toolChoice) body.tool_choice = opts.toolChoice;
   if (opts.aspectRatio && ASPECT_RATIO_RE.test(opts.aspectRatio)) {
     body.image_config = { aspect_ratio: opts.aspectRatio };
+  }
+  // Resolution: Gemini image models (Nano Banana) take image_size; others ignore the option, so it isn't sent
+  if (opts.imageSize && /^[124]K$/.test(opts.imageSize) && opts.model.startsWith("google/")) {
+    body.image_config = { ...((body.image_config as Record<string, unknown>) ?? {}), image_size: opts.imageSize };
   }
 
   let res: Response;
@@ -388,6 +398,7 @@ export async function generateImageWithCascade(opts: GenerateImageOptions): Prom
       messages: opts.messages,
       modalities: ["image", "text"],
       aspectRatio: opts.aspectRatio,
+      imageSize: settings.image_size ?? "2K",
       timeoutMs: Math.max(20000, Math.min(remaining - 5000, 90000)),
       track,
     });

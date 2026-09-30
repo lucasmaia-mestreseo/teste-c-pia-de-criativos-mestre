@@ -10,12 +10,14 @@ import { ptBR } from 'date-fns/locale';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useCreativeDownload } from '@/hooks/useCreativeDownload';
 
 interface HistoryPanelProps {
   projectId: string | null;
 }
 
 export default function HistoryPanel({ projectId }: HistoryPanelProps) {
+  const { downloadOne, downloadMany } = useCreativeDownload(projectId);
   const { data: creatives, isLoading } = useGeneratedCreatives(projectId);
   const deleteCreative = useDeleteCreative();
   const { can } = usePermissions();
@@ -111,7 +113,7 @@ export default function HistoryPanel({ projectId }: HistoryPanelProps) {
               <div className="flex flex-col gap-1">
                 {can('download_creative') && (
                   <button
-                    onClick={() => handleDownload(c.image_url, c.id)}
+                    onClick={() => downloadOne(c)}
                     className="p-1.5 rounded hover:bg-secondary transition-colors"
                   >
                     <Download className="h-4 w-4 text-muted-foreground hover:text-foreground" />
@@ -133,9 +135,9 @@ export default function HistoryPanel({ projectId }: HistoryPanelProps) {
 
       {/* Detail Modal with Navigation */}
       <Dialog open={selectedIndex !== null} onOpenChange={() => setSelectedIndex(null)}>
-        <DialogContent className="max-w-[90vw] w-auto p-3">
+        <DialogContent className="max-w-6xl w-[96vw] p-0 gap-0 overflow-hidden grid-cols-1">
           {modalCreative && (
-            <div className="flex gap-4 items-start">
+            <div className="flex flex-col md:flex-row items-stretch max-h-[92vh] min-h-0">
               <button
                 onClick={handlePrev}
                 disabled={selectedIndex === 0}
@@ -143,7 +145,7 @@ export default function HistoryPanel({ projectId }: HistoryPanelProps) {
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
-              <img src={modalCreative.image_url} alt={modalCreative.prompt || 'Criativo'} className="max-h-[80vh] max-w-[65vw] object-contain rounded-md" />
+              <img src={modalCreative.image_url} alt={modalCreative.prompt || 'Criativo'} className="min-w-0 flex-1 max-h-[80vh] md:max-h-[88vh] object-contain self-center p-3" />
               <button
                 onClick={handleNext}
                 disabled={selectedIndex === items.length - 1}
@@ -151,10 +153,10 @@ export default function HistoryPanel({ projectId }: HistoryPanelProps) {
               >
                 <ChevronRight className="h-5 w-5" />
               </button>
-              <div className="flex flex-col gap-2 min-w-[180px] max-w-[220px] pt-8 max-h-[80vh] overflow-y-auto">
+              <div className="flex flex-col gap-2 w-full md:w-[340px] flex-none min-w-0 border-t md:border-t-0 md:border-l bg-card/60 p-4 pt-12 max-h-[88vh] overflow-y-auto overflow-x-hidden">
                 <span className="text-xs text-muted-foreground text-center">{(selectedIndex ?? 0) + 1} / {items.length}</span>
                 {can('download_creative') && (
-                  <Button size="sm" variant="outline" onClick={() => handleDownload(modalCreative.image_url, modalCreative.id)}>
+                  <Button size="sm" variant="outline" onClick={() => downloadOne(modalCreative)}>
                     <Download className="h-3.5 w-3.5 mr-1" /> Download
                   </Button>
                 )}

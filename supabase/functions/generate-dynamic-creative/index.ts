@@ -6,7 +6,7 @@ import {
   parseToolCall,
 } from "../_shared/openrouter.ts";
 import { requireProjectAccess } from "../_shared/auth.ts";
-import { insertCreative } from "../_shared/creatives.ts";
+import { insertCreative, resolveTaskId } from "../_shared/creatives.ts";
 import { corsHeaders, handleOptions, jsonResponse } from "../_shared/http.ts";
 import { adminClient, imageToBytes, signStorageUrl, uploadGeneratedImage } from "../_shared/storage.ts";
 
@@ -40,6 +40,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { projectId, types, format, ignoreBrandKit, ignoreContext, customPrompt } = body;
     const includeLogo = body.includeLogo !== false;
+    let taskId: string | null = null;
     if (!projectId || !types?.length) throw new Error("projectId e types são obrigatórios");
 
     const authed = await requireProjectAccess(req, projectId, corsHeaders);
@@ -51,6 +52,7 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
     const db = adminClient();
+    taskId = await resolveTaskId(db, projectId, body.taskId);
 
     const selectedFormat = format || "1:1";
 
@@ -195,6 +197,8 @@ ${logoUrl ? "\nLOGO: The brand logo is attached. Place it COMPLETE (never croppe
 
         const inserted = await insertCreative(db, {
           project_id: projectId,
+          task_id: taskId,
+          banner_number: taskId && Number.isInteger(body.bannerNumber) ? body.bannerNumber : null,
           created_by: userId,
           prompt: `[${type}] ${briefing.titulo || ""}`,
           format: selectedFormat,

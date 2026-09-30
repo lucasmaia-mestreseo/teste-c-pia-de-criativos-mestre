@@ -1,9 +1,9 @@
 import { generateImageWithCascade, imageFailurePayload } from "../_shared/openrouter.ts";
 import { requireProjectAccess } from "../_shared/auth.ts";
-import { insertCreative } from "../_shared/creatives.ts";
+import { insertCreative, resolveTaskId } from "../_shared/creatives.ts";
 import { corsHeaders, handleOptions, jsonResponse } from "../_shared/http.ts";
 import { EXACT_FORMATS, fitExact } from "../_shared/imageFit.ts";
-import { safeZoneRule } from "../_shared/formats.ts";
+import { FORMAT_PIXELS, safeZoneRule } from "../_shared/formats.ts";
 import { adminClient, imageToBytes, parseStorageUrl, signStorageUrl, uploadGeneratedImage } from "../_shared/storage.ts";
 
 /**
@@ -22,7 +22,7 @@ type Operation = "resize" | "unfold" | "fix" | "variant";
 interface VariantSpec { nome?: string; hipotese?: string; headline?: string; cta?: string; ajusteVisual?: string }
 
 const FORMAT_HINTS: Record<string, string> = {
-  "9:16": "Vertical tela cheia (Stories/Reels). Empilhe os elementos verticalmente, dentro da zona segura abaixo.",
+  "9:16": "Vertical tela cheia (Stories/Reels/TikTok). Empilhe os elementos verticalmente.",
   "4:5": "Vertical de feed. Aproveite a altura extra: dê respiro entre headline, imagem principal e CTA.",
   "1:1": "Quadrado de feed. Composição equilibrada e centralizada; nada encostado nas bordas.",
   "16:9": "Horizontal (banner, YouTube, display). Distribua os elementos lado a lado: normalmente imagem/pessoa de um lado e textos do outro.",
@@ -36,23 +36,56 @@ function formatHint(format: string): string {
 ${safe}` : base;
 }
 
-function adaptPrompt(targetFormat: string, sourceFormat: string | null, instructions: string | null): string {
-  return `Você é um diretor de arte especialista em DESDOBRAMENTO de peças publicitárias.
+const ratioOf = (f: string) => { const [w, h] = f.split(":").map(Number); return w && h ? w / h : 1; };
 
-A imagem anexada é a PEÇA-MÃE${sourceFormat ? ` (formato ${sourceFormat})` : ""}. Crie a versão desta MESMA peça no formato ${targetFormat}.
+function sizeLabel(format: string): string {
+  const px = FORMAT_PIXELS[format];
+  return px ? `${px[0]}×${px[1]} (${format})` : `${format} aspect ratio`;
+}
 
-FORMATO DE SAÍDA: ${targetFormat} (aspect ratio). ${formatHint(targetFormat)}${EXACT_FORMATS[targetFormat] ? `
-${EXACT_FORMATS[targetFormat].cropNote}` : ""}
+/**
+ * How to adapt: OUTPAINT when the new canvas only needs a bit more height (or
+ * width) in the same orientation — the original stays untouched in the center,
+ * so texts can't be retyped or duplicated. Otherwise RECOMPOSE the layout.
+ */
+function adaptMode(sourceRatio: number | null, target: string): "outpaint-vertical" | "outpaint-horizontal" | "recompose" {
+  if (!sourceRatio || !Number.isFinite(sourceRatio)) return "recompose";
+  const tr = ratioOf(target);
+  const sameOrientation = (sourceRatio <= 1.05 && tr <= 1.05) || (sourceRatio > 1 && tr > 1);
+  if (tr < sourceRatio && sameOrientation && 1 - tr / sourceRatio <= 0.45) return "outpaint-vertical";
+  if (tr > sourceRatio && sameOrientation && 1 - sourceRatio / tr <= 0.22) return "outpaint-horizontal";
+  return "recompose";
+}
 
-REGRAS OBRIGATÓRIAS:
-1. MESMA PEÇA: é uma adaptação, não um criativo novo. Mesmo conceito, mesma identidade visual, mesma paleta de cores, mesma tipografia, mesmo estilo de imagem.
-2. TEXTOS IDÊNTICOS: todos os textos da peça-mãe (headline, subtítulo, CTA, selos, preços, rodapé legal) devem aparecer EXATAMENTE com as mesmas palavras, sem erros de digitação, sem inventar textos novos e sem omitir nenhum.
-3. LOGO: se houver logo, ele deve aparecer COMPLETO, com as mesmas cores e proporções, sem cortes e sem ser redesenhado.
-4. PESSOAS E PRODUTOS: mesmas pessoas (mesmo rosto, cabelo, roupa) e mesmos produtos. Não troque, não deforme.
-5. RECOMPOSIÇÃO INTELIGENTE: NÃO apenas corte nem estique a imagem. Reorganize os elementos para o novo formato, estendendo o fundo/cenário de forma natural quando precisar de mais área.
-6. HIERARQUIA: mantenha a mesma ordem de importância (headline em destaque, CTA claramente visível).
-7. Nenhum elemento importante pode ficar cortado pelas bordas; mantenha margem de segurança de ~5%.
-${instructions ? `\nINSTRUÇÕES ADICIONAIS DO USUÁRIO (prioridade sobre as regras de layout acima):\n"${instructions}"` : ""}`;
+function adaptPrompt(targetFormat: string, sourceRatio: number | null, instructions: string | null): string {
+  const size = sizeLabel(targetFormat);
+  const exact = EXACT_FORMATS[targetFormat];
+  const crop = exact ? `\nNote: the image will be generated at ${exact.generateAs} and then cropped to exactly ${exact.width}×${exact.height}: about 4% of the top and 4% of the bottom will be cut, so keep those strips as plain background.` : "";
+  const extra = instructions ? `\n\nADDITIONAL INSTRUCTIONS FROM THE DESIGNER (Portuguese; they take priority over the layout rules above):\n"${instructions}"` : "";
+  const mode = adaptMode(sourceRatio, targetFormat);
+
+  if (mode !== "recompose") {
+    const where = mode === "outpaint-vertical" ? "at the TOP and BOTTOM" : "on the LEFT and RIGHT sides";
+    const taller = mode === "outpaint-vertical" ? "taller" : "wider";
+    return `Expand this image to ${size} using OUTPAINTING only.
+
+Keep the ENTIRE original image — all text, all graphics, all photos, the logo and the layout — completely UNCHANGED and untouched in the center. Do NOT regenerate, move, rescale, restyle or alter any existing text or element. Preserve every word and pixel of the original exactly as it is. Every text must appear exactly once — never repeat or duplicate a text.
+
+Only ADD new background area ${where} to fill the ${taller} canvas, seamlessly extending the existing background (its color, gradient, texture, shapes and lighting) naturally into the new space, so it blends invisibly with the original. The added areas contain only background continuation — no new text, no new objects, no new graphics.
+
+Keep the original content centered. Result: the same design, unchanged, now in ${size} with naturally extended background. High-resolution, sharp, seamless.${crop}${extra}`;
+  }
+
+  const safe = safeZoneRule(targetFormat);
+  return `Recreate this design in ${size}, respecting and preserving all the original content.
+
+Keep ALL the original elements: the same texts (exact same wording, same fonts, same typography, same font sizes and styles — do NOT change or substitute the fonts), the same images and people (same faces, hair and clothes), the same logo (complete, same colors and proportions, never redrawn), the same colors and the same overall visual style. Every text must appear exactly once — never repeat, duplicate, add or omit any text. Only rearrange the elements naturally to fit the new layout, adjusting or extending the background as needed to fill the whole canvas seamlessly. Do not just crop or stretch the original.
+
+Keep the same hierarchy: the headline stands out and the call-to-action is clearly visible.
+
+Respect a SAFE MARGIN: keep all important content (texts, logo, key graphics, call-to-action) comfortably away from the edges, with generous padding around the borders so nothing gets cut off or crowded.${safe ? ` ${safe}` : ""}
+
+Preserve the original fonts, palette, branding and content exactly. High-resolution, sharp, clean, balanced composition.${crop}${extra}`;
 }
 
 function fixPrompt(format: string, originalPrompt: string | null, issues: string[], instructions: string | null): string {
@@ -156,13 +189,14 @@ Deno.serve(async (req) => {
     } else {
       targetFormat = body.targetFormat;
       if (!targetFormat) return jsonResponse({ error: "targetFormat é obrigatório" }, 400);
-      promptText = adaptPrompt(targetFormat, sourceFormat, instructions);
+      const sourceRatio = Number(body.sourceRatio) > 0 ? Number(body.sourceRatio) : (sourceFormat ? ratioOf(sourceFormat) : null);
+      promptText = adaptPrompt(targetFormat, sourceRatio, instructions);
       // The project's active brand guide (Criação de KVs writes it into the context):
       // guides what has to be recreated when the layout changes; the piece's texts never change.
       const { data: proj } = await db.from("projects").select("context").eq("id", projectId).maybeSingle();
       const guide = String(proj?.context ?? "").match(/— Diretrizes do manual de marca —[\s\S]*$/)?.[0];
       if (guide) {
-        promptText += `\n\nGUIA DE MARCA DO PROJETO (use para cores, tipografia e estilo do que precisar ser estendido ou recriado — NUNCA mude os textos da peça-mãe):\n${guide.slice(0, 1500)}`;
+        promptText += `\n\nBRAND GUIDE OF THE PROJECT (Portuguese; use it only for colors, typography and style of whatever has to be extended or recreated — NEVER change the texts of the original):\n${guide.slice(0, 1500)}`;
       }
     }
 
@@ -211,8 +245,18 @@ Deno.serve(async (req) => {
 
     const variant: VariantSpec | null = operation === "variant" ? (body.variant ?? {}) : null;
     const label = operation === "fix" ? "Correção" : operation === "resize" ? "Redimensionado" : operation === "variant" ? `Variação: ${variant?.nome ?? "B"}` : "Desdobramento";
+    // Tarefa and banner number: the piece stays in its task with the same Bxx in every format
+    // Desdobramento goes to the task being worked on; resize/fix/variant stay in the task of their piece.
+    const bodyTask = await resolveTaskId(db, projectId, body.taskId);
+    const taskId = operation === "unfold" ? (bodyTask ?? parent?.task_id ?? null) : parent ? (parent.task_id ?? null) : bodyTask;
+    const bannerFromBody = Number.isInteger(body.bannerNumber) && body.bannerNumber > 0 ? body.bannerNumber : null;
+    const bannerNumber = operation === "variant"
+      ? null // a new banner: next number of the task
+      : bannerFromBody ?? (parent && parent.task_id === taskId ? (parent.banner_number ?? null) : null);
     const inserted = await insertCreative(db, {
       project_id: projectId,
+      task_id: taskId,
+      banner_number: taskId ? bannerNumber : null,
       created_by: userId,
       image_url: imageUrl,
       format: targetFormat,
@@ -231,7 +275,7 @@ Deno.serve(async (req) => {
       generation_meta: { operation, sourceFormat, targetFormat, instructions, ...(variant ? { variant } : {}) },
     });
 
-    return jsonResponse({ success: true, creativeId: inserted.id, imageUrl, model: result.model, costUsd: result.costUsd });
+    return jsonResponse({ success: true, creativeId: inserted.id, bannerNumber: inserted.bannerNumber, imageUrl, model: result.model, costUsd: result.costUsd });
   } catch (e) {
     console.error("transform-creative error:", e);
     return jsonResponse({ error: e instanceof Error ? e.message : "Erro desconhecido" }, 500);

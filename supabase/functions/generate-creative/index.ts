@@ -7,7 +7,7 @@ import {
 import { corsHeaders, handleOptions, jsonResponse } from "../_shared/http.ts";
 import { adminClient, imageToBytes, parseStorageUrl, signProjectStorageUrl, signStorageUrl, uploadGeneratedImage } from "../_shared/storage.ts";
 import { requireProjectAccess } from "../_shared/auth.ts";
-import { insertCreative } from "../_shared/creatives.ts";
+import { insertCreative, resolveTaskId } from "../_shared/creatives.ts";
 import { safeZoneRule } from "../_shared/formats.ts";
 
 type Track = { functionName: string; projectId: string; userId: string };
@@ -659,9 +659,11 @@ CRITICAL RULES:
     const publicUrl = await uploadGeneratedImage(db, "generated-creatives", projectId, imageBytes);
     const totalCost = (result.costUsd || 0);
 
-    // Save to database
+    // Save to database (a piece in a task gets the next banner number: B01, B02…)
+    const taskId = await resolveTaskId(db, projectId, bodyRaw.taskId);
     const inserted = await insertCreative(db, {
       project_id: projectId,
+      task_id: taskId,
       swipe_file_id: swipeFileId || null,
       image_url: publicUrl,
       prompt: effectivePrompt,
@@ -684,7 +686,7 @@ CRITICAL RULES:
       },
     });
 
-    return jsonResponse({ success: true, imageUrl: publicUrl, creativeId: inserted.id, model: result.model, costUsd: totalCost });
+    return jsonResponse({ success: true, imageUrl: publicUrl, creativeId: inserted.id, bannerNumber: inserted.bannerNumber, model: result.model, costUsd: totalCost });
   } catch (e) {
     console.error("generate-creative error:", e);
     return jsonResponse({ error: e instanceof Error ? e.message : "Unknown error" }, 500);

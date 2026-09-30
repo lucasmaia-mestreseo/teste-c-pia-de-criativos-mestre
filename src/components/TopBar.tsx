@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useProjects } from '@/hooks/useProjects';
 import ProjectPicker, { ProjectAvatar, useBrandColors } from '@/components/ProjectPicker';
 import TestVersionBadge from '@/components/TestVersionBadge';
+import TaskSelector from '@/components/TaskSelector';
 import { useRenameProject } from '@/hooks/useProject';
 import { usePermissions } from '@/hooks/usePermissions';
 import UserMenu from '@/components/UserMenu';
@@ -68,6 +69,7 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
   };
 
   const navItems: { panel: RightPanel; icon: React.ElementType; label: string }[] = [
+    { panel: 'tasks', icon: FolderOpen, label: 'Tarefas' },
     { panel: 'generate', icon: Zap, label: 'Gerar' },
     { panel: 'dynamic', icon: Sparkles, label: 'Dinâmica' },
     { panel: 'unfold', icon: Layers, label: 'Desdobramento' },
@@ -114,6 +116,7 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
           <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50 group-hover:opacity-100" />
         </button>
         <ProjectPicker open={pickerOpen} onOpenChange={setPickerOpen} currentProjectId={selectedProjectId} onPick={onSelectProject} />
+        {selectedProjectId && <TaskSelector projectId={selectedProjectId} />}
 
         {selectedProjectId && can('edit_project') && (
           <>

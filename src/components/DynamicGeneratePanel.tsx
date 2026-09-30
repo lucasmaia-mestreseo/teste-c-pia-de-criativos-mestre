@@ -14,6 +14,7 @@ import { useBrandKit } from '@/hooks/useBrandKit';
 import { useCreativeFormats } from '@/hooks/useCreativeFormats';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useQueryClient } from '@tanstack/react-query';
+import { getCurrentTaskId, nextBannerNumber } from '@/hooks/useTasks';
 
 interface DynamicGeneratePanelProps {
   projectId: string | null;
@@ -89,11 +90,17 @@ export default function DynamicGeneratePanel({ projectId, onGeneratingChange }: 
       .flatMap(([type]) => Array.from({ length: counts[type] || 1 }, () => type));
     setProgress({ done: 0, total: jobs.length });
 
+    // parallel calls: reserve the banner numbers (B01, B02…) up front so they never collide
+    const taskId = getCurrentTaskId(projectId);
+    const firstBanner = taskId ? await nextBannerNumber(taskId) : 0;
+
     try {
-      const settled = await runWithConcurrency(jobs, CONCURRENCY, async (type) => {
+      const settled = await runWithConcurrency(jobs, CONCURRENCY, async (type, index) => {
         try {
           const data = await invokeWithRetry('generate-dynamic-creative', {
             projectId,
+            taskId: taskId ?? undefined,
+            bannerNumber: taskId ? firstBanner + index : undefined,
             types: [{ type, count: 1 }],
             format,
             ignoreBrandKit,

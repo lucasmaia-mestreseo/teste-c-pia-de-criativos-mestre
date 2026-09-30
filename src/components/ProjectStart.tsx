@@ -23,7 +23,8 @@ export default function ProjectStart({ projectId, projectName, onCreateBrandKit 
   const skip = async () => {
     try {
       await complete.mutateAsync(projectId);
-      toast.success('Pronto, pode gerar!', { description: 'Quando quiser, complete o Brand Kit na aba Brand Kit.' });
+      toast.success('Pronto! Agora crie a primeira tarefa', { description: 'O Brand Kit fica para depois, na aba Brand Kit.' });
+      navigate(`/project/${projectId}/tasks`, { state: { newTask: true } });
     } catch {
       toast.error('Não foi possível continuar. Tente de novo.');
     }

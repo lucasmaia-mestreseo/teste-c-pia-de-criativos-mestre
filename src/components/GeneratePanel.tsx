@@ -12,6 +12,7 @@ import { useGeneratedCreatives, useDeleteCreative, useToggleFavorite } from '@/h
 import { Download, Trash2, Loader2, Maximize2, Minimize2, Star, Eye, ImagePlus, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { stripPngMetadata } from '@/lib/stripPngMetadata';
 import { toast } from 'sonner';
+import { useCreativeDownload } from '@/hooks/useCreativeDownload';
 
 const STORAGE_KEY = 'thumbSize-generate';
 
@@ -22,6 +23,7 @@ interface GeneratePanelProps {
 }
 
 export default function GeneratePanel({ projectId, generating, onUseAsReference }: GeneratePanelProps) {
+  const { downloadOne, downloadMany } = useCreativeDownload(projectId);
   const [thumbSize, setThumbSize] = useState(() => Number(localStorage.getItem(STORAGE_KEY)) || 160);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; projectId: string } | null>(null);
   const { data: creatives } = useGeneratedCreatives(projectId);
@@ -128,7 +130,7 @@ export default function GeneratePanel({ projectId, generating, onUseAsReference 
                       </button>
                     )}
                     {can('download_creative') && (
-                      <button onClick={() => handleDownload(c.image_url, `creative-${c.id}.png`)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Download">
+                      <button onClick={() => downloadOne(c)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Download">
                         <Download className="h-3 w-3 text-muted-foreground" />
                       </button>
                     )}
@@ -152,11 +154,11 @@ export default function GeneratePanel({ projectId, generating, onUseAsReference 
 
       {/* Image Modal with Navigation */}
       <Dialog open={selectedIndex !== null} onOpenChange={() => setSelectedIndex(null)}>
-        <DialogContent className="max-w-5xl w-auto p-6">
+        <DialogContent className="max-w-6xl w-[96vw] p-0 gap-0 overflow-hidden grid-cols-1">
           {modalCreative && (
-            <div className="flex gap-6 items-start">
-              <div className="relative flex-shrink-0">
-                <img src={modalCreative.image_url} alt={modalCreative.prompt} className="max-h-[80vh] max-w-[65vw] object-contain rounded-md block" />
+            <div className="flex flex-col md:flex-row items-stretch max-h-[92vh] min-h-0">
+              <div className="relative flex-1 min-w-0 flex items-center justify-center bg-black/30 p-3">
+                <img src={modalCreative.image_url} alt={modalCreative.prompt} className="max-h-[80vh] md:max-h-[86vh] max-w-full object-contain rounded-md block" />
                 <button
                   onClick={handlePrev}
                   disabled={selectedIndex === 0}
@@ -172,9 +174,9 @@ export default function GeneratePanel({ projectId, generating, onUseAsReference 
                   <ChevronRight className="h-5 w-5 text-foreground" />
                 </button>
               </div>
-              <div className="flex flex-col gap-2 min-w-[200px] max-w-[220px] pr-6 max-h-[80vh] overflow-y-auto self-start">
+              <div className="flex flex-col gap-2 w-full md:w-[340px] flex-none min-w-0 border-t md:border-t-0 md:border-l bg-card/60 p-4 pt-12 max-h-[88vh] overflow-y-auto overflow-x-hidden">
                 {can('download_creative') && (
-                  <Button size="sm" variant="outline" onClick={() => handleDownload(modalCreative.image_url, `creative-${modalCreative.id}.png`)}>
+                  <Button size="sm" variant="outline" onClick={() => downloadOne(modalCreative)}>
                     <Download className="h-3.5 w-3.5 mr-1" /> Download
                   </Button>
                 )}

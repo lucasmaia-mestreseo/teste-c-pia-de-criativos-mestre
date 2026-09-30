@@ -13,6 +13,7 @@ import { stripPngMetadata } from '@/lib/stripPngMetadata';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useCreativeDownload } from '@/hooks/useCreativeDownload';
 
 interface CreativesPanelProps {
   projectId: string | null;
@@ -22,6 +23,7 @@ interface CreativesPanelProps {
 const STORAGE_KEY = 'thumbSize-creatives';
 
 export default function CreativesPanel({ projectId, onUseAsReference }: CreativesPanelProps) {
+  const { downloadOne, downloadMany } = useCreativeDownload(projectId);
   const { can } = usePermissions();
   const [thumbSize, setThumbSize] = useState(() => Number(localStorage.getItem(STORAGE_KEY)) || 200);
   const [onlyFavorites, setOnlyFavorites] = useState(false);
@@ -145,7 +147,7 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
                 </button>
               )}
               {can('download_creative') && (
-                <button onClick={() => handleDownload(c.image_url, `creative-${c.id}.png`, c.id)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Download">
+                <button onClick={() => downloadOne(c)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Download">
                   <Download className="h-3 w-3 text-muted-foreground" />
                 </button>
               )}
@@ -166,32 +168,32 @@ export default function CreativesPanel({ projectId, onUseAsReference }: Creative
 
       {/* Detail Modal with Navigation */}
       <Dialog open={selectedIndex !== null} onOpenChange={() => setSelectedIndex(null)}>
-        <DialogContent className="max-w-[90vw] w-auto p-3">
+        <DialogContent className="max-w-6xl w-[96vw] p-0 gap-0 overflow-hidden grid-cols-1">
           {modalCreative && (
-            <div className="flex gap-4 items-center">
+            <div className="flex flex-col md:flex-row items-stretch max-h-[92vh] min-h-0">
               {/* Left arrow */}
               <button
                 onClick={handlePrev}
                 disabled={selectedIndex === 0}
-                className="p-2 rounded-full hover:bg-secondary disabled:opacity-20 disabled:cursor-default transition-colors flex-shrink-0"
+                className="hidden md:block self-center p-2 mx-1 rounded-full hover:bg-secondary disabled:opacity-20 disabled:cursor-default transition-colors flex-shrink-0"
               >
                 <ChevronLeft className="h-6 w-6 text-foreground" />
               </button>
 
-              <img src={modalCreative.image_url} alt={modalCreative.prompt} className="max-h-[80vh] max-w-[65vw] object-contain rounded-md" />
+              <img src={modalCreative.image_url} alt={modalCreative.prompt || 'Criativo'} className="min-w-0 flex-1 max-h-[80vh] md:max-h-[88vh] object-contain self-center p-3" />
 
               {/* Right arrow */}
               <button
                 onClick={handleNext}
                 disabled={selectedIndex === filtered.length - 1}
-                className="p-2 rounded-full hover:bg-secondary disabled:opacity-20 disabled:cursor-default transition-colors flex-shrink-0"
+                className="hidden md:block self-center p-2 mx-1 rounded-full hover:bg-secondary disabled:opacity-20 disabled:cursor-default transition-colors flex-shrink-0"
               >
                 <ChevronRight className="h-6 w-6 text-foreground" />
               </button>
 
-              <div className="flex flex-col gap-2 min-w-[180px] max-w-[220px] pt-8 max-h-[80vh] overflow-y-auto">
+              <div className="flex flex-col gap-2 w-full md:w-[340px] flex-none min-w-0 border-t md:border-t-0 md:border-l bg-card/60 p-4 pt-12 max-h-[88vh] overflow-y-auto overflow-x-hidden">
                 {can('download_creative') && (
-                  <Button size="sm" variant="outline" onClick={() => handleDownload(modalCreative.image_url, `creative-${modalCreative.id}.png`, modalCreative.id)}>
+                  <Button size="sm" variant="outline" onClick={() => downloadOne(modalCreative)}>
                     <Download className="h-3.5 w-3.5 mr-1" /> Download
                   </Button>
                 )}

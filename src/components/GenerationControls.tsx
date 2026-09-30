@@ -23,6 +23,8 @@ import { reviewCreative } from '@/lib/creativeOps';
 import { Textarea } from '@/components/ui/textarea';
 import type { Tables } from '@/integrations/supabase/types';
 import ActiveGuideBadge from '@/components/kv/ActiveGuideBadge';
+import { getCurrentTaskId } from '@/hooks/useTasks';
+import TaskNotice from '@/components/TaskNotice';
 
 const EMPTY_OVERRIDES: ElementOverrides = { texts: {}, logos: {}, photos: {} };
 
@@ -186,6 +188,7 @@ export default function GenerationControls({
         body.attachedImages = templateData.attachedImages;
       }
 
+      body.taskId = getCurrentTaskId(projectId) ?? undefined; // the piece becomes the next banner of the task
       const result = await invokeWithRetry<{ creativeId?: string }>('generate-creative', body, {
         friendlyName: 'Geração de Criativo',
         projectId,
@@ -205,7 +208,7 @@ export default function GenerationControls({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-3 pt-2.5"><ActiveGuideBadge projectId={projectId} /></div>
+      <div className="px-3 pt-2.5 space-y-2"><ActiveGuideBadge projectId={projectId} /><TaskNotice projectId={projectId} /></div>
       {/* Mode tabs */}
       <CreationModeSelector mode={creationMode} onChange={onCreationModeChange} />
 
