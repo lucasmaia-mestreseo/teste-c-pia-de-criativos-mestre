@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Zap, Loader2, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 
-const ALLOWED_DOMAIN = 'agenciamestre.com';
+import { allowedDomainsLabel, isAllowedEmail } from '@/lib/emailDomains';
 
 export default function AuthPage() {
   const navigate = useNavigate();
@@ -29,12 +29,12 @@ export default function AuthPage() {
   const [signupPassword, setSignupPassword] = useState('');
 
   const validateDomain = (email: string) => {
-    return email.toLowerCase().endsWith(`@${ALLOWED_DOMAIN}`);
+    return isAllowedEmail(email);
   };
 
   const handleLogin = async () => {
     if (!validateDomain(loginEmail)) {
-      toast.error(`Apenas emails @${ALLOWED_DOMAIN} são permitidos`);
+      toast.error(`Use seu e-mail da empresa (${allowedDomainsLabel})`);
       return;
     }
     setLoading(true);
@@ -78,7 +78,7 @@ export default function AuthPage() {
 
   const handleSignup = async () => {
     if (!validateDomain(signupEmail)) {
-      toast.error(`Apenas emails @${ALLOWED_DOMAIN} são permitidos`);
+      toast.error(`Use seu e-mail da empresa (${allowedDomainsLabel})`);
       return;
     }
     if (signupPassword.length < 6) {
@@ -148,7 +148,7 @@ export default function AuthPage() {
             <Zap className="h-6 w-6 text-primary fill-primary" />
             <h1 className="text-xl font-bold">Criativos Mestre</h1>
           </div>
-          <p className="text-sm text-muted-foreground">Acesso restrito a @{ALLOWED_DOMAIN}</p>
+          <p className="text-sm text-muted-foreground">Acesso restrito a {allowedDomainsLabel}</p>
         </div>
 
         <Tabs value={tab} onValueChange={(v) => { setTab(v as 'login' | 'signup'); setEmailNotConfirmed(false); }}>
@@ -186,7 +186,7 @@ export default function AuthPage() {
               <Label>Email</Label>
               <Input
                 type="email"
-                placeholder={`seu@${ALLOWED_DOMAIN}`}
+                placeholder="seu@mestreseo.com.br"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
                 className="bg-secondary"
@@ -223,7 +223,7 @@ export default function AuthPage() {
               <Label>Email</Label>
               <Input
                 type="email"
-                placeholder={`seu@${ALLOWED_DOMAIN}`}
+                placeholder="seu@mestreseo.com.br"
                 value={signupEmail}
                 onChange={(e) => setSignupEmail(e.target.value)}
                 className="bg-secondary"

@@ -25,6 +25,7 @@ import { AiModelsTab } from '@/components/admin/AiModelsTab';
 import { AnalyticsTab } from '@/components/admin/AnalyticsTab';
 import { LineChart as LineChartIcon, DollarSign } from 'lucide-react';
 import { CostsTab } from '@/components/admin/CostsTab';
+import { allowedDomainsLabel, isAllowedEmail } from '@/lib/emailDomains';
 
 // ─── Types ───
 
@@ -495,8 +496,8 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
   const handleInvite = async () => {
     const email = inviteEmail.trim().toLowerCase();
     if (!email) return;
-    if (!email.endsWith('@agenciamestre.com')) {
-      toast.error('Apenas emails @agenciamestre.com são permitidos');
+    if (!isAllowedEmail(email)) {
+      toast.error(`Apenas e-mails ${allowedDomainsLabel}`);
       return;
     }
     setInviting(true);
@@ -667,7 +668,7 @@ function UsersTab({ currentUser, currentRole }: { currentUser: any; currentRole:
           <Input
             value={inviteEmail}
             onChange={(e) => setInviteEmail(e.target.value)}
-            placeholder="email@agenciamestre.com"
+            placeholder="nome@mestreseo.com.br"
             className="bg-secondary max-w-sm"
             onKeyDown={(e) => e.key === 'Enter' && handleInvite()}
           />

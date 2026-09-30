@@ -30,8 +30,10 @@ Deno.serve(async (req) => {
     if (!email || typeof email !== "string") throw new Error("Email é obrigatório");
 
     const normalizedEmail = email.trim().toLowerCase();
-    if (!normalizedEmail.endsWith("@agenciamestre.com")) {
-      throw new Error("Apenas emails com domínio @agenciamestre.com são permitidos");
+    // Company domains (keep in sync with src/lib/emailDomains.ts)
+    const ALLOWED_DOMAINS = ["mestreseo.com.br", "agenciamestre.com"];
+    if (!ALLOWED_DOMAINS.includes(normalizedEmail.split("@")[1] ?? "")) {
+      throw new Error(`Apenas e-mails ${ALLOWED_DOMAINS.map((d) => "@" + d).join(" ou ")} são permitidos`);
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
