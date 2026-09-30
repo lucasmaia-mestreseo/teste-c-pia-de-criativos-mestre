@@ -9,7 +9,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import type { FillResult } from '@/kv/fillTemplate';
 import type { ManualSpec } from '@/kv/spec';
-import { applyToProject, saveManual } from '@/kv/manualStorage';
+import { activateManual, applyToProject, DEFAULT_CAMPAIGN, saveManual } from '@/kv/manualStorage';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { outline, type ManualPlan } from '@/kv/structure';
 import type { Briefing } from '@/kv/briefing';
 
@@ -31,6 +33,9 @@ export default function KvManualStep({ projectId, spec, result, logoForKit, phot
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [campaign, setCampaign] = useState(DEFAULT_CAMPAIGN);
+  const [makeActive, setMakeActive] = useState(true);
   const [applyOpen, setApplyOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
   const [page, setPage] = useState(1);
@@ -84,10 +89,19 @@ export default function KvManualStep({ projectId, spec, result, logoForKit, phot
   const save = async () => {
     setSaving(true);
     try {
-      await saveManual(projectId, spec, result.html, { plano: plan ?? undefined, briefings: briefings.length ? briefings : undefined });
+      const m = await saveManual(projectId, spec, result.html, { plano: plan ?? undefined, briefings: briefings.length ? briefings : undefined, campanha: campaign.trim() || DEFAULT_CAMPAIGN });
+      if (makeActive) {
+        await activateManual(projectId, m, spec, logoForKit, campaign);
+        qc.invalidateQueries({ queryKey: ['active-guide', projectId] });
+        qc.invalidateQueries({ queryKey: ['brand_kit', projectId] });
+        qc.invalidateQueries({ queryKey: ['project', projectId] });
+      }
       setSaved(true);
+      setSaveOpen(false);
       onSaved();
-      toast.success('Manual salvo no projeto');
+      toast.success(makeActive ? 'Manual salvo e ativo como guia do projeto' : 'Manual salvo no projeto', {
+        description: makeActive ? 'Gerar e Desdobramento já seguem as cores, fontes e regras deste guia.' : `Campanha: ${campaign}`,
+      });
     } catch (e) {
       toast.error('Não foi possível salvar', { description: e instanceof Error ? e.message : undefined });
     } finally {
@@ -106,7 +120,7 @@ export default function KvManualStep({ projectId, spec, result, logoForKit, phot
         </div>
         <Button size="sm" variant="outline" onClick={() => setApplyOpen(true)} className="gap-1.5"><Wand2 className="h-3.5 w-3.5" /> Aplicar à identidade do cliente</Button>
         <Button size="sm" variant="outline" onClick={downloadHtml} className="gap-1.5"><Code2 className="h-3.5 w-3.5" /> HTML</Button>
-        <Button size="sm" variant="outline" onClick={save} disabled={saving || saved} className="gap-1.5">
+        <Button size="sm" variant="outline" onClick={() => setSaveOpen(true)} disabled={saving || saved} className="gap-1.5">
           {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : saved ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <Save className="h-3.5 w-3.5" />}
           {saved ? 'Salvo' : 'Salvar no projeto'}
         </Button>
@@ -154,6 +168,31 @@ export default function KvManualStep({ projectId, spec, result, logoForKit, phot
           <iframe ref={iframeRef} title="Manual" srcDoc={result.html} className="w-full h-[75vh] block" />
         </motion.div>
       </div>
+
+      <Dialog open={saveOpen} onOpenChange={(o) => !saving && setSaveOpen(o)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Salvar no projeto</DialogTitle>
+            <DialogDescription>Um projeto pode ter vários guias — um por campanha. O guia ativo é o que a geração de criativos e o Desdobramento seguem.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <label className="block space-y-1.5">
+              <span className="text-xs font-medium">Campanha</span>
+              <Input value={campaign} onChange={(e) => setCampaign(e.target.value)} placeholder="Ex.: Guia principal, Black Friday 2026" className="bg-secondary" />
+            </label>
+            <label className="flex items-start justify-between gap-3 rounded-lg border p-3 cursor-pointer">
+              <span>
+                <span className="block text-sm font-medium">Usar como guia ativo do projeto</span>
+                <span className="block text-xs text-muted-foreground">Cores, tipografia, logo, tom de voz e regras visuais vão para o Brand Kit e o Contexto.</span>
+              </span>
+              <Switch checked={makeActive} onCheckedChange={setMakeActive} />
+            </label>
+            <Button onClick={save} disabled={saving} className="w-full gap-2">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} {makeActive ? 'Salvar e ativar' : 'Salvar'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <ApplyDialog open={applyOpen} onOpenChange={setApplyOpen} projectId={projectId} spec={spec} logo={logoForKit} photos={photosForKit}
         onDone={() => { qc.invalidateQueries({ queryKey: ['brand_kit', projectId] }); qc.invalidateQueries({ queryKey: ['project', projectId] }); }} />

@@ -11,6 +11,7 @@ import { useGeneratedCreatives } from '@/hooks/useGeneratedCreatives';
 import { useFormatOptions } from '@/hooks/useCreativeFormats';
 import { invalidateCreatives, reviewCreative, runWithConcurrency, transformCreative } from '@/lib/creativeOps';
 import { formatName } from '@/lib/formatNames';
+import ActiveGuideBadge from '@/components/kv/ActiveGuideBadge';
 
 /** A key visual the other formats are derived from. */
 type Source =
@@ -236,6 +237,7 @@ export default function UnfoldPanel({ projectId, onPendingChange }: UnfoldPanelP
           <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">
             Peças aprovadas viram todos os formatos da campanha, com os mesmos textos, logo e pessoas — só a composição se adapta. Uma ou várias de uma vez.
           </p>
+          <ActiveGuideBadge projectId={projectId} className="mt-2" />
         </div>
 
         {/* key visuals */}

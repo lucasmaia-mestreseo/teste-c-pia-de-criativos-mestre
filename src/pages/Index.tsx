@@ -22,6 +22,8 @@ const KvStudio = lazy(() => import('@/components/kv/KvStudio'));
 const VideoStudio = lazy(() => import('@/components/video/VideoStudio'));
 import ProjectOnboarding from '@/components/ProjectOnboarding';
 import { useProject } from '@/hooks/useProject';
+import { useAuth } from '@/contexts/AuthContext';
+import { touchRecentProject } from '@/lib/projectLists';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -49,7 +51,13 @@ const Index = () => {
   const [unfoldPending, setUnfoldPending] = useState<string[]>([]);
 
   const project = useProject(projectId);
+  const { user } = useAuth();
   const onboardingPending = !!(projectId && project.data && !project.data.onboarding_completed);
+  // the onboarding (Brand Kit + contexto) only gates generation: KV, Desdobramento and the gallery work right away
+  const showOnboarding = onboardingPending && (activePanel === 'generate' || activePanel === 'dynamic');
+
+  // "Últimos editados" on the home screen
+  useEffect(() => { if (projectId) touchRecentProject(user?.id, projectId); }, [projectId, user?.id]);
 
   const resetProjectState = () => {
     setSelectedSwipe(null);
@@ -76,8 +84,8 @@ const Index = () => {
   const handleProjectChange = (id: string) => {
     setProjectId(id);
     resetProjectState();
-    setActivePanel('generate');
-    navigate(`/project/${id}/generate`);
+    // switching project keeps you in the same tool
+    navigate(`/project/${id}/${activePanel}`);
   };
 
   const handlePanelChange = (panel: RightPanel) => {
@@ -128,7 +136,7 @@ const Index = () => {
           <div className="flex-1 overflow-hidden">
             <DashboardPanel onSelectProject={handleProjectChange} onUseAsReference={handleUseAsReference} />
           </div>
-        ) : onboardingPending ? (
+        ) : showOnboarding ? (
           <ProjectOnboarding projectId={projectId!} onComplete={handleOnboardingComplete} />
         ) : (
           <>

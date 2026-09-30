@@ -22,9 +22,11 @@ export interface SavedManual {
 const slug = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'manual';
 
 /** The JSON saved next to the HTML: the spec, plus the plan and briefings that shaped it (read back by `openSaved`). */
-export async function saveManual(projectId: string, spec: ManualSpec, html: string, extra: { plano?: unknown; briefings?: unknown } = {}): Promise<SavedManual> {
+export async function saveManual(projectId: string, spec: ManualSpec, html: string, extra: { plano?: unknown; briefings?: unknown; campanha?: string } = {}): Promise<SavedManual> {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const base = `${slug(spec.marca)}-${stamp}`;
+  // "marca__campanha-<stamp>": the campaign travels in the file name, so the listing needs no extra reads
+  const campaign = extra.campanha?.trim();
+  const base = campaign ? `${slug(spec.marca)}__${slug(campaign)}-${stamp}` : `${slug(spec.marca)}-${stamp}`;
   const htmlPath = `${folder(projectId)}/${base}.html`;
   const specPath = `${folder(projectId)}/${base}.json`;
   const up1 = await supabase.storage.from(BUCKET).upload(htmlPath, new Blob([html], { type: 'text/html' }), { contentType: 'text/html', upsert: true });
@@ -61,13 +63,61 @@ export async function deleteManual(m: SavedManual): Promise<void> {
   if (error) throw error;
 }
 
-/** "calhas-kennedy-2026-09-29T..." → "calhas kennedy" + date. */
-export function manualLabel(m: SavedManual): { brand: string; date: string } {
+/** "calhas-kennedy__black-friday-2026-09-29T..." → brand, campaign and date. */
+export function manualLabel(m: SavedManual): { brand: string; campaign: string; date: string } {
   const match = m.name.match(/^(.*)-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})/);
-  if (!match) return { brand: m.name, date: '' };
-  const [, b, d, hh, mm] = match;
+  if (!match) return { brand: m.name, campaign: DEFAULT_CAMPAIGN, date: '' };
+  const [, head, d, hh, mm] = match;
+  const [b, c] = head.split('__');
   const [y, mo, da] = d.split('-');
-  return { brand: b.replace(/-/g, ' '), date: `${da}/${mo}/${y} ${hh}:${mm}` };
+  const pretty = (s: string) => s.replace(/-/g, ' ');
+  return { brand: pretty(b), campaign: c ? pretty(c) : DEFAULT_CAMPAIGN, date: `${da}/${mo}/${y} ${hh}:${mm}` };
+}
+
+/* ─── the project's active brand guide ─── */
+
+export const DEFAULT_CAMPAIGN = 'Guia principal';
+
+export interface ActiveGuide {
+  /** SavedManual.name */
+  name: string;
+  brand: string;
+  campaign: string;
+  activatedAt: string;
+}
+
+const activePath = (projectId: string) => `${folder(projectId)}/_active.json`;
+
+export async function getActiveGuide(projectId: string): Promise<ActiveGuide | null> {
+  const { data, error } = await supabase.storage.from(BUCKET).download(activePath(projectId));
+  if (error || !data) return null;
+  try { return JSON.parse(await data.text()) as ActiveGuide; } catch { return null; }
+}
+
+async function setActiveGuide(projectId: string, m: SavedManual, campaignLabel?: string): Promise<ActiveGuide> {
+  const { brand, campaign } = manualLabel(m);
+  // the file name loses accents (slug); keep the name as typed when we have it
+  const guide: ActiveGuide = { name: m.name, brand, campaign: campaignLabel?.trim() || campaign, activatedAt: new Date().toISOString() };
+  const { error } = await supabase.storage.from(BUCKET).upload(activePath(projectId), new Blob([JSON.stringify(guide)], { type: 'application/json' }), { contentType: 'application/json', upsert: true });
+  if (error) throw error;
+  return guide;
+}
+
+/**
+ * Makes a saved manual the project's brand guide: colors, typography, tone and
+ * visual rules go to the Brand Kit / Contexto (what Gerar and Desdobramento use),
+ * and the project leaves the onboarding. The logo is updated when given (right
+ * after building the manual); re-activating an older one keeps the current logo.
+ */
+export async function activateManual(projectId: string, m: SavedManual, spec: ManualSpec, logoDataUrl: string | null = null, campaignLabel?: string): Promise<ActiveGuide> {
+  await applyToProject(projectId, spec, { colors: true, typography: true, logoDataUrl, photos: [], voice: true, guidelines: true });
+  await supabase.from('projects').update({ onboarding_completed: true }).eq('id', projectId);
+  return setActiveGuide(projectId, m, campaignLabel);
+}
+
+export async function readManualSpec(m: SavedManual): Promise<ManualSpec> {
+  const { normalizeSpec } = await import('./spec');
+  return normalizeSpec(JSON.parse(await downloadText(m.specPath)));
 }
 
 /* ─── integration with the project's identity ─── */
@@ -141,7 +191,8 @@ export async function applyToProject(projectId: string, spec: ManualSpec, opts: 
     const upd: { voice_guide?: string; context?: string } = {};
     if (opts.voice) {
       const voice = [spec.resumo.tomDeVoz, spec.resumo.publico && `Público: ${spec.resumo.publico}`].filter(Boolean).join('\n\n');
-      if (voice) upd.voice_guide = project?.voice_guide ? `${project.voice_guide}\n\n— Do manual de marca —\n${voice}` : voice;
+      const baseVoice = (project?.voice_guide ?? '').replace(/\n*— Do manual de marca —[\s\S]*$/, '').trim();
+      if (voice) upd.voice_guide = baseVoice ? `${baseVoice}\n\n— Do manual de marca —\n${voice}` : voice;
       if (voice) done.push('tom de voz');
     }
     if (opts.guidelines) {

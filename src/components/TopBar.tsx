@@ -2,15 +2,15 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { useProjects, useCreateProject } from '@/hooks/useProjects';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useProjects } from '@/hooks/useProjects';
+import ProjectPicker, { ProjectAvatar, useBrandColors } from '@/components/ProjectPicker';
+import TestVersionBadge from '@/components/TestVersionBadge';
 import { useRenameProject } from '@/hooks/useProject';
 import { usePermissions } from '@/hooks/usePermissions';
 import UserMenu from '@/components/UserMenu';
 import { ReleaseNotesButton } from '@/components/ReleaseNotes';
-import { Palette, Clock, Plus, Zap, FileText, Sparkles, Image, Check, ChevronsUpDown, Pencil, Layers, ChevronLeft, BookOpenCheck, Clapperboard } from 'lucide-react';
+import { Palette, Clock, Zap, FileText, Sparkles, Image, ChevronsUpDown, Pencil, Layers, ChevronLeft, BookOpenCheck, Clapperboard, FolderOpen } from 'lucide-react';
 import { VIDEO_ENABLED } from '@/lib/tools';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -23,46 +23,26 @@ interface TopBarProps {
   onSelectProject: (id: string) => void;
   activePanel: RightPanel;
   onPanelChange: (panel: RightPanel) => void;
+  /** @deprecated the onboarding no longer locks the other tools */
   onboardingPending?: boolean;
   onGoToDashboard?: () => void;
 }
 
-export default function TopBar({ selectedProjectId, onSelectProject, activePanel, onPanelChange, onboardingPending, onGoToDashboard }: TopBarProps) {
+export default function TopBar({ selectedProjectId, onSelectProject, activePanel, onPanelChange, onGoToDashboard }: TopBarProps) {
   const { data: allProjects } = useProjects();
   const { canAccessProject, can } = usePermissions();
   const projects = allProjects?.filter((p) => canAccessProject(p.id));
-  const createProject = useCreateProject();
   const renameProject = useRenameProject();
   const navigate = useNavigate();
-  const [newName, setNewName] = useState('');
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameName, setRenameName] = useState('');
-  const [projectsOpen, setProjectsOpen] = useState('');
-
-  const canCreateProject = can('create_project');
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const { data: colors } = useBrandColors();
+  const current = projects?.find((p) => p.id === selectedProjectId) ?? null;
 
   const nameExists = (name: string, ignoreId?: string) => {
     const n = name.trim().toLowerCase();
     return (allProjects || []).some((p) => p.name.trim().toLowerCase() === n && p.id !== ignoreId);
-  };
-
-  const handleCreate = async () => {
-    const name = newName.trim();
-    if (!name) return;
-    if (nameExists(name)) {
-      toast.error('Já existe um projeto com esse nome');
-      return;
-    }
-    try {
-      const p = await createProject.mutateAsync({ name });
-      onSelectProject(p.id);
-      setNewName('');
-      setDialogOpen(false);
-      toast.success('Projeto criado!');
-    } catch (e: any) {
-      toast.error(e?.code === '23505' ? 'Já existe um projeto com esse nome' : 'Erro ao criar projeto');
-    }
   };
 
   const handleRename = async () => {
@@ -116,71 +96,24 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
         className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity mr-2 flex-shrink-0"
       >
         <Zap className="h-4 w-4 text-primary fill-primary" />
-        <span className="text-sm font-bold tracking-tight whitespace-nowrap">Criativos Mestre</span>
+        <span className="text-sm font-bold tracking-tight whitespace-nowrap hidden md:inline">Criativos Mestre</span>
       </button>
+      <TestVersionBadge />
 
       {/* Separator */}
       <div className="w-px h-6 bg-border flex-shrink-0" />
 
       {/* Project selector */}
       <div className="flex items-center gap-1 flex-shrink-0">
-        <Popover open={projectsOpen === 'open'} onOpenChange={(open) => setProjectsOpen(open ? 'open' : '')}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" role="combobox" className="w-[170px] h-8 text-[11px] bg-secondary border-border justify-between font-normal">
-              <span className="truncate">
-                {selectedProjectId
-                  ? projects?.find((p) => p.id === selectedProjectId)?.name ?? 'Selecione um projeto'
-                  : 'Selecione um projeto'}
-              </span>
-              <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-[220px] p-0" align="start">
-            <Command>
-              <CommandInput placeholder="Buscar projeto..." className="h-8 text-[11px]" />
-              <CommandEmpty className="text-[11px] py-4">Nenhum projeto encontrado.</CommandEmpty>
-              <CommandList>
-                {projects?.filter((p: any) => p.active !== false).sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
-                  <CommandItem
-                    key={p.id}
-                    value={p.name}
-                    onSelect={() => {
-                      onSelectProject(p.id);
-                      setProjectsOpen('');
-                    }}
-                    className="text-[11px] gap-2"
-                  >
-                    <Check className={cn("h-3 w-3", selectedProjectId === p.id ? "opacity-100" : "opacity-0")} />
-                    {p.name}
-                  </CommandItem>
-                ))}
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
-
-        {canCreateProject && (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="icon" variant="ghost" className="h-8 w-8">
-                <Plus className="h-3.5 w-3.5" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-card">
-              <DialogHeader><DialogTitle>Novo Projeto</DialogTitle></DialogHeader>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Nome do projeto"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                  className="bg-secondary"
-                />
-                <Button onClick={handleCreate} disabled={createProject.isPending}>Criar</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
+        <button onClick={() => setPickerOpen(true)}
+          className="group flex items-center gap-2 h-8 max-w-[200px] rounded-lg border bg-secondary pl-1 pr-2 text-[11px] transition-colors hover:border-primary/50">
+          {current
+            ? <ProjectAvatar id={current.id} name={current.name} color={colors?.[current.id]} size="sm" />
+            : <span className="h-6 w-6 rounded-md bg-background flex items-center justify-center"><FolderOpen className="h-3.5 w-3.5 text-muted-foreground" /></span>}
+          <span className="truncate font-medium">{current?.name ?? 'Escolha um projeto'}</span>
+          <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50 group-hover:opacity-100" />
+        </button>
+        <ProjectPicker open={pickerOpen} onOpenChange={setPickerOpen} currentProjectId={selectedProjectId} onPick={onSelectProject} />
 
         {selectedProjectId && can('edit_project') && (
           <>
@@ -217,20 +150,17 @@ export default function TopBar({ selectedProjectId, onSelectProject, activePanel
             return (
               <button
                 key={panel}
-                onClick={() => !onboardingPending && onPanelChange(panel)}
-                disabled={onboardingPending}
+                onClick={() => onPanelChange(panel)}
                 title={label}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
                   "relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap flex-none",
-                  onboardingPending
-                    ? 'text-muted-foreground/50 cursor-not-allowed'
-                    : active
+                  active
                       ? 'text-primary-foreground'
                       : 'text-muted-foreground hover:text-primary hover:bg-secondary/60'
                 )}
               >
-                {active && !onboardingPending && (
+                {active && (
                   <motion.span layoutId="topbar-active" className="absolute inset-0 rounded-md bg-primary shadow-sm shadow-primary/30" transition={{ type: 'spring', stiffness: 500, damping: 36 }} />
                 )}
                 <Icon className="relative h-3.5 w-3.5" />

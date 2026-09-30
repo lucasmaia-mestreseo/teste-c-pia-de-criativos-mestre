@@ -40,13 +40,13 @@ export const KIND_LABELS: Record<NoteKind, string> = {
 
 export const RELEASES: Release[] = [
   {
-    id: '2026-09-29',
+    id: '2026-09-30',
     version: '2.0',
-    date: '2026-09-29',
+    date: '2026-09-30',
     title: 'Novas ferramentas e uma Geração de Criativos mais completa',
     highlights: [
-      'Nova tela de Ferramentas: tudo o que a plataforma faz, num só lugar.',
-      'Três ferramentas novas: Desdobramento, Criação de KVs e Edição de Vídeo (prévia).',
+      'Nova tela de Ferramentas e projetos organizados: crie direto de qualquer ferramenta e ache os seus em "Meus projetos".',
+      'Desdobramento (várias peças de uma vez, com o banner 1200×628) e Criação de KVs, que vira o guia de marca do projeto.',
       'Geração de Criativos com Redimensionar, Revisão automática, Copy do anúncio e Variações A/B.',
     ],
     sections: [
@@ -54,9 +54,17 @@ export const RELEASES: Release[] = [
         title: 'Novas ferramentas',
         items: [
           { kind: 'novo', title: 'Tela de Ferramentas', text: 'A plataforma agora abre num painel com todas as ferramentas e os projetos em que você trabalhou por último.' },
-          { kind: 'novo', title: 'Desdobramento', text: 'Suba uma peça aprovada e receba a mesma peça em 9:16, 4:5, 1:1 e 16:9, com textos, logo e pessoas preservados.' },
+          { kind: 'novo', title: 'Desdobramento', text: 'Suba uma ou várias peças aprovadas (até 10) e receba cada uma em 9:16, 4:5, 1:1, 16:9 e no banner 1200×628 do Facebook, com textos, logo e pessoas preservados.' },
           { kind: 'novo', title: 'Criação de KVs', text: 'Briefing, brandbook, logo e peças do cliente viram o manual de comunicação digital. A IA molda a estrutura pelo briefing, mostra onde cada resposta foi aplicada e o manual aprovado alimenta a identidade do cliente.' },
-          { kind: 'previa', title: 'Edição de Vídeo', text: 'Cortes automáticos de silêncios e vícios de linguagem, tratamento de imagem e áudio, legendas e a assistente Astra. Em demonstração; chega em breve para todos.' },
+          { kind: 'previa', title: 'Edição de Vídeo', text: 'Cortes automáticos de silêncios e vícios de linguagem, tratamento de imagem e áudio, legendas e a assistente Astra. Chega em breve.' },
+        ],
+      },
+      {
+        title: 'Projetos',
+        items: [
+          { kind: 'novo', title: 'Criar projeto de qualquer ferramenta', text: 'Ao abrir Gerar, Desdobramento ou KVs, crie um projeto novo ali mesmo ou escolha um existente.' },
+          { kind: 'novo', title: 'Últimos editados, Meus projetos e Todos', text: 'Na tela inicial e no seletor: os que você abriu por último, os que você criou e todos os projetos da agência.' },
+          { kind: 'novo', title: 'Guia de marca ativo', text: 'O manual salvo em Criação de KVs vira o guia do projeto — um por campanha. Gerar e Desdobramento seguem o guia ativo, indicado no topo de cada ferramenta.' },
         ],
       },
       {
@@ -81,6 +89,7 @@ export const RELEASES: Release[] = [
       {
         title: 'Correções',
         items: [
+          { kind: 'correcao', title: 'Permissões', text: 'Quem não é administrador volta a conseguir gerar: os botões não ficam mais desativados por engano.' },
           { kind: 'correcao', title: '"Usar contexto"', text: 'O botão da aba Gerar voltou a preencher o pedido com o contexto do projeto.' },
           { kind: 'correcao', title: 'Aba Dinâmica', text: 'Respeita o formato, inclui o logo, salva o briefing completo e não estoura mais o tempo em lotes grandes.' },
           { kind: 'correcao', title: 'Novas tentativas', text: 'Uma falha não multiplica mais o custo de uma geração.' },

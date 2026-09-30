@@ -153,6 +153,13 @@ Deno.serve(async (req) => {
       targetFormat = body.targetFormat;
       if (!targetFormat) return jsonResponse({ error: "targetFormat é obrigatório" }, 400);
       promptText = adaptPrompt(targetFormat, sourceFormat, instructions);
+      // The project's active brand guide (Criação de KVs writes it into the context):
+      // guides what has to be recreated when the layout changes; the piece's texts never change.
+      const { data: proj } = await db.from("projects").select("context").eq("id", projectId).maybeSingle();
+      const guide = String(proj?.context ?? "").match(/— Diretrizes do manual de marca —[\s\S]*$/)?.[0];
+      if (guide) {
+        promptText += `\n\nGUIA DE MARCA DO PROJETO (use para cores, tipografia e estilo do que precisar ser estendido ou recriado — NUNCA mude os textos da peça-mãe):\n${guide.slice(0, 1500)}`;
+      }
     }
 
     const userContent: any[] = [

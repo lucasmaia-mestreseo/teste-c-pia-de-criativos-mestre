@@ -22,6 +22,7 @@ import { invokeWithRetry } from '@/lib/invokeWithRetry';
 import { reviewCreative } from '@/lib/creativeOps';
 import { Textarea } from '@/components/ui/textarea';
 import type { Tables } from '@/integrations/supabase/types';
+import ActiveGuideBadge from '@/components/kv/ActiveGuideBadge';
 
 const EMPTY_OVERRIDES: ElementOverrides = { texts: {}, logos: {}, photos: {} };
 
@@ -204,6 +205,7 @@ export default function GenerationControls({
 
   return (
     <div className="flex flex-col h-full">
+      <div className="px-3 pt-2.5"><ActiveGuideBadge projectId={projectId} /></div>
       {/* Mode tabs */}
       <CreationModeSelector mode={creationMode} onChange={onCreationModeChange} />
 

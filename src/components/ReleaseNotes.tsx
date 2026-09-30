@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { IS_TEST_VERSION } from '@/lib/testVersion';
 import {
   KIND_LABELS, LATEST, RELEASES, formatReleaseDate, hasUnseen, markPopupShown, markSeen, shouldPopup, type NoteKind,
 } from '@/lib/releaseNotes';
@@ -59,6 +60,11 @@ export function ReleaseNotesProvider({ children }: { children: ReactNode }) {
                 <DialogDescription>{formatReleaseDate(LATEST.date)}</DialogDescription>
               </DialogHeader>
             </div>
+            {IS_TEST_VERSION && (
+              <div className="mx-6 mt-4 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2.5 text-xs text-amber-300 leading-relaxed">
+                <b className="text-amber-200">Versão de testes.</b> Pode ter instabilidades e os dados podem ser apagados. As gerações usam créditos reais de IA — evite subir materiais confidenciais de clientes. Achou algo estranho? Conte para o time.
+              </div>
+            )}
             <ul className="px-6 py-4 space-y-3 stagger">
               {LATEST.highlights.map((h) => (
                 <li key={h} className="flex gap-3 text-sm leading-relaxed">

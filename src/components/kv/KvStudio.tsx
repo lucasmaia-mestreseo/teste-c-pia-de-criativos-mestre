@@ -22,7 +22,8 @@ import {
 import { normalizeSpec, type ManualSpec } from '@/kv/spec';
 import { buildTokens, fillTemplate, type FillResult } from '@/kv/fillTemplate';
 import { googleEquivalent, googleFontsQuery } from '@/kv/fonts';
-import { deleteManual, downloadText, listManuals, manualLabel, type SavedManual } from '@/kv/manualStorage';
+import { activateManual, deleteManual, downloadText, listManuals, manualLabel, readManualSpec, type SavedManual } from '@/kv/manualStorage';
+import { useActiveGuide } from './ActiveGuideBadge';
 import { briefingsToText, type Briefing } from '@/kv/briefing';
 import { TEMPLATE_PAGES, normalizePlan, outline, isIncluded, type ManualPlan } from '@/kv/structure';
 
@@ -408,6 +409,8 @@ function SavedManuals({ projectId, onOpen }: { projectId: string; onOpen: (m: Sa
     queryKey: ['kv-manuals', projectId],
     queryFn: () => listManuals(projectId),
   });
+  const { data: active } = useActiveGuide(projectId);
+  const [activating, setActivating] = useState<string | null>(null);
   if (isLoading || !manuals?.length) return null;
 
   const download = async (m: SavedManual) => {
@@ -423,20 +426,48 @@ function SavedManuals({ projectId, onOpen }: { projectId: string; onOpen: (m: Sa
     qc.invalidateQueries({ queryKey: ['kv-manuals', projectId] });
     toast.success('Manual removido');
   };
+  const activate = async (m: SavedManual) => {
+    setActivating(m.name);
+    try {
+      const spec = await readManualSpec(m);
+      await activateManual(projectId, m, spec);
+      qc.invalidateQueries({ queryKey: ['active-guide', projectId] });
+      qc.invalidateQueries({ queryKey: ['brand_kit', projectId] });
+      qc.invalidateQueries({ queryKey: ['project', projectId] });
+      toast.success(`"${manualLabel(m).campaign}" agora é o guia ativo`, { description: 'Gerar e Desdobramento passam a seguir este guia.' });
+    } catch (e) {
+      toast.error('Não foi possível ativar o guia', { description: e instanceof Error ? e.message : undefined });
+    } finally {
+      setActivating(null);
+    }
+  };
 
   return (
     <div className="rounded-2xl border bg-card p-5 space-y-3">
-      <h3 className="text-sm font-bold flex items-center gap-2"><FolderOpen className="h-4 w-4 text-primary" /> Manuais salvos deste projeto</h3>
+      <div>
+        <h3 className="text-sm font-bold flex items-center gap-2"><FolderOpen className="h-4 w-4 text-primary" /> Guias de marca deste projeto</h3>
+        <p className="text-[11px] text-muted-foreground mt-0.5">Um guia por campanha. O <b className="text-foreground">ativo</b> é o que a geração de criativos e o Desdobramento seguem.</p>
+      </div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2 stagger">
         {manuals.map((m) => {
+          const isActive = active?.name === m.name;
           const { brand, date } = manualLabel(m);
+          const campaign = isActive && active ? active.campaign : manualLabel(m).campaign;
           return (
-            <div key={m.name} className="group rounded-xl border p-3 flex items-center gap-3 card-hover">
-              <BookOpenCheck className="h-8 w-8 text-primary flex-none" />
+            <div key={m.name} className={cn('group rounded-xl border p-3 flex items-center gap-3 card-hover', isActive && 'border-primary/50 bg-primary/5')}>
+              <BookOpenCheck className={cn('h-8 w-8 flex-none', isActive ? 'text-primary' : 'text-muted-foreground')} />
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold capitalize truncate">{brand}</div>
-                <div className="text-[11px] text-muted-foreground">{date}</div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-semibold capitalize truncate">{campaign}</span>
+                  {isActive && <span className="rounded-full bg-primary text-primary-foreground text-[9px] font-bold uppercase tracking-wide px-1.5 py-px flex-none">Ativo</span>}
+                </div>
+                <div className="text-[11px] text-muted-foreground truncate"><span className="capitalize">{brand}</span> · {date}</div>
               </div>
+              {!isActive && (
+                <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => activate(m)} disabled={!!activating}>
+                  {activating === m.name ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Ativar'}
+                </Button>
+              )}
               <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => onOpen(m)}>Abrir</Button>
               <button onClick={() => download(m)} className="text-muted-foreground hover:text-primary transition-colors" title="Baixar HTML"><Download className="h-4 w-4" /></button>
               <button onClick={() => remove(m)} className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100" title="Excluir"><Trash2 className="h-4 w-4" /></button>

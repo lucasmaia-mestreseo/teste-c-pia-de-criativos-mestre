@@ -34,11 +34,17 @@ export function usePermissions() {
     queryKey: ['role-permissions', role],
     queryFn: async () => {
       if (!role) return [];
-      const { data } = await supabase
-        .from('role_permissions')
-        .select('permission, enabled')
-        .eq('role', role);
-      return data || [];
+      // role_permissions is readable only by admins (RLS); everyone else asks for their own
+      if (role === 'owner' || role === 'admin') {
+        const { data } = await supabase
+          .from('role_permissions')
+          .select('permission, enabled')
+          .eq('role', role);
+        return data || [];
+      }
+      const { data, error } = await supabase.functions.invoke('my-permissions', { body: {} });
+      if (error) return [];
+      return ((data as { permissions?: { permission: string; enabled: boolean }[] })?.permissions) || [];
     },
     enabled: !!role,
   });
