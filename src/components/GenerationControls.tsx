@@ -23,7 +23,9 @@ import { reviewCreative } from '@/lib/creativeOps';
 import { Textarea } from '@/components/ui/textarea';
 import type { Tables } from '@/integrations/supabase/types';
 import ActiveGuideBadge from '@/components/kv/ActiveGuideBadge';
-import { getCurrentTaskId } from '@/hooks/useTasks';
+import { getCurrentTaskId, nextBannerNumber } from '@/hooks/useTasks';
+import { OptionCountPicker, useOptionCount } from '@/components/CreativeOptions';
+import { newOptionGroup } from '@/lib/creativeOptions';
 import TaskNotice from '@/components/TaskNotice';
 
 const EMPTY_OVERRIDES: ElementOverrides = { texts: {}, logos: {}, photos: {} };
@@ -87,6 +89,7 @@ export default function GenerationControls({
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [swipePrompt, setSwipePrompt] = useState('');
   const [elementOverrides, setElementOverrides] = useState<ElementOverrides>(EMPTY_OVERRIDES);
+  const [optionCount, setOptionCount] = useOptionCount('generate');
 
   const { data: brandKit } = useBrandKit(projectId);
   const { data: formats } = useCreativeFormats();
@@ -188,16 +191,28 @@ export default function GenerationControls({
         body.attachedImages = templateData.attachedImages;
       }
 
-      body.taskId = getCurrentTaskId(projectId) ?? undefined; // the piece becomes the next banner of the task
-      const result = await invokeWithRetry<{ creativeId?: string }>('generate-creative', body, {
-        friendlyName: 'Geração de Criativo',
-        projectId,
-        maxRetries: 2,
-      });
-      toast.success('Criativo gerado com sucesso!');
+      const taskId = getCurrentTaskId(projectId);
+      body.taskId = taskId ?? undefined; // the piece becomes the next banner of the task
+      // Gerar 2x/4x: takes of the same piece — same banner number, compared in the viewer
+      const n = optionCount;
+      if (n > 1) {
+        body.optionGroup = newOptionGroup();
+        if (taskId) body.bannerNumber = await nextBannerNumber(taskId);
+      }
+      const results = await Promise.allSettled(Array.from({ length: n }, (_, i) =>
+        invokeWithRetry<{ creativeId?: string }>('generate-creative', n > 1 ? { ...body, optionIndex: i } : body, {
+          friendlyName: 'Geração de Criativo',
+          projectId,
+          maxRetries: 2,
+        })));
       qc.invalidateQueries({ queryKey: ['generated_creatives', projectId] });
+      const done = results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
+      if (!done.length) throw (results[0] as PromiseRejectedResult).reason;
+      if (n === 1) toast.success('Criativo gerado com sucesso!');
+      else if (done.length === n) toast.success(`Criativo gerado com ${n} opções`, { description: 'Abra a peça para comparar e escolher a melhor.' });
+      else toast.warning(`${done.length} de ${n} opções geradas`, { description: 'As outras falharam — abra a peça para ver as que saíram.' });
       // Automatic review runs in the background; its badge shows up on the creative.
-      if (result?.creativeId) void reviewCreative(qc, projectId, result.creativeId);
+      for (const r of done) if (r?.creativeId) void reviewCreative(qc, projectId, r.creativeId);
     } catch (e: any) {
       toast.error(e.message || 'Erro ao gerar criativo');
     } finally {
@@ -378,8 +393,11 @@ export default function GenerationControls({
         </Collapsible>
       </div>
 
-      {/* Sticky footer: format dropdown + generate button */}
-      <div className="px-4 py-3 border-t bg-card flex items-center gap-2">
+      {/* Sticky footer: options, format dropdown + generate button */}
+      <div className="px-4 pt-2.5 border-t bg-card">
+        <OptionCountPicker value={optionCount} onChange={setOptionCount} disabled={generating} />
+      </div>
+      <div className="px-4 pb-3 pt-2 bg-card flex items-center gap-2">
         <Select value={format} onValueChange={setFormat}>
           <SelectTrigger className="w-[90px] h-9 text-xs bg-secondary">
             <SelectValue />
@@ -392,9 +410,9 @@ export default function GenerationControls({
         </Select>
         <Button onClick={handleGenerate} disabled={generating || !canGenerate()} className={cn('flex-1 h-9 text-sm btn-shine', generating && 'animate-pulse')}>
           {generating ? (
-            <><Loader2 className="h-4 w-4 animate-spin mr-1.5" /> Gerando...</>
+            <><Loader2 className="h-4 w-4 animate-spin mr-1.5" /> {optionCount > 1 ? `Gerando ${optionCount} opções...` : 'Gerando...'}</>
           ) : (
-            <><Zap className="h-4 w-4 mr-1.5 fill-primary-foreground" /> Gerar Criativo</>
+            <><Zap className="h-4 w-4 mr-1.5 fill-primary-foreground" /> Gerar Criativo{optionCount > 1 ? ` · ${optionCount}x` : ''}</>
           )}
         </Button>
       </div>

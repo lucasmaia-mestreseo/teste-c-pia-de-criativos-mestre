@@ -14,6 +14,8 @@ import { formatName } from '@/lib/formatNames';
 import ActiveGuideBadge from '@/components/kv/ActiveGuideBadge';
 import { getCurrentTaskId, nextBannerNumber } from '@/hooks/useTasks';
 import TaskNotice from '@/components/TaskNotice';
+import { OptionCountPicker, useOptionCount } from '@/components/CreativeOptions';
+import { newOptionGroup } from '@/lib/creativeOptions';
 
 /** A key visual the other formats are derived from. */
 type Source =
@@ -21,6 +23,14 @@ type Source =
   | { id: string; type: 'creative'; creativeId: string; previewUrl: string; format: string; width: number; height: number; name: string; taskId?: string | null; bannerNumber?: number | null };
 
 type Status = 'queued' | 'running' | 'done' | 'error';
+
+/** One version (piece × format) made of 1, 2 or 4 options: done once any option is in and none is still running. */
+function versionStatus(list: Status[]): Status {
+  if (list.some((s) => s === 'running')) return 'running';
+  if (list.some((s) => s === 'queued')) return 'queued';
+  if (list.some((s) => s === 'done')) return 'done';
+  return 'error';
+}
 
 const MAX_SOURCES = 10;
 /** Formats only the Desdobramento offers, on top of the project's formats. */
@@ -77,12 +87,22 @@ export default function UnfoldPanel({ projectId, onPendingChange }: UnfoldPanelP
   const [selected, setSelected] = useState<string[]>([]);
   const [instructions, setInstructions] = useState('');
   const [adjustOpen, setAdjustOpen] = useState(false);
-  /** key = `${sourceId}|${format}` */
+  const [optionCount, setOptionCount] = useOptionCount('unfold');
+  /** key = `${sourceId}|${format}|${option}` — one per image being made */
   const [status, setStatus] = useState<Record<string, Status>>({});
 
   const entries = Object.entries(status);
   const running = entries.some(([, s]) => s === 'queued' || s === 'running');
-  const pending = entries.filter(([, s]) => s === 'queued' || s === 'running').map(([k]) => k.split('|')[1]);
+  /** Status per version (piece × format), options folded together. */
+  const versions: Record<string, Status> = {};
+  {
+    const acc: Record<string, Status[]> = {};
+    for (const [k, s] of entries) { const v = k.split('|').slice(0, 2).join('|'); (acc[v] ??= []).push(s); }
+    for (const [v, list] of Object.entries(acc)) versions[v] = versionStatus(list);
+  }
+  const versionEntries = Object.entries(versions);
+  // one placeholder per version on the results side, however many options it has
+  const pending = versionEntries.filter(([, s]) => s === 'queued' || s === 'running').map(([k]) => k.split('|')[1]);
   const pendingKey = pending.join(',');
   useEffect(() => { onPendingChange?.(pendingKey ? pendingKey.split(',') : []); }, [pendingKey, onPendingChange]);
 
@@ -151,6 +171,37 @@ export default function UnfoldPanel({ projectId, onPendingChange }: UnfoldPanelP
   ].filter((p) => p.formats.length);
   const same = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
 
+  /** Options of one version share a group, kept for retries. */
+  const groupOf = useRef<Record<string, string>>({});
+  const unitsOf = (list: { source: Source; format: string }[], n: number) =>
+    list.flatMap((j) => Array.from({ length: n }, (_, option) => ({ ...j, option, n })));
+  const runUnit = async ({ source, format, option, n }: { source: Source; format: string; option: number; n: number }) => {
+    const key = `${source.id}|${format}|${option}`;
+    setStatus((s) => ({ ...s, [key]: 'running' }));
+    try {
+      const vkey = `${source.id}|${format}`;
+      if (n > 1 && !groupOf.current[vkey]) groupOf.current[vkey] = newOptionGroup();
+      const r = await transformCreative({
+        projectId,
+        operation: 'unfold',
+        targetFormat: format,
+        bannerNumber: bannerOf.current[source.id], sourceRatio: source.width / source.height,
+        instructions: instructions.trim() || undefined,
+        ...(n > 1 ? { optionGroup: groupOf.current[vkey], optionIndex: option } : {}),
+        ...(source.type === 'upload'
+          ? { sourceImageUrl: source.storageUrl, sourceFormat: source.format ?? undefined }
+          : { creativeId: source.creativeId }),
+      });
+      invalidateCreatives(qc, projectId);
+      void reviewCreative(qc, projectId, r.creativeId);
+      setStatus((s) => ({ ...s, [key]: 'done' }));
+      return r;
+    } catch (e) {
+      setStatus((s) => ({ ...s, [key]: 'error' }));
+      throw e;
+    }
+  };
+
   /** Bxx of each piece-mãe: all its formats share it. A piece already in this task keeps its number. */
   const bannerOf = useRef<Record<string, number>>({});
   const assignBanners = async () => {
@@ -166,40 +217,21 @@ export default function UnfoldPanel({ projectId, onPendingChange }: UnfoldPanelP
 
   const handleRun = async () => {
     if (!jobs.length) return;
-    const list = [...jobs];
+    const n = optionCount;
+    const list = unitsOf(jobs, n);
     await assignBanners();
-    setStatus(Object.fromEntries(list.map((j) => [`${j.source.id}|${j.format}`, 'queued' as Status])));
+    groupOf.current = {};
+    setStatus(Object.fromEntries(list.map((u) => [`${u.source.id}|${u.format}|${u.option}`, 'queued' as Status])));
 
-    const settled = await runWithConcurrency(list, 3, async ({ source, format }) => {
-      const key = `${source.id}|${format}`;
-      setStatus((s) => ({ ...s, [key]: 'running' }));
-      try {
-        const r = await transformCreative({
-          projectId,
-          operation: 'unfold',
-          targetFormat: format,
-          bannerNumber: bannerOf.current[source.id], sourceRatio: source.width / source.height,
-          instructions: instructions.trim() || undefined,
-          ...(source.type === 'upload'
-            ? { sourceImageUrl: source.storageUrl, sourceFormat: source.format ?? undefined }
-            : { creativeId: source.creativeId }),
-        });
-        invalidateCreatives(qc, projectId);
-        void reviewCreative(qc, projectId, r.creativeId);
-        setStatus((s) => ({ ...s, [key]: 'done' }));
-        return r;
-      } catch (e) {
-        setStatus((s) => ({ ...s, [key]: 'error' }));
-        throw e;
-      }
-    });
+    const settled = await runWithConcurrency(list, 3, runUnit);
 
     const ok = settled.filter((r) => r.status === 'fulfilled').length;
     const failed = settled.length - ok;
-    if (ok) toast.success(`Desdobramento pronto: ${ok} versão${ok > 1 ? 'ões' : ''}`, { description: sources.length > 1 ? `${sources.length} peças-mãe, agrupadas à direita.` : 'As versões estão à direita, junto da peça-mãe.' });
+    const where = sources.length > 1 ? `${sources.length} peças-mãe, agrupadas à direita.` : 'As versões estão à direita, junto da peça-mãe.';
+    if (ok) toast.success(`Desdobramento pronto: ${jobs.length} versão${jobs.length > 1 ? 'ões' : ''}`, { description: n > 1 ? `${n} opções em cada — clique numa peça para comparar. ${where}` : where });
     if (failed) {
       const err = settled.find((r) => r.status === 'rejected') as PromiseRejectedResult | undefined;
-      toast.error(`${failed} versão(ões) falharam`, { description: err?.reason?.message });
+      toast.error(`${failed} ${n > 1 ? 'opção(ões)' : 'versão(ões)'} falharam`, { description: err?.reason?.message });
     }
     // failures stay visible so they can be retried; successful rounds reset after a moment
     if (!failed) setTimeout(() => setStatus({}), 3500);
@@ -209,33 +241,24 @@ export default function UnfoldPanel({ projectId, onPendingChange }: UnfoldPanelP
     const failedKeys = entries.filter(([, s]) => s === 'error').map(([k]) => k);
     if (!failedKeys.length) return;
     setStatus({});
-    // re-run only the failed pairs by narrowing temporarily
-    const failedJobs = failedKeys.map((k) => { const [id, f] = k.split('|'); return { source: sources.find((s) => s.id === id)!, format: f }; }).filter((j) => j.source);
+    // re-run only the failed options, in the same option groups
+    const n = Math.max(1, ...Object.keys(status).map((k) => Number(k.split('|')[2]) + 1));
+    const failedUnits = failedKeys.map((k) => {
+      const [id, f, o] = k.split('|');
+      return { source: sources.find((s) => s.id === id)!, format: f, option: Number(o) || 0, n };
+    }).filter((u) => u.source);
     void (async () => {
-      setStatus(Object.fromEntries(failedJobs.map((j) => [`${j.source.id}|${j.format}`, 'queued' as Status])));
-      await runWithConcurrency(failedJobs, 3, async ({ source, format }) => {
-        const key = `${source.id}|${format}`;
-        setStatus((s) => ({ ...s, [key]: 'running' }));
-        try {
-          const r = await transformCreative({
-            projectId, operation: 'unfold', targetFormat: format, bannerNumber: bannerOf.current[source.id], sourceRatio: source.width / source.height, instructions: instructions.trim() || undefined,
-            ...(source.type === 'upload' ? { sourceImageUrl: source.storageUrl, sourceFormat: source.format ?? undefined } : { creativeId: source.creativeId }),
-          });
-          invalidateCreatives(qc, projectId);
-          void reviewCreative(qc, projectId, r.creativeId);
-          setStatus((s) => ({ ...s, [key]: 'done' }));
-        } catch {
-          setStatus((s) => ({ ...s, [key]: 'error' }));
-        }
-      });
+      setStatus(Object.fromEntries(failedUnits.map((u) => [`${u.source.id}|${u.format}|${u.option}`, 'queued' as Status])));
+      await runWithConcurrency(failedUnits, 3, runUnit);
     })();
   };
 
   const done = entries.filter(([, s]) => s === 'done' || s === 'error').length;
   const errors = entries.filter(([, s]) => s === 'error').length;
   const total = entries.length;
+  const unitLabel = total > versionEntries.length ? 'imagens' : 'versões';
   const pieceStatus = (id: string) => {
-    const mine = entries.filter(([k]) => k.startsWith(`${id}|`));
+    const mine = versionEntries.filter(([k]) => k.startsWith(`${id}|`));
     return { total: mine.length, done: mine.filter(([, s]) => s === 'done').length, error: mine.some(([, s]) => s === 'error'), running: mine.some(([, s]) => s === 'running') };
   };
 
@@ -354,7 +377,7 @@ export default function UnfoldPanel({ projectId, onPendingChange }: UnfoldPanelP
           <div className="grid grid-cols-2 gap-2.5">
             {options.map((f) => (
               <FormatCard key={f} format={f} image={first?.previewUrl} active={selected.includes(f)}
-                status={sources.length === 1 ? status[`${sources[0].id}|${f}`] : undefined}
+                status={sources.length === 1 ? versions[`${sources[0].id}|${f}`] : undefined}
                 skipped={sources.length === 1 && sources[0].format === f}
                 onClick={() => !running && toggle(f)} />
             ))}
@@ -399,20 +422,21 @@ export default function UnfoldPanel({ projectId, onPendingChange }: UnfoldPanelP
               <div className="h-full bg-destructive transition-all duration-700 ease-out" style={{ width: `${(errors / total) * 100}%` }} />
             </div>
             <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-              <span>{done} de {total} versões{errors ? ` · ${errors} falharam` : ''}</span>
+              <span>{done} de {total} {unitLabel}{errors ? ` · ${errors} falharam` : ''}</span>
               {!running && errors > 0 && <button onClick={retryFailed} className="text-primary hover:underline">Tentar de novo as que falharam</button>}
             </div>
           </div>
         )}
+        {!running && <OptionCountPicker value={optionCount} onChange={setOptionCount} />}
         <Button onClick={handleRun} disabled={!jobs.length || running || !can('generate_creative')} className={cn('w-full h-10 gap-2 font-semibold', !running && jobs.length > 0 && 'btn-shine')}>
           {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           {running ? `Desdobrando… ${done} de ${total}`
             : !sources.length ? 'Escolha as peças-mãe'
               : !jobs.length ? 'Escolha os formatos'
-                : sources.length === 1 ? `Desdobrar em ${jobs.length} formato${jobs.length > 1 ? 's' : ''}`
-                  : `Desdobrar ${sources.length} peças · ${jobs.length} versões`}
+                : (sources.length === 1 ? `Desdobrar em ${jobs.length} formato${jobs.length > 1 ? 's' : ''}`
+                  : `Desdobrar ${sources.length} peças · ${jobs.length} versões`) + (optionCount > 1 ? ` · ${optionCount}x` : '')}
         </Button>
-        {running && <p className="text-[10px] text-center text-muted-foreground">3 versões por vez, cada uma de 30 a 90 segundos. Pode continuar navegando.</p>}
+        {running && <p className="text-[10px] text-center text-muted-foreground">3 imagens por vez, cada uma de 30 a 90 segundos. Pode continuar navegando.</p>}
       </div>
     </div>
   );

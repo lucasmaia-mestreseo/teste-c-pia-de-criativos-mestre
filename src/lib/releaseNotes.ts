@@ -46,7 +46,7 @@ export const RELEASES: Release[] = [
     title: 'Tarefas, nomes no padrão da agência e desdobramentos mais fiéis',
     highlights: [
       'Cada projeto virou uma pasta com Tarefas: as peças ganham número (B01, B02…) e o download sai como [Cliente] [1080x1350] [B01] Tarefa.',
-      'Desdobramento mais fiel: quando dá, a peça original fica intacta e só o fundo é estendido. Imagens em 2K e “Corrigir todos”.',
+      'Desdobramento mais fiel: quando dá, a peça original fica intacta e só o fundo é estendido. Imagens em 2K, “Corrigir todos” e 2 ou 4 opções por peça.',
       'Tela inicial sem rolagem: ferramentas à esquerda, projetos à direita.',
     ],
     sections: [
@@ -64,6 +64,7 @@ export const RELEASES: Release[] = [
         title: 'Desdobramento',
         items: [
           { kind: 'melhoria', title: 'Peça original preservada', text: 'Quando o novo formato só precisa de mais altura ou largura (ex.: 4:5 → 9:16), a peça fica intacta no centro e só o fundo é estendido — sem reescrever textos.' },
+          { kind: 'novo', title: 'Várias opções por peça', text: 'Escolha Gerar 1x, 2x (recomendado) ou 4x no Desdobramento e na Geração de Criativos. A galeria mostra uma peça; ao abrir, compare as opções A, B… e escolha a que vai para o download.' },
           { kind: 'novo', title: 'Corrigir todos', text: 'Corrige de uma vez as versões com problemas na revisão e mostra quais já foram corrigidas.' },
           { kind: 'melhoria', title: 'Alta resolução', text: 'As imagens são geradas em 2K (ajustável em Admin → Modelos de IA) e reduzidas com qualidade ao tamanho final: texto e bordas mais nítidos.' },
           { kind: 'novo', title: 'Formato 3:4', text: '1080×1440 entrou na lista de formatos do Desdobramento.' },

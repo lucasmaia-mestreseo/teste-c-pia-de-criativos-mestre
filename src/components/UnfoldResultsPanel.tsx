@@ -15,6 +15,8 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { toSignedUrls } from '@/lib/storageUrl';
 import CreativeInsights, { ReviewBadge } from '@/components/CreativeInsights';
 import { useCreativeDownload } from '@/hooks/useCreativeDownload';
+import { collapseOptions } from '@/lib/creativeOptions';
+import { OptionsBadge, OptionsStrip } from '@/components/CreativeOptions';
 
 type CreativeRow = NonNullable<ReturnType<typeof useGeneratedCreatives>['data']>[number];
 
@@ -34,11 +36,13 @@ export default function UnfoldResultsPanel({ projectId, pending = [], onUseAsRef
   const [openId, setOpenId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
+  // Opções (2x/4x): each version shows its chosen option; the others open in the viewer.
+  const { primaries: unfolds, optionsOf } = useMemo(() => collapseOptions((creatives || []).filter((c) => c.kind === 'unfold')), [creatives]);
+
   // Group Desdobramento results by their key visual (newest group first).
   const groups = useMemo(() => {
     const map = new Map<string, CreativeRow[]>();
-    for (const c of creatives || []) {
-      if (c.kind !== 'unfold') continue;
+    for (const c of unfolds) {
       const key = c.source_image_url || c.parent_creative_id || c.id;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(c);
@@ -46,7 +50,7 @@ export default function UnfoldResultsPanel({ projectId, pending = [], onUseAsRef
     // tall → wide, the order people read formats in
     const ratio = (f: string) => { const [w, h] = f.split(':').map(Number); return w && h ? w / h : 1; };
     return Array.from(map.entries()).map(([source, items]) => ({ source, items: [...items].sort((a, b) => ratio(a.format) - ratio(b.format)) }));
-  }, [creatives]);
+  }, [unfolds]);
 
   // Source URLs are stored in public format; sign them for display.
   const sourceKeys = groups.map((g) => g.source);
@@ -77,6 +81,14 @@ export default function UnfoldResultsPanel({ projectId, pending = [], onUseAsRef
     for (let i = 0; i < 5 && latestFix.has(cur.id); i++) cur = latestFix.get(cur.id)!;
     return cur;
   };
+  /** The Desdobramento piece a (corrected) version comes from — its options are compared in the viewer. */
+  const byId = useMemo(() => new Map((creatives || []).map((c) => [c.id, c])), [creatives]);
+  const rootOf = (c: CreativeRow): CreativeRow => {
+    let cur = c;
+    for (let i = 0; i < 5 && cur.kind === 'fix' && cur.parent_creative_id && byId.has(cur.parent_creative_id); i++) cur = byId.get(cur.parent_creative_id)!;
+    return cur;
+  };
+  const openRoot = openCreative ? rootOf(openCreative) : null;
   const hasIssues = (c: CreativeRow) => c.review_status === 'issues' && !!(c.review as unknown as CreativeReview | null)?.issues?.length;
 
   const fixAll = async (items: CreativeRow[]) => {
@@ -189,6 +201,7 @@ export default function UnfoldResultsPanel({ projectId, pending = [], onUseAsRef
                   {!busy && <ReviewBadge creative={c} />}
                   {fixed && <span className="absolute bottom-1 left-1 rounded-full bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 flex items-center gap-0.5"><Check className="h-2.5 w-2.5" strokeWidth={3} /> Corrigido</span>}
                   {busy && <span className="absolute inset-0 flex items-center justify-center bg-background/40"><Loader2 className="h-5 w-5 animate-spin text-primary" /></span>}
+                  {!busy && <OptionsBadge count={optionsOf(orig).length} />}
                 </div>
                 <span className="text-[10px] font-bold text-muted-foreground group-hover:text-primary transition-colors">
                   {bannerLabel((c as { banner_number?: number | null }).banner_number) ? `${bannerLabel((c as { banner_number?: number | null }).banner_number)} · ` : ''}{pixelsLabel(c.format) || formatName(c.format)}
@@ -220,6 +233,11 @@ export default function UnfoldResultsPanel({ projectId, pending = [], onUseAsRef
                   <Button size="sm" variant="destructive" onClick={() => setDeleteTarget(openCreative.id)}>
                     <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir
                   </Button>
+                )}
+                {openRoot && (
+                  <OptionsStrip projectId={projectId} takes={optionsOf(openRoot)} viewingId={openRoot.id}
+                    onView={(id) => { const t = byId.get(id); if (t) setOpenId(current(t).id); }}
+                    imageOf={(t) => current(t as CreativeRow).image_url} />
                 )}
                 <CreativeInsights creative={openCreative} />
               </div>

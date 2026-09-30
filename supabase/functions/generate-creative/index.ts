@@ -7,7 +7,7 @@ import {
 import { corsHeaders, handleOptions, jsonResponse } from "../_shared/http.ts";
 import { adminClient, imageToBytes, parseStorageUrl, signProjectStorageUrl, signStorageUrl, uploadGeneratedImage } from "../_shared/storage.ts";
 import { requireProjectAccess } from "../_shared/auth.ts";
-import { insertCreative, resolveTaskId } from "../_shared/creatives.ts";
+import { insertCreative, optionFields, resolveTaskId } from "../_shared/creatives.ts";
 import { safeZoneRule } from "../_shared/formats.ts";
 
 type Track = { functionName: string; projectId: string; userId: string };
@@ -664,6 +664,8 @@ CRITICAL RULES:
     const inserted = await insertCreative(db, {
       project_id: projectId,
       task_id: taskId,
+      // takes of one piece (Gerar 2x/4x) share the banner number reserved by the browser
+      banner_number: taskId && Number.isInteger(bodyRaw.bannerNumber) && bodyRaw.bannerNumber > 0 ? bodyRaw.bannerNumber : null,
       swipe_file_id: swipeFileId || null,
       image_url: publicUrl,
       prompt: effectivePrompt,
@@ -683,6 +685,7 @@ CRITICAL RULES:
         logoPosition: logoPosition || null,
         personPosition: personPosition || null,
         attempts: result.attempts,
+        ...optionFields(bodyRaw),
       },
     });
 

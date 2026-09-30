@@ -13,6 +13,17 @@ function isMissingColumnError(error: { code?: string; message?: string } | null)
   return error.code === "42703" || error.code === "PGRST204" || /could not find the '.+' column|column .+ does not exist/i.test(error.message ?? "");
 }
 
+/**
+ * Opções (Gerar 2x / 4x): takes of the same piece share an option_group and
+ * are told apart by option_index (0 = A). Stored in generation_meta.
+ */
+export function optionFields(body: { optionGroup?: unknown; optionIndex?: unknown }): Record<string, unknown> {
+  const group = typeof body.optionGroup === "string" && /^[\w-]{6,64}$/.test(body.optionGroup) ? body.optionGroup : null;
+  if (!group) return {};
+  const index = Number.isInteger(body.optionIndex) && (body.optionIndex as number) >= 0 && (body.optionIndex as number) < 8 ? body.optionIndex : 0;
+  return { option_group: group, option_index: index };
+}
+
 /** The task only counts if it belongs to this project (never trust the id from the browser). */
 export async function resolveTaskId(db: SupabaseClient, projectId: string, taskId: unknown): Promise<string | null> {
   if (typeof taskId !== "string" || !taskId) return null;

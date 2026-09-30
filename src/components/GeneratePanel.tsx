@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSelectedById } from '@/hooks/useSelectedById';
+import { collapseOptions } from '@/lib/creativeOptions';
+import { OptionsBadge, OptionsStrip } from '@/components/CreativeOptions';
 import ExpandablePrompt from '@/components/ExpandablePrompt';
 import EmptyState from '@/components/EmptyState';
 import CreativeInsights, { ReviewBadge } from '@/components/CreativeInsights';
@@ -31,9 +33,12 @@ export default function GeneratePanel({ projectId, generating, onUseAsReference 
   const toggleFavorite = useToggleFavorite();
   const { can } = usePermissions();
 
-  const items = creatives || [];
-  const [selectedIndex, setSelectedIndex] = useSelectedById(items);
-  const modalCreative = selectedIndex !== null ? items[selectedIndex] : null;
+  // Opções (2x/4x): one thumbnail per piece; the viewer compares Opção A/B/C/D.
+  const { primaries: items, optionsOf } = useMemo(() => collapseOptions(creatives || []), [creatives]);
+  const byId = useMemo(() => new Map((creatives || []).map((c) => [c.id, c])), [creatives]);
+  const [selectedIndex, setSelectedIndex, selectedId, setSelectedId] = useSelectedById(items, (item, id) => optionsOf(item).some((t) => t.id === id));
+  const modalPrimary = selectedIndex !== null ? items[selectedIndex] : null;
+  const modalCreative = modalPrimary ? (byId.get(selectedId ?? '') ?? modalPrimary) : null;
 
   const handlePrev = useCallback(() => {
     setSelectedIndex(prev => prev !== null && prev > 0 ? prev - 1 : prev);
@@ -120,6 +125,7 @@ export default function GeneratePanel({ projectId, generating, onUseAsReference 
                   <img src={c.image_url} alt={c.prompt} loading="lazy" className="thumb-img" />
                   {thumbSize >= 96 && <span className="thumb-format">{c.format}</span>}
                   <ReviewBadge creative={c} />
+                  <OptionsBadge count={optionsOf(c).length} />
                   <div className="thumb-actions absolute bottom-0 left-0 right-0 bg-background/85 flex items-center justify-center gap-0.5 py-1">
                     <button onClick={() => setSelectedIndex(idx)} className="p-1 rounded hover:bg-secondary hover:border-primary/50 border border-transparent transition-colors" title="Detalhes">
                       <Eye className="h-3 w-3 text-muted-foreground" />
@@ -198,6 +204,7 @@ export default function GeneratePanel({ projectId, generating, onUseAsReference 
                     <ImagePlus className="h-3.5 w-3.5 mr-1" /> Referência
                   </Button>
                 )}
+                {modalPrimary && projectId && <OptionsStrip projectId={projectId} takes={optionsOf(modalPrimary)} viewingId={modalCreative!.id} onView={setSelectedId} />}
                 <CreativeInsights creative={modalCreative} />
                 <p className="text-[10px] text-muted-foreground mt-2">{(selectedIndex ?? 0) + 1} / {items.length}</p>
                 <ExpandablePrompt text={modalCreative.prompt} />

@@ -14,6 +14,9 @@ const IMAGE_DELAY = 2500;
 
 const kitOf = (projectId: string) => table('brand_kits').find((k) => k.project_id === projectId) ?? {};
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const demoOptions = (b: any) => (typeof b.optionGroup === 'string' ? { option_group: b.optionGroup, option_index: Number.isInteger(b.optionIndex) ? b.optionIndex : 0 } : {});
+
 function track(functionName: string, projectId: string | null, model: string, cost: number, settingsKey: string) {
   table('ai_usage').push({
     id: newId(), created_at: new Date().toISOString(), function_name: functionName, settings_key: settingsKey,
@@ -100,10 +103,10 @@ const handlers: Record<string, Handler> = {
       variant: table('generated_creatives').length,
     }));
     const row = insertCreative({
-      project_id: b.projectId, task_id: b.taskId ?? null, swipe_file_id: b.swipeFileId ?? null, image_url: imageUrl,
+      project_id: b.projectId, task_id: b.taskId ?? null, banner_number: b.taskId && Number.isInteger(b.bannerNumber) ? b.bannerNumber : null, swipe_file_id: b.swipeFileId ?? null, image_url: imageUrl,
       prompt: b.prompt || fieldValues.join(' · ') || title, format: b.format, kind: 'generate',
       model_used: model, cost_usd: cost,
-      generation_meta: { mode: b.mode, format: b.format, hasLogo: !!b.brandKit?.logoUrl, hasPerson: !!(b.brandKit?.personPhotoUrl || b.brandKit?.personGridUrl) },
+      generation_meta: { mode: b.mode, format: b.format, hasLogo: !!b.brandKit?.logoUrl, hasPerson: !!(b.brandKit?.personPhotoUrl || b.brandKit?.personGridUrl), ...demoOptions(b) },
     });
     track('generate-creative', b.projectId, model, cost, 'image_generation');
     return { success: true, imageUrl, creativeId: row.id, model, costUsd: cost };
@@ -159,7 +162,7 @@ const handlers: Record<string, Handler> = {
     if (!source) throw new Error('Imagem de origem não encontrada (demo)');
     const op: 'resize' | 'unfold' | 'fix' = b.operation;
     const format = op === 'fix' ? (parent?.format ?? '1:1') : b.targetFormat;
-    const label = op === 'fix' ? 'Corrigido' : op === 'resize' ? 'Redimensionado' : 'Desdobramento';
+    const label = op === 'fix' ? 'Corrigido' : op === 'resize' ? 'Redimensionado' : `Desdobramento${b.optionIndex > 0 ? ` · Opção ${String.fromCharCode(65 + b.optionIndex)}` : ''}`;
     const imageUrl = storeImage(b.projectId, `${op}-`, reframeArt(source, format, label));
     // Desdobramento/Redimensionar run on Nano Banana 2 (settings key image_unfold)
     const model = op === 'fix' ? 'openai/gpt-5.4-image-2' : 'google/gemini-3.1-flash-image-preview';
@@ -173,7 +176,7 @@ const handlers: Record<string, Handler> = {
       parent_creative_id: parent?.id ?? null,
       source_image_url: op === 'unfold' ? (parent ? (parent.source_image_url ?? parent.image_url) : sourceUrl) : (parent?.source_image_url ?? null),
       model_used: model, cost_usd: cost,
-      generation_meta: { operation: op, sourceFormat: parent?.format ?? b.sourceFormat ?? null, targetFormat: format },
+      generation_meta: { operation: op, sourceFormat: parent?.format ?? b.sourceFormat ?? null, targetFormat: format, ...(op === 'unfold' ? demoOptions(b) : {}) },
     });
     track(`transform-creative:${op}`, b.projectId, model, cost, op === 'fix' ? 'image_generation' : 'image_unfold');
     return { success: true, creativeId: row.id, imageUrl, model, costUsd: cost };

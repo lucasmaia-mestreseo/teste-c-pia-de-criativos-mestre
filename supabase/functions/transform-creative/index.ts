@@ -1,6 +1,6 @@
 import { generateImageWithCascade, imageFailurePayload } from "../_shared/openrouter.ts";
 import { requireProjectAccess } from "../_shared/auth.ts";
-import { insertCreative, resolveTaskId } from "../_shared/creatives.ts";
+import { insertCreative, optionFields, resolveTaskId } from "../_shared/creatives.ts";
 import { corsHeaders, handleOptions, jsonResponse } from "../_shared/http.ts";
 import { EXACT_FORMATS, fitExact } from "../_shared/imageFit.ts";
 import { FORMAT_PIXELS, safeZoneRule } from "../_shared/formats.ts";
@@ -272,7 +272,7 @@ Deno.serve(async (req) => {
         : (parent?.source_image_url ?? null),
       model_used: result.model,
       cost_usd: result.costUsd,
-      generation_meta: { operation, sourceFormat, targetFormat, instructions, ...(variant ? { variant } : {}) },
+      generation_meta: { operation, sourceFormat, targetFormat, instructions, ...(variant ? { variant } : {}), ...(operation === "unfold" ? optionFields(body) : {}) },
     });
 
     return jsonResponse({ success: true, creativeId: inserted.id, bannerNumber: inserted.bannerNumber, imageUrl, model: result.model, costUsd: result.costUsd });

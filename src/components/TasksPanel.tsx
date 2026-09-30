@@ -15,8 +15,10 @@ import { useCreativeDownload, type DownloadableCreative } from '@/hooks/useCreat
 import { bannerLabel, pixelsLabel } from '@/lib/creativeNames';
 import { formatName } from '@/lib/formatNames';
 import ActiveGuideBadge from '@/components/kv/ActiveGuideBadge';
+import { collapseOptions } from '@/lib/creativeOptions';
+import { OptionsBadge, OptionsStrip } from '@/components/CreativeOptions';
 
-type Creative = DownloadableCreative & { created_at: string; prompt?: string | null };
+type Creative = DownloadableCreative & { created_at: string; prompt?: string | null; generation_meta?: unknown };
 
 const LOOSE = '__avulsas__';
 
@@ -36,7 +38,8 @@ export default function TasksPanel({ projectId }: { projectId: string }) {
   const location = useLocation();
   const [newOpen, setNewOpen] = useState<boolean>(() => !!(location.state as { newTask?: boolean } | null)?.newTask);
 
-  const all = (creatives ?? []) as unknown as Creative[];
+  // Opções (2x/4x): only the chosen option of each piece counts (folder, counts and .zip)
+  const { primaries: all, optionsOf } = useMemo(() => collapseOptions((creatives ?? []) as unknown as Creative[]), [creatives]);
   const byTask = useMemo(() => {
     const m = new Map<string, Creative[]>();
     for (const c of all) {
@@ -58,7 +61,7 @@ export default function TasksPanel({ projectId }: { projectId: string }) {
   if (openFolder) {
     const task = openFolder === LOOSE ? null : visibleTasks.find((t) => t.id === openFolder) ?? null;
     return (
-      <FolderView projectId={projectId} task={task} items={byTask.get(openFolder) ?? []}
+      <FolderView projectId={projectId} task={task} items={byTask.get(openFolder) ?? []} optionsOf={optionsOf}
         onBack={() => setOpenFolder(null)} onTool={(panel) => openTool(task?.id ?? null, panel)} />
     );
   }
@@ -149,8 +152,8 @@ function FolderCard({ name, items, subtitle, active, muted, onOpen }: { name: st
   );
 }
 
-function FolderView({ projectId, task, items, onBack, onTool }: {
-  projectId: string; task: ProjectTask | null; items: Creative[]; onBack: () => void; onTool: (panel: 'unfold' | 'generate') => void;
+function FolderView({ projectId, task, items, optionsOf, onBack, onTool }: {
+  projectId: string; task: ProjectTask | null; items: Creative[]; optionsOf: (c: Creative) => Creative[]; onBack: () => void; onTool: (panel: 'unfold' | 'generate') => void;
 }) {
   const { downloadOne, downloadMany } = useCreativeDownload(projectId);
   const [preview, setPreview] = useState<Creative | null>(null);
@@ -203,6 +206,7 @@ function FolderView({ projectId, task, items, onBack, onTool }: {
                     <div key={c.id} className="group flex flex-col items-center gap-1.5 flex-none">
                       <button onClick={() => setPreview(c)} className="relative rounded-lg overflow-hidden border bg-secondary h-40 flex items-center transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/40">
                         <img src={c.image_url} alt="" className="h-full w-auto object-contain" />
+                        <OptionsBadge count={optionsOf(c).length} />
                       </button>
                       <div className="flex items-center gap-1">
                         <span className="text-[10px] font-semibold text-muted-foreground">{pixelsLabel(c.format) || formatName(c.format)}</span>
@@ -226,6 +230,7 @@ function FolderView({ projectId, task, items, onBack, onTool }: {
                 <span className="text-xs text-muted-foreground flex-1">{bannerLabel(preview.banner_number) ?? ''} · {pixelsLabel(preview.format)}</span>
                 <Button size="sm" className="gap-1.5" onClick={() => downloadOne(preview)}><Download className="h-3.5 w-3.5" /> Baixar</Button>
               </div>
+              <OptionsStrip className="max-w-sm" projectId={projectId} takes={optionsOf(preview)} viewingId={preview.id} onView={(id) => setPreview(optionsOf(preview).find((t) => t.id === id) ?? preview)} />
             </div>
           )}
         </DialogContent>

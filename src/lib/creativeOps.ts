@@ -52,6 +52,9 @@ export interface TransformParams {
   bannerNumber?: number;
   /** width / height of the piece-mãe (chooses outpainting vs. recomposition). */
   sourceRatio?: number;
+  /** Gerar 2x/4x: takes of one version share a group; index 0 = opção A. */
+  optionGroup?: string;
+  optionIndex?: number;
 }
 
 export interface TransformResult {
