@@ -49,7 +49,7 @@ BT /F1 14 Tf 60 470 Td (A Horizonte Engenharia constroi galpoes e obras industri
 BT /F1 14 Tf 60 445 Td (Falamos com diretores de industria e gestores de compras: direto, tecnico e seguro.) Tj ET
 BT /F1 14 Tf 60 420 Td (Prometemos prazo e seguranca, nunca o menor preco.) Tj ET`,
   ]);
-  return new File([bytes], 'brandbook-horizonte (exemplo).pdf', { type: 'application/pdf' });
+  return new File([bytes as BlobPart], 'brandbook-horizonte (exemplo).pdf', { type: 'application/pdf' });
 }
 
 /** A symbol (roof/horizon mark) + wordmark on a white background, like a typical JPG logo. */
