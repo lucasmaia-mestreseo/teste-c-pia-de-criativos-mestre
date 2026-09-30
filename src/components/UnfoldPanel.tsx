@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Check, ChevronDown, ImageUp, Layers, Loader2, RefreshCw, Sparkles, X } from 'lucide-react';
+import { Check, ChevronDown, ImageUp, Layers, Loader2, Plus, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,25 +10,39 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useGeneratedCreatives } from '@/hooks/useGeneratedCreatives';
 import { useFormatOptions } from '@/hooks/useCreativeFormats';
 import { invalidateCreatives, reviewCreative, runWithConcurrency, transformCreative } from '@/lib/creativeOps';
+import { formatName } from '@/lib/formatNames';
 
-/** The key visual the other formats are derived from. */
+/** A key visual the other formats are derived from. */
 type Source =
-  | { type: 'upload'; storageUrl: string; previewUrl: string; format: string | null; width: number; height: number }
-  | { type: 'creative'; creativeId: string; previewUrl: string; format: string; width: number; height: number };
+  | { id: string; type: 'upload'; storageUrl: string; previewUrl: string; format: string | null; width: number; height: number; name: string }
+  | { id: string; type: 'creative'; creativeId: string; previewUrl: string; format: string; width: number; height: number; name: string };
 
 type Status = 'queued' | 'running' | 'done' | 'error';
+
+const MAX_SOURCES = 10;
+/** Formats only the Desdobramento offers, on top of the project's formats. */
+const EXTRA_FORMATS = ['1.91:1'];
+const FORMAT_HINTS: Record<string, string> = {
+  '9:16': 'Stories e Reels',
+  '4:5': 'Feed vertical',
+  '1:1': 'Feed quadrado',
+  '16:9': 'Display e YouTube',
+  '1.91:1': 'Banner Facebook',
+  '3:4': 'Pinterest',
+};
+const TIPS = ['No 9:16, subir a headline', 'No 16:9, pessoa à esquerda', 'Manter o CTA grande', 'Logo sempre no topo'];
+
+const ratioOf = (f: string) => { const [w, h] = f.split(':').map(Number); return w && h ? w / h : 1; };
 
 /** Closest known format to the image's proportions (null if nothing is close). */
 function nearestFormat(width: number, height: number, options: string[]): string | null {
   const ratio = width / height;
   let best: { f: string; diff: number } | null = null;
   for (const f of options) {
-    const [w, h] = f.split(':').map(Number);
-    if (!w || !h) continue;
-    const diff = Math.abs(Math.log(ratio / (w / h)));
+    const diff = Math.abs(Math.log(ratio / ratioOf(f)));
     if (!best || diff < best.diff) best = { f, diff };
   }
-  return best && best.diff < 0.08 ? best.f : null;
+  return best && best.diff < 0.04 ? best.f : null;
 }
 
 function readImageSize(src: string): Promise<{ width: number; height: number }> {
@@ -40,19 +54,6 @@ function readImageSize(src: string): Promise<{ width: number; height: number }> 
   });
 }
 
-const ratioOf = (f: string) => { const [w, h] = f.split(':').map(Number); return w && h ? w / h : 1; };
-
-const FORMAT_HINTS: Record<string, string> = {
-  '9:16': 'Stories e Reels',
-  '4:5': 'Feed vertical',
-  '1:1': 'Feed quadrado',
-  '16:9': 'Display e YouTube',
-  '1.91:1': 'Link e LinkedIn',
-  '3:4': 'Pinterest',
-};
-
-const TIPS = ['No 9:16, subir a headline', 'No 16:9, pessoa à esquerda', 'Manter o CTA grande', 'Logo sempre no topo'];
-
 interface UnfoldPanelProps {
   projectId: string;
   /** Formats still being generated (the results side shows placeholders in their shape). */
@@ -62,78 +63,104 @@ interface UnfoldPanelProps {
 export default function UnfoldPanel({ projectId, onPendingChange }: UnfoldPanelProps) {
   const qc = useQueryClient();
   const { can } = usePermissions();
-  const options = useFormatOptions();
+  const projectFormats = useFormatOptions();
+  const options = [...projectFormats, ...EXTRA_FORMATS.filter((f) => !projectFormats.includes(f))];
   const { data: creatives } = useGeneratedCreatives(projectId);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const [source, setSource] = useState<Source | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [sources, setSources] = useState<Source[]>([]);
+  const [uploading, setUploading] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [instructions, setInstructions] = useState('');
   const [adjustOpen, setAdjustOpen] = useState(false);
+  /** key = `${sourceId}|${format}` */
   const [status, setStatus] = useState<Record<string, Status>>({});
 
-  const running = Object.values(status).some((s) => s === 'queued' || s === 'running');
-  const pending = Object.entries(status).filter(([, s]) => s === 'queued' || s === 'running').map(([f]) => f);
+  const entries = Object.entries(status);
+  const running = entries.some(([, s]) => s === 'queued' || s === 'running');
+  const pending = entries.filter(([, s]) => s === 'queued' || s === 'running').map(([k]) => k.split('|')[1]);
   const pendingKey = pending.join(',');
   useEffect(() => { onPendingChange?.(pendingKey ? pendingKey.split(',') : []); }, [pendingKey, onPendingChange]);
 
   const recent = (creatives || []).filter((c) => c.kind !== 'unfold').slice(0, 16);
-  const targets = options.filter((f) => f !== source?.format);
+  const jobs = sources.flatMap((s) => selected.filter((f) => f !== s.format).map((f) => ({ source: s, format: f })));
+  const first = sources[0];
 
-  const handleFile = async (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      toast.error('Envie um arquivo de imagem (PNG, JPG ou WEBP)');
-      return;
+  const firstSelection = (list: Source[]) => {
+    // on the first piece, pre-select every format but its own
+    if (!selected.length && list.length) setSelected(options.filter((f) => f !== list[0].format));
+  };
+
+  const addFiles = async (files: FileList | File[]) => {
+    const list = Array.from(files).filter((f) => f.type.startsWith('image/'));
+    if (!list.length) { toast.error('Envie imagens (PNG, JPG ou WEBP)'); return; }
+    const room = MAX_SOURCES - sources.length;
+    if (list.length > room) toast.info(`Até ${MAX_SOURCES} peças por vez — ${room > 0 ? `entraram as ${room} primeiras` : 'remova alguma para adicionar'}.`);
+    const added: Source[] = [];
+    for (const [i, file] of list.slice(0, Math.max(0, room)).entries()) {
+      setUploading(`Enviando ${i + 1} de ${Math.min(list.length, room)}…`);
+      try {
+        const previewUrl = URL.createObjectURL(file);
+        const { width, height } = await readImageSize(previewUrl);
+        const ext = file.name.split('.').pop() || 'png';
+        const path = `${projectId}/sources/${crypto.randomUUID()}.${ext}`;
+        const { error } = await supabase.storage.from('generated-creatives').upload(path, file, { contentType: file.type });
+        if (error) throw error;
+        const { data: { publicUrl } } = supabase.storage.from('generated-creatives').getPublicUrl(path);
+        added.push({ id: crypto.randomUUID(), type: 'upload', storageUrl: publicUrl, previewUrl, format: nearestFormat(width, height, options), width, height, name: file.name });
+      } catch (e) {
+        toast.error(`Erro ao enviar ${file.name}`, { description: e instanceof Error ? e.message : undefined });
+      }
     }
-    setUploading(true);
-    try {
-      const previewUrl = URL.createObjectURL(file);
-      const { width, height } = await readImageSize(previewUrl);
-      const ext = file.name.split('.').pop() || 'png';
-      const path = `${projectId}/sources/${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage.from('generated-creatives').upload(path, file, { contentType: file.type });
-      if (error) throw error;
-      const { data: { publicUrl } } = supabase.storage.from('generated-creatives').getPublicUrl(path);
-      const format = nearestFormat(width, height, options);
-      setSource({ type: 'upload', storageUrl: publicUrl, previewUrl, format, width, height });
-      setSelected(options.filter((f) => f !== format));
+    setUploading(null);
+    if (added.length) {
+      const next = [...sources, ...added];
+      setSources(next);
+      firstSelection(next);
       setStatus({});
-    } catch (e) {
-      toast.error('Erro ao enviar a imagem', { description: e instanceof Error ? e.message : undefined });
-    } finally {
-      setUploading(false);
     }
   };
 
-  const pickCreative = async (c: { id: string; image_url: string; format: string }) => {
+  const toggleCreative = async (c: { id: string; image_url: string; format: string }) => {
+    const existing = sources.find((s) => s.type === 'creative' && s.creativeId === c.id);
+    if (existing) { setSources((ss) => ss.filter((s) => s.id !== existing.id)); return; }
+    if (sources.length >= MAX_SOURCES) { toast.info(`Até ${MAX_SOURCES} peças por vez.`); return; }
     const size = await readImageSize(c.image_url).catch(() => ({ width: ratioOf(c.format) * 1000, height: 1000 }));
-    setSource({ type: 'creative', creativeId: c.id, previewUrl: c.image_url, format: c.format, ...size });
-    setSelected(options.filter((f) => f !== c.format));
+    const next: Source[] = [...sources, { id: crypto.randomUUID(), type: 'creative', creativeId: c.id, previewUrl: c.image_url, format: c.format, ...size, name: `Criativo ${c.format}` }];
+    setSources(next);
+    firstSelection(next);
+    setStatus({});
+  };
+
+  const removeSource = (id: string) => {
+    const next = sources.filter((s) => s.id !== id);
+    setSources(next);
+    if (!next.length) setSelected([]);
     setStatus({});
   };
 
   const toggle = (f: string) => setSelected((s) => (s.includes(f) ? s.filter((x) => x !== f) : [...s, f]));
   const presets: { label: string; formats: string[] }[] = [
-    { label: 'Todos', formats: targets },
-    { label: 'Redes sociais', formats: targets.filter((f) => ratioOf(f) <= 1) },
-    { label: 'Display', formats: targets.filter((f) => ratioOf(f) > 1) },
+    { label: 'Todos', formats: options },
+    { label: 'Redes sociais', formats: options.filter((f) => ratioOf(f) <= 1) },
+    { label: 'Horizontais', formats: options.filter((f) => ratioOf(f) > 1) },
   ].filter((p) => p.formats.length);
   const same = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
 
   const handleRun = async () => {
-    if (!source || !selected.length) return;
-    const list = [...selected];
-    setStatus(Object.fromEntries(list.map((f) => [f, 'queued' as Status])));
+    if (!jobs.length) return;
+    const list = [...jobs];
+    setStatus(Object.fromEntries(list.map((j) => [`${j.source.id}|${j.format}`, 'queued' as Status])));
 
-    const settled = await runWithConcurrency(list, 2, async (targetFormat) => {
-      setStatus((s) => ({ ...s, [targetFormat]: 'running' }));
+    const settled = await runWithConcurrency(list, 3, async ({ source, format }) => {
+      const key = `${source.id}|${format}`;
+      setStatus((s) => ({ ...s, [key]: 'running' }));
       try {
         const r = await transformCreative({
           projectId,
           operation: 'unfold',
-          targetFormat,
+          targetFormat: format,
           instructions: instructions.trim() || undefined,
           ...(source.type === 'upload'
             ? { sourceImageUrl: source.storageUrl, sourceFormat: source.format ?? undefined }
@@ -141,31 +168,65 @@ export default function UnfoldPanel({ projectId, onPendingChange }: UnfoldPanelP
         });
         invalidateCreatives(qc, projectId);
         void reviewCreative(qc, projectId, r.creativeId);
-        setStatus((s) => ({ ...s, [targetFormat]: 'done' }));
+        setStatus((s) => ({ ...s, [key]: 'done' }));
         return r;
       } catch (e) {
-        setStatus((s) => ({ ...s, [targetFormat]: 'error' }));
+        setStatus((s) => ({ ...s, [key]: 'error' }));
         throw e;
       }
     });
 
     const ok = settled.filter((r) => r.status === 'fulfilled').length;
     const failed = settled.length - ok;
-    if (ok) toast.success(`Desdobramento pronto: ${ok} formato${ok > 1 ? 's' : ''}`, { description: 'As versões estão à direita, junto da peça-mãe.' });
+    if (ok) toast.success(`Desdobramento pronto: ${ok} versão${ok > 1 ? 'ões' : ''}`, { description: sources.length > 1 ? `${sources.length} peças-mãe, agrupadas à direita.` : 'As versões estão à direita, junto da peça-mãe.' });
     if (failed) {
       const err = settled.find((r) => r.status === 'rejected') as PromiseRejectedResult | undefined;
-      toast.error(`${failed} formato(s) falharam`, { description: err?.reason?.message });
+      toast.error(`${failed} versão(ões) falharam`, { description: err?.reason?.message });
     }
-    // let the ticks show for a moment, then the panel is ready for the next round
-    setTimeout(() => setStatus({}), 3500);
+    // failures stay visible so they can be retried; successful rounds reset after a moment
+    if (!failed) setTimeout(() => setStatus({}), 3500);
   };
 
-  const done = Object.values(status).filter((s) => s === 'done' || s === 'error').length;
-  const total = Object.keys(status).length;
+  const retryFailed = () => {
+    const failedKeys = entries.filter(([, s]) => s === 'error').map(([k]) => k);
+    if (!failedKeys.length) return;
+    setStatus({});
+    // re-run only the failed pairs by narrowing temporarily
+    const failedJobs = failedKeys.map((k) => { const [id, f] = k.split('|'); return { source: sources.find((s) => s.id === id)!, format: f }; }).filter((j) => j.source);
+    void (async () => {
+      setStatus(Object.fromEntries(failedJobs.map((j) => [`${j.source.id}|${j.format}`, 'queued' as Status])));
+      await runWithConcurrency(failedJobs, 3, async ({ source, format }) => {
+        const key = `${source.id}|${format}`;
+        setStatus((s) => ({ ...s, [key]: 'running' }));
+        try {
+          const r = await transformCreative({
+            projectId, operation: 'unfold', targetFormat: format, instructions: instructions.trim() || undefined,
+            ...(source.type === 'upload' ? { sourceImageUrl: source.storageUrl, sourceFormat: source.format ?? undefined } : { creativeId: source.creativeId }),
+          });
+          invalidateCreatives(qc, projectId);
+          void reviewCreative(qc, projectId, r.creativeId);
+          setStatus((s) => ({ ...s, [key]: 'done' }));
+        } catch {
+          setStatus((s) => ({ ...s, [key]: 'error' }));
+        }
+      });
+    })();
+  };
+
+  const done = entries.filter(([, s]) => s === 'done' || s === 'error').length;
+  const errors = entries.filter(([, s]) => s === 'error').length;
+  const total = entries.length;
+  const pieceStatus = (id: string) => {
+    const mine = entries.filter(([k]) => k.startsWith(`${id}|`));
+    return { total: mine.length, done: mine.filter(([, s]) => s === 'done').length, error: mine.some(([, s]) => s === 'error'), running: mine.some(([, s]) => s === 'running') };
+  };
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto p-4 space-y-5">
+      <div className="flex-1 overflow-y-auto p-4 space-y-5"
+        onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDragOver(true); } }}
+        onDragLeave={(e) => { if (e.currentTarget === e.target) setDragOver(false); }}
+        onDrop={(e) => { if (e.dataTransfer.files?.length) { e.preventDefault(); setDragOver(false); void addFiles(e.dataTransfer.files); } }}>
         {/* header */}
         <div className="animate-in fade-in slide-in-from-bottom-1 duration-500">
           <div className="flex items-center gap-2">
@@ -173,74 +234,93 @@ export default function UnfoldPanel({ projectId, onPendingChange }: UnfoldPanelP
             <h2 className="text-sm font-bold">Desdobramento</h2>
           </div>
           <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">
-            Uma peça aprovada vira todos os formatos da campanha, com os mesmos textos, logo e pessoas — só a composição se adapta.
+            Peças aprovadas viram todos os formatos da campanha, com os mesmos textos, logo e pessoas — só a composição se adapta. Uma ou várias de uma vez.
           </p>
         </div>
 
-        {/* key visual */}
+        {/* key visuals */}
         <section className="space-y-2">
-          <SectionLabel done={!!source}>Peça-mãe</SectionLabel>
-          {source ? (
-            <div className="rounded-xl border bg-secondary/40 p-3 flex gap-3 items-center animate-in fade-in zoom-in-95 duration-300">
-              <div className="h-24 w-24 rounded-lg checkerboard flex items-center justify-center overflow-hidden flex-none">
-                <img src={source.previewUrl} alt="Peça-mãe" className="max-h-full max-w-full object-contain" />
-              </div>
-              <div className="flex-1 min-w-0 space-y-1.5">
-                <div className="text-xs font-semibold">{source.type === 'upload' ? 'Arquivo enviado' : 'Criativo do projeto'}</div>
-                <div className="text-[11px] text-muted-foreground">
-                  {source.format ? <>Formato <b className="text-foreground">{source.format}</b> · {source.width}×{source.height}px</> : <>{source.width}×{source.height}px · proporção livre</>}
-                </div>
-                <Button size="sm" variant="ghost" className="h-7 -ml-2 text-[11px] gap-1" disabled={running}
-                  onClick={() => { setSource(null); setSelected([]); setStatus({}); }}>
-                  <RefreshCw className="h-3 w-3" /> Trocar peça
-                </Button>
+          <div className="flex items-center justify-between">
+            <SectionLabel done={sources.length > 0}>Peças-mãe</SectionLabel>
+            {sources.length > 0 && <span className="text-[10px] text-muted-foreground">{sources.length} de {MAX_SOURCES}</span>}
+          </div>
+          <input ref={inputRef} type="file" multiple accept="image/png,image/jpeg,image/webp" className="hidden"
+            onChange={(e) => { if (e.target.files?.length) void addFiles(e.target.files); e.target.value = ''; }} />
+
+          {sources.length === 0 ? (
+            <button type="button" onClick={() => inputRef.current?.click()} disabled={!!uploading}
+              className={cn('w-full rounded-xl border-2 border-dashed px-4 py-5 flex items-center gap-4 text-left transition-all duration-300',
+                dragOver ? 'border-primary bg-primary/5 scale-[1.01]' : 'hover:border-primary/50 hover:bg-secondary/40')}>
+              <FanDiagram active={dragOver} />
+              <span className="space-y-1">
+                <span className="flex items-center gap-1.5 text-xs font-semibold">
+                  {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" /> : <ImageUp className="h-3.5 w-3.5 text-primary" />}
+                  {uploading ?? (dragOver ? 'Pode soltar' : 'Arraste uma ou várias peças')}
+                </span>
+                <span className="block text-[11px] text-muted-foreground">ou clique para escolher · até {MAX_SOURCES} · PNG, JPG ou WEBP</span>
+              </span>
+            </button>
+          ) : (
+            <div className={cn('grid grid-cols-3 gap-2 rounded-xl transition-all', dragOver && 'ring-2 ring-primary ring-offset-2 ring-offset-card')}>
+              {sources.map((s) => {
+                const st = pieceStatus(s.id);
+                return (
+                  <div key={s.id} className="group relative rounded-lg border bg-secondary/40 overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+                    <div className="aspect-square checkerboard flex items-center justify-center">
+                      <img src={s.previewUrl} alt={s.name} className="max-h-full max-w-full object-contain" />
+                    </div>
+                    <div className="px-1.5 py-1 text-[10px] flex items-center justify-between gap-1">
+                      <span className="font-semibold">{s.format ? formatName(s.format) : `${s.width}×${s.height}`}</span>
+                      {st.total > 0 && (
+                        <span className={cn('tabular-nums', st.error ? 'text-destructive' : st.done === st.total ? 'text-primary' : 'text-muted-foreground')}>
+                          {st.running && <Loader2 className="inline h-2.5 w-2.5 animate-spin mr-0.5" />}{st.done}/{st.total}
+                        </span>
+                      )}
+                    </div>
+                    {!running && (
+                      <button onClick={() => removeSource(s.id)} title="Tirar esta peça"
+                        className="absolute top-1 right-1 h-5 w-5 rounded-full bg-background/85 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                    {st.total > 0 && st.done === st.total && <span className="absolute top-1 left-1 h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center animate-in zoom-in duration-300"><Check className="h-3 w-3" strokeWidth={3.5} /></span>}
+                  </div>
+                );
+              })}
+              {sources.length < MAX_SOURCES && !running && (
+                <button onClick={() => inputRef.current?.click()} disabled={!!uploading}
+                  className="rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1 text-[10px] text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors min-h-[90px]">
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  {uploading ?? 'Adicionar'}
+                </button>
+              )}
+            </div>
+          )}
+
+          {recent.length > 0 && !running && (
+            <div className="space-y-1.5">
+              <p className="text-[11px] text-muted-foreground">{sources.length ? 'ou acrescente' : 'ou parta de'} criativos do projeto</p>
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1">
+                {recent.map((c) => {
+                  const picked = sources.some((s) => s.type === 'creative' && s.creativeId === c.id);
+                  return (
+                    <button key={c.id} onClick={() => void toggleCreative(c)} title={c.format}
+                      className={cn('group relative h-14 w-14 flex-none rounded-lg border overflow-hidden bg-secondary transition-all duration-200 hover:-translate-y-0.5',
+                        picked ? 'ring-2 ring-primary' : 'hover:ring-2 hover:ring-primary/60')}>
+                      <img src={c.image_url} alt="" className="w-full h-full object-cover" />
+                      {picked && <span className="absolute inset-0 bg-primary/30 flex items-center justify-center"><Check className="h-4 w-4 text-primary-foreground drop-shadow" strokeWidth={3} /></span>}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => inputRef.current?.click()}
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) handleFile(f); }}
-                disabled={uploading}
-                className={cn('w-full rounded-xl border-2 border-dashed px-4 py-5 flex items-center gap-4 text-left transition-all duration-300',
-                  dragOver ? 'border-primary bg-primary/5 scale-[1.01]' : 'hover:border-primary/50 hover:bg-secondary/40')}
-              >
-                <FanDiagram active={dragOver} />
-                <span className="space-y-1">
-                  <span className="flex items-center gap-1.5 text-xs font-semibold">
-                    {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" /> : <ImageUp className="h-3.5 w-3.5 text-primary" />}
-                    {uploading ? 'Enviando…' : dragOver ? 'Pode soltar' : 'Arraste a peça aprovada'}
-                  </span>
-                  <span className="block text-[11px] text-muted-foreground">ou clique para escolher · PNG, JPG ou WEBP</span>
-                </span>
-              </button>
-              <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }} />
-              {recent.length > 0 && (
-                <div className="space-y-1.5">
-                  <p className="text-[11px] text-muted-foreground">ou parta de um criativo do projeto</p>
-                  <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1">
-                    {recent.map((c) => (
-                      <button key={c.id} onClick={() => pickCreative(c)} title={c.format}
-                        className="group relative h-16 w-16 flex-none rounded-lg border overflow-hidden bg-secondary transition-all duration-200 hover:-translate-y-0.5 hover:ring-2 hover:ring-primary/60">
-                        <img src={c.image_url} alt="" className="w-full h-full object-cover" />
-                        <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[8px] font-semibold text-center py-px opacity-0 group-hover:opacity-100 transition-opacity">{c.format}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
           )}
         </section>
 
-        {/* formats, previewed with the key visual inside each frame */}
-        <section className={cn('space-y-2.5 transition-opacity duration-300', !source && 'opacity-40 pointer-events-none')}>
+        {/* formats, previewed with the first key visual inside each frame */}
+        <section className={cn('space-y-2.5 transition-opacity duration-300', !sources.length && 'opacity-40 pointer-events-none')}>
           <div className="flex items-center justify-between gap-2">
-            <SectionLabel done={!!source && selected.length > 0}>Formatos</SectionLabel>
+            <SectionLabel done={sources.length > 0 && selected.length > 0}>Formatos</SectionLabel>
             <div className="flex gap-1">
               {presets.map((p) => (
                 <button key={p.label} onClick={() => setSelected(p.formats)} disabled={running}
@@ -252,20 +332,24 @@ export default function UnfoldPanel({ projectId, onPendingChange }: UnfoldPanelP
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2.5">
-            {(source ? targets : options).map((f) => (
-              <FormatCard key={f} format={f} image={source?.previewUrl} active={selected.includes(f)} status={status[f]}
+            {options.map((f) => (
+              <FormatCard key={f} format={f} image={first?.previewUrl} active={selected.includes(f)}
+                status={sources.length === 1 ? status[`${sources[0].id}|${f}`] : undefined}
+                skipped={sources.length === 1 && sources[0].format === f}
                 onClick={() => !running && toggle(f)} />
             ))}
           </div>
-          {source?.format && <p className="text-[10px] text-muted-foreground">O formato da peça-mãe ({source.format}) já existe e fica de fora.</p>}
+          <p className="text-[10px] text-muted-foreground">
+            {sources.length > 1 ? 'Cada peça pula o formato que ela já tem.' : first?.format ? `A peça-mãe já é ${formatName(first.format)}: esse formato fica de fora.` : ''}
+            {selected.includes('1.91:1') && ' O 1200×628 sai no tamanho exato do banner de link do Facebook.'}
+          </p>
         </section>
 
         {/* adjustments */}
-        <section className={cn('transition-opacity duration-300', !source && 'opacity-40 pointer-events-none')}>
+        <section className={cn('transition-opacity duration-300', !sources.length && 'opacity-40 pointer-events-none')}>
           <button onClick={() => setAdjustOpen((v) => !v)} className="w-full flex items-center gap-2 text-left">
             <SectionLabel>Ajustes finos</SectionLabel>
-            <span className="text-[10px] text-muted-foreground">opcional</span>
-            {instructions.trim() && !adjustOpen && <span className="text-[10px] text-primary truncate">· {instructions.trim()}</span>}
+            <span className="text-[10px] text-muted-foreground">opcional · vale para todas as peças</span>
             <ChevronDown className={cn('h-3.5 w-3.5 ml-auto text-muted-foreground transition-transform duration-300', adjustOpen && 'rotate-180')} />
           </button>
           <div className={cn('grid transition-all duration-300 ease-out', adjustOpen ? 'grid-rows-[1fr] opacity-100 mt-2' : 'grid-rows-[0fr] opacity-0')}>
@@ -289,23 +373,26 @@ export default function UnfoldPanel({ projectId, onPendingChange }: UnfoldPanelP
       {/* action */}
       <div className="border-t p-3 bg-card/80 backdrop-blur space-y-2">
         {total > 0 && (
-          <div className="flex gap-1">
-            {Object.entries(status).map(([f, s]) => (
-              <div key={f} className="flex-1 space-y-1" title={f}>
-                <div className="h-1 rounded-full bg-secondary overflow-hidden">
-                  <div className={cn('h-full rounded-full transition-all duration-700 ease-out',
-                    s === 'done' ? 'w-full bg-primary' : s === 'error' ? 'w-full bg-destructive' : s === 'running' ? 'w-2/3 bg-primary/60 animate-pulse' : 'w-0')} />
-                </div>
-                <div className="text-[9px] text-center text-muted-foreground">{f}</div>
-              </div>
-            ))}
+          <div className="space-y-1">
+            <div className="h-1.5 rounded-full bg-secondary overflow-hidden flex">
+              <div className="h-full bg-primary transition-all duration-700 ease-out" style={{ width: `${((done - errors) / total) * 100}%` }} />
+              <div className="h-full bg-destructive transition-all duration-700 ease-out" style={{ width: `${(errors / total) * 100}%` }} />
+            </div>
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+              <span>{done} de {total} versões{errors ? ` · ${errors} falharam` : ''}</span>
+              {!running && errors > 0 && <button onClick={retryFailed} className="text-primary hover:underline">Tentar de novo as que falharam</button>}
+            </div>
           </div>
         )}
-        <Button onClick={handleRun} disabled={!source || !selected.length || running || !can('generate_creative')} className={cn('w-full h-10 gap-2 font-semibold', !running && source && selected.length > 0 && 'btn-shine')}>
+        <Button onClick={handleRun} disabled={!jobs.length || running || !can('generate_creative')} className={cn('w-full h-10 gap-2 font-semibold', !running && jobs.length > 0 && 'btn-shine')}>
           {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          {running ? `Desdobrando… ${done} de ${total}` : !source ? 'Escolha a peça-mãe' : selected.length ? `Desdobrar em ${selected.length} formato${selected.length > 1 ? 's' : ''}` : 'Escolha os formatos'}
+          {running ? `Desdobrando… ${done} de ${total}`
+            : !sources.length ? 'Escolha as peças-mãe'
+              : !jobs.length ? 'Escolha os formatos'
+                : sources.length === 1 ? `Desdobrar em ${jobs.length} formato${jobs.length > 1 ? 's' : ''}`
+                  : `Desdobrar ${sources.length} peças · ${jobs.length} versões`}
         </Button>
-        {running && <p className="text-[10px] text-center text-muted-foreground">Cada formato leva de 30 a 90 segundos. Pode continuar navegando.</p>}
+        {running && <p className="text-[10px] text-center text-muted-foreground">3 versões por vez, cada uma de 30 a 90 segundos. Pode continuar navegando.</p>}
       </div>
     </div>
   );
@@ -323,15 +410,15 @@ function SectionLabel({ children, done }: { children: React.ReactNode; done?: bo
 }
 
 /** One target format: the key visual placed inside the target frame, so people see what will be recomposed. */
-function FormatCard({ format, image, active, status, onClick }: { format: string; image?: string; active: boolean; status?: Status; onClick: () => void }) {
+function FormatCard({ format, image, active, status, skipped, onClick }: { format: string; image?: string; active: boolean; status?: Status; skipped?: boolean; onClick: () => void }) {
   const r = ratioOf(format);
   const H = 76;
-  const W = Math.min(120, Math.round(H * r));
+  const W = Math.min(124, Math.round(H * r));
   const h = r > 1 ? Math.round(W / r) : H;
   return (
     <button onClick={onClick}
       className={cn('group relative rounded-xl border p-2.5 flex flex-col items-center gap-2 transition-all duration-200',
-        active ? 'border-primary/70 bg-primary/[0.06] shadow-[0_0_0_1px_hsl(var(--primary)/0.25)]' : 'opacity-60 hover:opacity-100 hover:border-primary/40')}>
+        skipped ? 'opacity-35' : active ? 'border-primary/70 bg-primary/[0.06] shadow-[0_0_0_1px_hsl(var(--primary)/0.25)]' : 'opacity-60 hover:opacity-100 hover:border-primary/40')}>
       <div className="h-[76px] flex items-center justify-center">
         <div className={cn('relative rounded-[4px] overflow-hidden border border-white/10 bg-secondary transition-transform duration-300', active && 'group-hover:scale-[1.04]', status === 'running' && 'generating-pulse')}
           style={{ width: W, height: h }}>
@@ -343,12 +430,12 @@ function FormatCard({ format, image, active, status, onClick }: { format: string
         </div>
       </div>
       <div className="text-center leading-tight">
-        <div className="text-[11px] font-bold">{format}</div>
-        <div className="text-[9.5px] text-muted-foreground">{FORMAT_HINTS[format] ?? 'Formato personalizado'}</div>
+        <div className="text-[11px] font-bold">{formatName(format)}</div>
+        <div className="text-[9.5px] text-muted-foreground">{skipped ? 'formato da peça-mãe' : FORMAT_HINTS[format] ?? 'Formato personalizado'}</div>
       </div>
       <span className={cn('absolute top-1.5 right-1.5 h-4 w-4 rounded-full border flex items-center justify-center transition-all duration-200',
-        active ? 'bg-primary border-primary text-primary-foreground scale-100' : 'scale-90 border-muted-foreground/40')}>
-        {active && <Check className="h-2.5 w-2.5" strokeWidth={3.5} />}
+        active && !skipped ? 'bg-primary border-primary text-primary-foreground scale-100' : 'scale-90 border-muted-foreground/40')}>
+        {active && !skipped && <Check className="h-2.5 w-2.5" strokeWidth={3.5} />}
       </span>
     </button>
   );

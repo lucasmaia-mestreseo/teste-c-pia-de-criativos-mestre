@@ -56,7 +56,7 @@ function headlineFrom(prompt: string, fallback: string): string {
 
 /** Wrap an existing image into a new canvas, as a stand-in for an AI adaptation. */
 function reframeArt(source: string, format: string, badge: string): string {
-  const dims: Record<string, [number, number]> = { '9:16': [540, 960], '4:5': [640, 800], '1:1': [720, 720], '16:9': [960, 540] };
+  const dims: Record<string, [number, number]> = { '9:16': [540, 960], '4:5': [640, 800], '1:1': [720, 720], '16:9': [960, 540], '1.91:1': [1200, 628] };
   const [w, h] = dims[format] ?? dims['1:1'];
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
 <rect width="${w}" height="${h}" fill="#161616"/>
@@ -156,16 +156,19 @@ const handlers: Record<string, Handler> = {
     const format = op === 'fix' ? (parent?.format ?? '1:1') : b.targetFormat;
     const label = op === 'fix' ? 'Corrigido' : op === 'resize' ? 'Redimensionado' : 'Desdobramento';
     const imageUrl = storeImage(b.projectId, `${op}-`, reframeArt(source, format, label));
+    // Desdobramento/Redimensionar run on Nano Banana 2 (settings key image_unfold)
+    const model = op === 'fix' ? 'openai/gpt-5.4-image-2' : 'google/gemini-3.1-flash-image-preview';
+    const cost = op === 'fix' ? 0.042 : 0.039;
     const row = insertCreative({
       project_id: b.projectId, image_url: imageUrl, format, kind: op,
       prompt: `[${label} → ${format}]${b.instructions ? ` ${b.instructions}` : ''}`,
       parent_creative_id: parent?.id ?? null,
       source_image_url: op === 'unfold' ? (parent ? (parent.source_image_url ?? parent.image_url) : sourceUrl) : (parent?.source_image_url ?? null),
-      model_used: 'openai/gpt-5.4-image-2', cost_usd: 0.042,
+      model_used: model, cost_usd: cost,
       generation_meta: { operation: op, sourceFormat: parent?.format ?? b.sourceFormat ?? null, targetFormat: format },
     });
-    track(`transform-creative:${op}`, b.projectId, 'openai/gpt-5.4-image-2', 0.042, 'image_generation');
-    return { success: true, creativeId: row.id, imageUrl, model: 'openai/gpt-5.4-image-2', costUsd: 0.042 };
+    track(`transform-creative:${op}`, b.projectId, model, cost, op === 'fix' ? 'image_generation' : 'image_unfold');
+    return { success: true, creativeId: row.id, imageUrl, model, costUsd: cost };
   },
 
   'review-creative': async (b) => {

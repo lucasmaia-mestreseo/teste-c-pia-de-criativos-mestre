@@ -2,6 +2,7 @@ import { generateImageWithCascade, imageFailurePayload } from "../_shared/openro
 import { requireProjectAccess } from "../_shared/auth.ts";
 import { insertCreative } from "../_shared/creatives.ts";
 import { corsHeaders, handleOptions, jsonResponse } from "../_shared/http.ts";
+import { EXACT_FORMATS, fitExact } from "../_shared/imageFit.ts";
 import { adminClient, imageToBytes, parseStorageUrl, signStorageUrl, uploadGeneratedImage } from "../_shared/storage.ts";
 
 /**
@@ -24,7 +25,7 @@ const FORMAT_HINTS: Record<string, string> = {
   "4:5": "Vertical de feed. Aproveite a altura extra: dê respiro entre headline, imagem principal e CTA.",
   "1:1": "Quadrado de feed. Composição equilibrada e centralizada; nada encostado nas bordas.",
   "16:9": "Horizontal (banner, YouTube, display). Distribua os elementos lado a lado: normalmente imagem/pessoa de um lado e textos do outro.",
-  "1.91:1": "Horizontal de link/anúncio. Composição lado a lado com textos curtos e grandes.",
+  "1.91:1": "Banner horizontal de link do Facebook (1200×628). Composição lado a lado: imagem/pessoa de um lado, textos curtos e grandes do outro.",
 };
 
 function formatHint(format: string): string {
@@ -36,7 +37,8 @@ function adaptPrompt(targetFormat: string, sourceFormat: string | null, instruct
 
 A imagem anexada é a PEÇA-MÃE${sourceFormat ? ` (formato ${sourceFormat})` : ""}. Crie a versão desta MESMA peça no formato ${targetFormat}.
 
-FORMATO DE SAÍDA: ${targetFormat} (aspect ratio). ${formatHint(targetFormat)}
+FORMATO DE SAÍDA: ${targetFormat} (aspect ratio). ${formatHint(targetFormat)}${EXACT_FORMATS[targetFormat] ? `
+${EXACT_FORMATS[targetFormat].cropNote}` : ""}
 
 REGRAS OBRIGATÓRIAS:
 1. MESMA PEÇA: é uma adaptação, não um criativo novo. Mesmo conceito, mesma identidade visual, mesma paleta de cores, mesma tipografia, mesmo estilo de imagem.
@@ -171,9 +173,12 @@ Deno.serve(async (req) => {
       }
     }
 
+    const exact = EXACT_FORMATS[targetFormat];
     const result = await generateImageWithCascade({
       messages: [{ role: "user", content: userContent }],
-      aspectRatio: targetFormat,
+      aspectRatio: exact?.generateAs ?? targetFormat,
+      // adapting an existing piece (Desdobramento/Redimensionar) has its own model cascade
+      settingsKey: operation === "unfold" || operation === "resize" ? "image_unfold" : "image_generation",
       track,
       startedAt: START_TS,
     });
@@ -183,7 +188,14 @@ Deno.serve(async (req) => {
       return jsonResponse(failure.body, failure.status, failure.headers);
     }
 
-    const bytes = await imageToBytes(result.image);
+    let bytes = await imageToBytes(result.image);
+    if (exact) {
+      try {
+        bytes = await fitExact(bytes, exact);
+      } catch (e) {
+        console.warn(`fitExact(${targetFormat}) failed, keeping the generated size:`, e);
+      }
+    }
     const imageUrl = await uploadGeneratedImage(db, "generated-creatives", projectId, bytes, `${operation}-`);
 
     const variant: VariantSpec | null = operation === "variant" ? (body.variant ?? {}) : null;

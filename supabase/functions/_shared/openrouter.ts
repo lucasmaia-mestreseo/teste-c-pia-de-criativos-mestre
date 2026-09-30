@@ -6,7 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-export type ModelSettingsKey = "image_generation" | "text_reasoning" | "vision_analysis" | "brand_manual";
+export type ModelSettingsKey = "image_generation" | "image_unfold" | "text_reasoning" | "vision_analysis" | "brand_manual";
 
 export interface ModelSettings {
   primary_model: string;
@@ -28,6 +28,16 @@ const DEFAULTS: Record<ModelSettingsKey, ModelSettings> = {
     primary_attempts: 2,
     fallback_attempts: 1,
     tertiary_attempts: 1,
+  },
+  // Desdobramento and Redimensionar: adapt an existing piece to another format.
+  // Nano Banana 2 keeps texts, logo and people faithful and is fast/cheap for batches.
+  image_unfold: {
+    primary_model: "google/gemini-3.1-flash-image-preview",
+    fallback_model: "openai/gpt-5.4-image-2",
+    tertiary_model: "google/gemini-3.1-flash-image-preview",
+    primary_attempts: 2,
+    fallback_attempts: 1,
+    tertiary_attempts: 0,
   },
   text_reasoning: {
     primary_model: "google/gemini-3-flash-preview",
@@ -318,6 +328,8 @@ export interface GenerateImageOptions {
   /** Target aspect ratio such as "9:16". Sent as `image_config` and should also be stated in the prompt. */
   aspectRatio?: string | null;
   track?: Omit<UsageTrack, "settingsKey">;
+  /** Which model cascade to use (Admin → Modelos de IA). Default: image_generation. */
+  settingsKey?: "image_generation" | "image_unfold";
   /**
    * Total wall-clock budget for all attempts. Edge Functions are killed at ~150s,
    * so the default (125s) leaves room for upload + DB insert.
@@ -345,11 +357,12 @@ export interface GenerateImageResult {
 }
 
 export async function generateImageWithCascade(opts: GenerateImageOptions): Promise<GenerateImageResult> {
-  const settings = await loadModelSettings("image_generation");
+  const settingsKey = opts.settingsKey ?? "image_generation";
+  const settings = await loadModelSettings(settingsKey);
   const cascade = buildModelCascade(settings);
   const startedAt = opts.startedAt ?? Date.now();
   const budgetMs = opts.budgetMs ?? 125000;
-  const track = opts.track ? { ...opts.track, settingsKey: "image_generation" as const } : undefined;
+  const track = opts.track ? { ...opts.track, settingsKey } : undefined;
 
   const out: GenerateImageResult = {
     ok: false, model: "", level: "primary", attempts: 0, costUsd: 0,

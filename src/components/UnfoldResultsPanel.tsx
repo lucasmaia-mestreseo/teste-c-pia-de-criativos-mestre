@@ -5,6 +5,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { ArrowRight, Download, Trash2, Layers, ImagePlus } from 'lucide-react';
 import EmptyState from '@/components/EmptyState';
+import { formatName } from '@/lib/formatNames';
 import { toast } from 'sonner';
 import { useGeneratedCreatives, useDeleteCreative } from '@/hooks/useGeneratedCreatives';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -92,10 +93,10 @@ export default function UnfoldResultsPanel({ projectId, pending = [], onUseAsRef
             <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> Desdobrando {pending.length} formato{pending.length > 1 ? 's' : ''}…
           </p>
           <div className="flex flex-wrap gap-4 items-end">
-            {pending.map((fmt) => (
-              <div key={fmt} className="flex flex-col items-center gap-1.5">
+            {pending.map((fmt, i) => (
+              <div key={`${fmt}-${i}`} className="flex flex-col items-center gap-1.5">
                 <div className="generating-pulse rounded-lg bg-secondary h-44" style={{ aspectRatio: fmt.replace(':', ' / ') }} />
-                <span className="text-[10px] font-semibold text-muted-foreground">{fmt}</span>
+                <span className="text-[10px] font-semibold text-muted-foreground">{formatName(fmt)}</span>
               </div>
             ))}
           </div>
@@ -133,7 +134,7 @@ export default function UnfoldResultsPanel({ projectId, pending = [], onUseAsRef
                   <img src={c.image_url} alt={c.format} className="h-full w-auto object-contain" />
                   <ReviewBadge creative={c} />
                 </div>
-                <span className="text-[10px] font-bold text-muted-foreground group-hover:text-primary transition-colors">{c.format}</span>
+                <span className="text-[10px] font-bold text-muted-foreground group-hover:text-primary transition-colors">{formatName(c.format)}</span>
               </button>
             ))}
           </div>
