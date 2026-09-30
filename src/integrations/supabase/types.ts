@@ -353,6 +353,7 @@ export type Database = {
           active: boolean
           context: string | null
           created_at: string
+          created_by: string | null
           description: string | null
           id: string
           name: string
@@ -364,6 +365,7 @@ export type Database = {
           active?: boolean
           context?: string | null
           created_at?: string
+          created_by?: string | null
           description?: string | null
           id?: string
           name: string
@@ -375,6 +377,7 @@ export type Database = {
           active?: boolean
           context?: string | null
           created_at?: string
+          created_by?: string | null
           description?: string | null
           id?: string
           name?: string
