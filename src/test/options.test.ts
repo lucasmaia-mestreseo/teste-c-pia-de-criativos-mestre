@@ -27,3 +27,15 @@ describe('opções (Gerar 2x / 4x)', () => {
     expect(optionsOf(list[1]).map((c) => c.id)).toEqual(['a', 'b']);
   });
 });
+
+describe('opções no Desdobramento (por peça-mãe + formato)', () => {
+  it('groups every round of the same piece and format, newest round first', () => {
+    const old = { id: 'old', created_at: '2026-09-30T10:00:00Z', generation_meta: {}, key: 'src|9:16' };
+    const newA = { id: 'newA', created_at: '2026-10-01T10:00:00Z', generation_meta: { option_group: 'g', option_index: 0 }, key: 'src|9:16' };
+    const newB = { id: 'newB', created_at: '2026-10-01T10:00:05Z', generation_meta: { option_group: 'g', option_index: 1 }, key: 'src|9:16' };
+    const square = { id: 'sq', created_at: '2026-10-01T10:00:00Z', generation_meta: {}, key: 'src|1:1' };
+    const { primaries, optionsOf } = collapseOptions([newB, newA, square, old], (c) => c.key);
+    expect(primaries.map((c) => c.id)).toEqual(['newA', 'sq']);
+    expect(optionsOf(old).map((c) => c.id)).toEqual(['newA', 'newB', 'old']);
+  });
+});

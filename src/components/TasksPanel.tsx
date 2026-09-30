@@ -201,7 +201,7 @@ function FolderView({ projectId, task, items, optionsOf, onBack, onTool }: {
                   <div className="flex-1" />
                   <Button size="sm" variant="ghost" className="h-7 text-[11px] gap-1" onClick={() => downloadMany(list, `${task?.name ?? 'avulsas'} ${label}`)}><Download className="h-3 w-3" /> Baixar {label}</Button>
                 </div>
-                <div className="flex gap-3 items-end overflow-x-auto no-scrollbar pb-1">
+                <div className="flex flex-wrap gap-3 items-end pb-1">
                   {list.map((c) => (
                     <div key={c.id} className="group flex flex-col items-center gap-1.5 flex-none">
                       <button onClick={() => setPreview(c)} className="relative rounded-lg overflow-hidden border bg-secondary h-40 flex items-center transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/40">

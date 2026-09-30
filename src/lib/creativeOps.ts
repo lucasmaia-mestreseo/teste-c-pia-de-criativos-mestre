@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { invokeWithRetry } from '@/lib/invokeWithRetry';
 import { getCurrentTaskId } from '@/hooks/useTasks';
+import { tagOption } from '@/lib/creativeOptions';
 
 /**
  * Client-side entry points for the post-generation operations:
@@ -90,11 +91,13 @@ export async function transformCreative(params: TransformParams): Promise<Transf
   const friendlyName = { fix: 'Correção', resize: 'Redimensionar', unfold: 'Desdobramento', variant: 'Variação A/B' }[params.operation];
   // the task being worked on; the server keeps resize/fix/variant in the task of their piece
   const taskId = params.taskId ?? getCurrentTaskId(params.projectId) ?? undefined;
-  return invokeWithRetry<TransformResult>('transform-creative', { ...params, taskId }, {
+  const result = await invokeWithRetry<TransformResult>('transform-creative', { ...params, taskId }, {
     friendlyName,
     projectId: params.projectId,
     maxRetries: 2,
   });
+  if (params.optionGroup && result?.creativeId) await tagOption(result.creativeId, params.optionGroup, params.optionIndex ?? 0, params.bannerNumber);
+  return result;
 }
 
 export async function suggestVariants(projectId: string, creativeId: string, quantidade: number, foco: string) {

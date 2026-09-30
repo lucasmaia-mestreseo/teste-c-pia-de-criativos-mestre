@@ -37,7 +37,11 @@ export default function UnfoldResultsPanel({ projectId, pending = [], onUseAsRef
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   // Opções (2x/4x): each version shows its chosen option; the others open in the viewer.
-  const { primaries: unfolds, optionsOf } = useMemo(() => collapseOptions((creatives || []).filter((c) => c.kind === 'unfold')), [creatives]);
+  // Every version of the same piece-mãe in the same format counts as an option (also older rounds).
+  const { primaries: unfolds, optionsOf } = useMemo(() => collapseOptions(
+    (creatives || []).filter((c) => c.kind === 'unfold'),
+    (c) => `${c.source_image_url || c.parent_creative_id || c.id}|${c.format}`,
+  ), [creatives]);
 
   // Group Desdobramento results by their key visual (newest group first).
   const groups = useMemo(() => {
@@ -178,7 +182,7 @@ export default function UnfoldResultsPanel({ projectId, pending = [], onUseAsRef
               )}
             </div>
           </div>
-          <div className="flex gap-4 items-end overflow-x-auto no-scrollbar pb-1">
+          <div className="flex flex-wrap gap-4 items-end pb-1">
             {/^(https?|data):/.test(signedSources?.[gi] ?? '') && (
               <>
                 <div className="flex flex-col items-center gap-1.5 flex-none">

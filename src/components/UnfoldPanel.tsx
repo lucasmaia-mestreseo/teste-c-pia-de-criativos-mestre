@@ -15,7 +15,7 @@ import ActiveGuideBadge from '@/components/kv/ActiveGuideBadge';
 import { getCurrentTaskId, nextBannerNumber } from '@/hooks/useTasks';
 import TaskNotice from '@/components/TaskNotice';
 import { OptionCountPicker, useOptionCount } from '@/components/CreativeOptions';
-import { newOptionGroup } from '@/lib/creativeOptions';
+import { collapseOptions, newOptionGroup } from '@/lib/creativeOptions';
 
 /** A key visual the other formats are derived from. */
 type Source =
@@ -106,7 +106,7 @@ export default function UnfoldPanel({ projectId, onPendingChange }: UnfoldPanelP
   const pendingKey = pending.join(',');
   useEffect(() => { onPendingChange?.(pendingKey ? pendingKey.split(',') : []); }, [pendingKey, onPendingChange]);
 
-  const recent = (creatives || []).filter((c) => c.kind !== 'unfold').slice(0, 16);
+  const recent = collapseOptions((creatives || []).filter((c) => c.kind !== 'unfold')).primaries.slice(0, 12);
   const jobs = sources.flatMap((s) => selected.filter((f) => f !== s.format).map((f) => ({ source: s, format: f })));
   const first = sources[0];
 
@@ -343,7 +343,7 @@ export default function UnfoldPanel({ projectId, onPendingChange }: UnfoldPanelP
           {recent.length > 0 && !running && (
             <div className="space-y-1.5">
               <p className="text-[11px] text-muted-foreground">{sources.length ? 'ou acrescente' : 'ou parta de'} criativos do projeto</p>
-              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1">
+              <div className="flex flex-wrap gap-2">
                 {recent.map((c) => {
                   const picked = sources.some((s) => s.type === 'creative' && s.creativeId === c.id);
                   return (

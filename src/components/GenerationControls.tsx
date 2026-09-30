@@ -25,7 +25,7 @@ import type { Tables } from '@/integrations/supabase/types';
 import ActiveGuideBadge from '@/components/kv/ActiveGuideBadge';
 import { getCurrentTaskId, nextBannerNumber } from '@/hooks/useTasks';
 import { OptionCountPicker, useOptionCount } from '@/components/CreativeOptions';
-import { newOptionGroup } from '@/lib/creativeOptions';
+import { newOptionGroup, tagOption } from '@/lib/creativeOptions';
 import TaskNotice from '@/components/TaskNotice';
 
 const EMPTY_OVERRIDES: ElementOverrides = { texts: {}, logos: {}, photos: {} };
@@ -204,6 +204,9 @@ export default function GenerationControls({
           friendlyName: 'Geração de Criativo',
           projectId,
           maxRetries: 2,
+        }).then(async (r) => {
+          if (n > 1 && r?.creativeId) await tagOption(r.creativeId, body.optionGroup, i, body.bannerNumber);
+          return r;
         })));
       qc.invalidateQueries({ queryKey: ['generated_creatives', projectId] });
       const done = results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));

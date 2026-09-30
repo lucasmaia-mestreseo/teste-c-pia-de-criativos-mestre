@@ -23,22 +23,39 @@ export const optionMeta = (c: WithMeta): OptionMeta => ((c.generation_meta ?? {}
 
 export const optionLetter = (i: number) => String.fromCharCode(65 + i); // 0 → A
 
-/** Keeps one creative per option group (the chosen take, else the first) and remembers the others. */
-export function collapseOptions<T extends WithMeta>(list: T[]) {
+const byOptionGroup = (c: WithMeta) => optionMeta(c).option_group;
+
+/**
+ * Keeps one creative per group (the chosen take, else the first) and remembers the others.
+ * By default a group is one "Gerar 2x/4x" round; `keyOf` can group wider (Desdobramento:
+ * every version of the same piece-mãe in the same format is an option of the others).
+ * Order inside a group: newest round first, then A, B, C…
+ */
+export function collapseOptions<T extends WithMeta>(list: T[], keyOf: (c: T) => string | undefined = byOptionGroup) {
   const groups = new Map<string, T[]>();
   for (const c of list) {
-    const g = optionMeta(c).option_group;
+    const g = keyOf(c);
     if (!g) continue;
     if (!groups.has(g)) groups.set(g, []);
     groups.get(g)!.push(c);
   }
+  const roundOf = (c: WithMeta) => optionMeta(c).option_group ?? c.id;
   for (const takes of groups.values()) {
-    takes.sort((a, b) => (optionMeta(a).option_index ?? 0) - (optionMeta(b).option_index ?? 0) || (a.created_at ?? '').localeCompare(b.created_at ?? ''));
+    const start = new Map<string, string>();
+    for (const t of takes) {
+      const r = roundOf(t);
+      const at = t.created_at ?? '';
+      if (!start.has(r) || at < start.get(r)!) start.set(r, at);
+    }
+    takes.sort((a, b) =>
+      (start.get(roundOf(b)) ?? '').localeCompare(start.get(roundOf(a)) ?? '')
+      || (optionMeta(a).option_index ?? 0) - (optionMeta(b).option_index ?? 0)
+      || (a.created_at ?? '').localeCompare(b.created_at ?? ''));
   }
   const seen = new Set<string>();
   const primaries: T[] = [];
   for (const c of list) {
-    const g = optionMeta(c).option_group;
+    const g = keyOf(c);
     if (!g) { primaries.push(c); continue; }
     if (seen.has(g)) continue;
     seen.add(g);
@@ -46,10 +63,25 @@ export function collapseOptions<T extends WithMeta>(list: T[]) {
     primaries.push(takes.find((t) => optionMeta(t).chosen) ?? takes[0]);
   }
   const optionsOf = (c: T): T[] => {
-    const g = optionMeta(c).option_group;
+    const g = keyOf(c);
     return g ? groups.get(g) ?? [c] : [c];
   };
   return { primaries, optionsOf };
+}
+
+/**
+ * Marks a new creative as an option of its round from the browser too, so grouping
+ * works even while the server functions are an older version.
+ */
+export async function tagOption(id: string, group: string, index: number, bannerNumber?: number | null) {
+  try {
+    const { data } = await supabase.from('generated_creatives').select('generation_meta').eq('id', id).maybeSingle();
+    const meta = { ...((data?.generation_meta as Record<string, unknown> | null) ?? {}), option_group: group, option_index: index };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const patch: any = { generation_meta: meta };
+    if (bannerNumber) patch.banner_number = bannerNumber;
+    await supabase.from('generated_creatives').update(patch).eq('id', id);
+  } catch { /* the server already stores it when up to date */ }
 }
 
 /** Marks one take as the chosen option of its group (the one shown, downloaded and fixed). */
