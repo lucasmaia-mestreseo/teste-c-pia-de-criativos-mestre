@@ -2,6 +2,7 @@ import { callOpenRouterWithCascade, parseToolCall } from "../_shared/openrouter.
 import { requireProjectAccess } from "../_shared/auth.ts";
 import { corsHeaders, handleOptions, jsonResponse } from "../_shared/http.ts";
 import { adminClient, signStorageUrl } from "../_shared/storage.ts";
+import { safeZoneRule } from "../_shared/formats.ts";
 
 /**
  * Automatic quality review of a generated creative (vision model).
@@ -105,7 +106,7 @@ Deno.serve(async (req) => {
     ]);
 
     const checks: string[] = [
-      `FORMATO: a imagem deve estar em ${creative.format}. Verifique se a composição está adequada ao formato e se nada importante foi cortado pelas bordas.`,
+      `FORMATO: a imagem deve estar em ${creative.format}. Verifique se a composição está adequada ao formato e se nada importante foi cortado pelas bordas.${safeZoneRule(creative.format) ? ` ${safeZoneRule(creative.format)} Texto, logo ou CTA dentro dessas faixas é problema de severidade "alta" (categoria "formato").` : ""}`,
       "TEXTO: procure erros de ortografia, letras deformadas, palavras duplicadas, texto ilegível ou texto sem sentido (\"texto de IA\").",
     ];
     if (creative.kind === "dynamic" && creative.briefing) {

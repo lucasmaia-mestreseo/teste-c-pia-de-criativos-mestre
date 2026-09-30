@@ -8,6 +8,7 @@ import { corsHeaders, handleOptions, jsonResponse } from "../_shared/http.ts";
 import { adminClient, imageToBytes, parseStorageUrl, signProjectStorageUrl, signStorageUrl, uploadGeneratedImage } from "../_shared/storage.ts";
 import { requireProjectAccess } from "../_shared/auth.ts";
 import { insertCreative } from "../_shared/creatives.ts";
+import { safeZoneRule } from "../_shared/formats.ts";
 
 type Track = { functionName: string; projectId: string; userId: string };
 
@@ -148,7 +149,8 @@ function buildInstructionBlock(
 
   /* --- 1. OBJETIVO PRINCIPAL --- */
   sections.push(`═══ SEÇÃO 1: OBJETIVO PRINCIPAL ═══
-Formato de saída: ${format} (aspect ratio).
+Formato de saída: ${format} (aspect ratio).${safeZoneRule(format) ? `
+${safeZoneRule(format)}` : ""}
 Instrução do usuário:
 "${userPrompt}"
 

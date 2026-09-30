@@ -3,6 +3,7 @@ import { requireProjectAccess } from "../_shared/auth.ts";
 import { insertCreative } from "../_shared/creatives.ts";
 import { corsHeaders, handleOptions, jsonResponse } from "../_shared/http.ts";
 import { EXACT_FORMATS, fitExact } from "../_shared/imageFit.ts";
+import { safeZoneRule } from "../_shared/formats.ts";
 import { adminClient, imageToBytes, parseStorageUrl, signStorageUrl, uploadGeneratedImage } from "../_shared/storage.ts";
 
 /**
@@ -21,7 +22,7 @@ type Operation = "resize" | "unfold" | "fix" | "variant";
 interface VariantSpec { nome?: string; hipotese?: string; headline?: string; cta?: string; ajusteVisual?: string }
 
 const FORMAT_HINTS: Record<string, string> = {
-  "9:16": "Vertical tela cheia (Stories/Reels/TikTok). Mantenha textos, logo e rosto FORA dos ~14% superiores e ~20% inferiores (zonas cobertas pela interface do app). Empilhe os elementos verticalmente.",
+  "9:16": "Vertical tela cheia (Stories/Reels). Empilhe os elementos verticalmente, dentro da zona segura abaixo.",
   "4:5": "Vertical de feed. Aproveite a altura extra: dê respiro entre headline, imagem principal e CTA.",
   "1:1": "Quadrado de feed. Composição equilibrada e centralizada; nada encostado nas bordas.",
   "16:9": "Horizontal (banner, YouTube, display). Distribua os elementos lado a lado: normalmente imagem/pessoa de um lado e textos do outro.",
@@ -29,7 +30,10 @@ const FORMAT_HINTS: Record<string, string> = {
 };
 
 function formatHint(format: string): string {
-  return FORMAT_HINTS[format] ?? `Proporção ${format}. Recomponha os elementos para ocupar bem este formato.`;
+  const base = FORMAT_HINTS[format] ?? `Proporção ${format}. Recomponha os elementos para ocupar bem este formato.`;
+  const safe = safeZoneRule(format);
+  return safe ? `${base}
+${safe}` : base;
 }
 
 function adaptPrompt(targetFormat: string, sourceFormat: string | null, instructions: string | null): string {
