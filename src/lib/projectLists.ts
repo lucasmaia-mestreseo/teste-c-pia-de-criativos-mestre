@@ -43,8 +43,10 @@ export function recentProjects<T extends ProjectLike>(all: T[], uid: string | un
   return [...opened, ...rest].slice(0, limit);
 }
 
+/** "[Spasso Splash] Solicitação…" → "SS" (brackets and symbols don't count). */
 export function projectInitials(name: string) {
-  return name.split(' ').filter(Boolean).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+  const words = name.match(/[\p{L}\p{N}]+/gu) ?? [name];
+  return words.map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 }
 
 /** Stable, brand-friendly color per project (for the initials avatar). */

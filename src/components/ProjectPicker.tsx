@@ -90,8 +90,8 @@ interface PickerProps {
 export default function ProjectPicker({ open, onOpenChange, toolName, currentProjectId, onPick }: PickerProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg p-0 overflow-hidden gap-0">
-        <DialogHeader className="px-5 pt-5 pb-3 text-left">
+      <DialogContent className="max-w-lg p-0 overflow-hidden gap-0 grid-cols-1">
+        <DialogHeader className="px-5 pt-5 pb-3 pr-12 text-left min-w-0">
           <DialogTitle>{toolName ? `${toolName}: em qual projeto?` : 'Trocar de projeto'}</DialogTitle>
           <DialogDescription>Cada projeto é um cliente ou marca, com o seu Brand Kit, contexto e guias.</DialogDescription>
         </DialogHeader>
@@ -121,7 +121,7 @@ function ProjectBrowser({ currentProjectId, onPick }: { currentProjectId?: strin
   };
 
   return (
-    <div className="flex flex-col max-h-[70vh]">
+    <div className="flex flex-col max-h-[70vh] min-w-0 w-full">
       {/* create */}
       {can('create_project') && (
         <div className="px-5 pb-3">
@@ -184,8 +184,8 @@ function ProjectBrowser({ currentProjectId, onPick }: { currentProjectId?: strin
                 className={cn('group w-full flex items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors', p.id === currentProjectId ? 'bg-primary/10' : 'hover:bg-secondary')}>
                 <ProjectAvatar id={p.id} name={p.name} color={colors?.[p.id]} />
                 <span className="flex-1 min-w-0">
-                  <span className="flex items-center gap-1.5 text-sm font-medium truncate">
-                    {p.name}
+                  <span className="flex items-center gap-1.5 text-sm font-medium min-w-0">
+                    <span className="truncate" title={p.name}>{p.name}</span>
                     {isMine(p, user?.id) && <Star className="h-3 w-3 text-primary fill-primary flex-none" aria-label="Criado por você" />}
                   </span>
                   <span className="block text-[11px] text-muted-foreground">

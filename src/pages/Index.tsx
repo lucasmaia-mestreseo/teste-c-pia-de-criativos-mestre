@@ -21,6 +21,7 @@ import { VIDEO_ENABLED } from '@/lib/tools';
 const KvStudio = lazy(() => import('@/components/kv/KvStudio'));
 const VideoStudio = lazy(() => import('@/components/video/VideoStudio'));
 import ProjectOnboarding from '@/components/ProjectOnboarding';
+import ProjectStart from '@/components/ProjectStart';
 import { useProject } from '@/hooks/useProject';
 import { useAuth } from '@/contexts/AuthContext';
 import { touchRecentProject } from '@/lib/projectLists';
@@ -55,6 +56,8 @@ const Index = () => {
   const onboardingPending = !!(projectId && project.data && !project.data.onboarding_completed);
   // the onboarding (Brand Kit + contexto) only gates generation: KV, Desdobramento and the gallery work right away
   const showOnboarding = onboardingPending && (activePanel === 'generate' || activePanel === 'dynamic');
+  // new projects first choose how to start; the Brand Kit step-by-step opens only if they pick it
+  const [brandKitChosen, setBrandKitChosen] = useState<string | null>(null);
 
   // "Últimos editados" on the home screen
   useEffect(() => { if (projectId) touchRecentProject(user?.id, projectId); }, [projectId, user?.id]);
@@ -137,7 +140,9 @@ const Index = () => {
             <DashboardPanel onSelectProject={handleProjectChange} onUseAsReference={handleUseAsReference} />
           </div>
         ) : showOnboarding ? (
-          <ProjectOnboarding projectId={projectId!} onComplete={handleOnboardingComplete} />
+          brandKitChosen === projectId
+            ? <ProjectOnboarding projectId={projectId!} onComplete={handleOnboardingComplete} />
+            : <ProjectStart projectId={projectId!} projectName={project.data?.name} onCreateBrandKit={() => setBrandKitChosen(projectId)} />
         ) : (
           <>
             {activePanel === 'generate' && (
