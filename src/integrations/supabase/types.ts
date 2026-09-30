@@ -235,6 +235,7 @@ export type Database = {
       }
       generated_creatives: {
         Row: {
+          banner_number: number | null
           briefing: Json | null
           cost_usd: number | null
           created_at: string
@@ -253,8 +254,10 @@ export type Database = {
           review_status: string | null
           source_image_url: string | null
           swipe_file_id: string | null
+          task_id: string | null
         }
         Insert: {
+          banner_number?: number | null
           briefing?: Json | null
           cost_usd?: number | null
           created_at?: string
@@ -273,8 +276,10 @@ export type Database = {
           review_status?: string | null
           source_image_url?: string | null
           swipe_file_id?: string | null
+          task_id?: string | null
         }
         Update: {
+          banner_number?: number | null
           briefing?: Json | null
           cost_usd?: number | null
           created_at?: string
@@ -293,6 +298,7 @@ export type Database = {
           review_status?: string | null
           source_image_url?: string | null
           swipe_file_id?: string | null
+          task_id?: string | null
         }
         Relationships: [
           {
@@ -314,6 +320,13 @@ export type Database = {
             columns: ["swipe_file_id"]
             isOneToOne: false
             referencedRelation: "swipe_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_creatives_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "project_tasks"
             referencedColumns: ["id"]
           },
         ]
@@ -347,6 +360,41 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      project_tasks: {
+        Row: {
+          archived: boolean
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          project_id: string
+        }
+        Insert: {
+          archived?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          project_id: string
+        }
+        Update: {
+          archived?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       projects: {
         Row: {
